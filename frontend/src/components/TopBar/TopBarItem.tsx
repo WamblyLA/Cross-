@@ -3,6 +3,6 @@ interface TopBarItemProps {
 }
 export default function TopBarItem({label}: TopBarItemProps) {
   return (
-    <div className="text-sm px-2 py-1 rounded">{label}</div>
+    <div className="text-xs px-1 py-1 rounded">{label}</div>
   )
 }
