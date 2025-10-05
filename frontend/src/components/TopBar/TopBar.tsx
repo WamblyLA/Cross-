@@ -52,7 +52,7 @@ export default function TopBar() {
 
   return (
     <div
-      className="fixed top-0 left-0 w-full h-10 bg-[#0F1710] grid grid-cols-[1fr_2fr_1fr] px-2 items-center"
+      className="top-0 left-0 w-full h-10 bg-[#0F1710] grid grid-cols-[1fr_2fr_1fr] px-2 items-center"
       ref={containerRef}
     >
       <div className="flex items-center gap-3 justify-start flex-shrink-0">
