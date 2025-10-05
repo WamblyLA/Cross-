@@ -1,11 +1,12 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-html, body, #root {
-  height: 100%;
+* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  color: #C8FACC;
+}
+html, body, #root {
+  height: 100%;
+  color: #e1fae3;
 }
