@@ -8,6 +8,7 @@ export const useDropbar = () => {
   const { isOpen, setIsOpen, dir } = context;
   const change = useCallback(() => {
     setIsOpen(!isOpen);
+    console.log(isOpen);
   }, [isOpen, setIsOpen]);
   const open = useCallback(() => {
     setIsOpen(true);

@@ -6,7 +6,7 @@ export default function DropBar({children, dir = "down"}: {children: React.React
     const [isOpen, setIsOpen] = useState<boolean>(false);
   return (
     <dropbarContext.Provider value = {{isOpen, setIsOpen, dir}}>
-        <div className='relative inline-block'>
+        <div className='relative inline-block z-20'>
             {children}
         </div>
     </dropbarContext.Provider>

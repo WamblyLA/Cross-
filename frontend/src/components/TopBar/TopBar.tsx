@@ -56,7 +56,7 @@ export default function TopBar() {
     >
       <div className="flex items-center gap-3 justify-start flex-shrink-0">
         <img src="/logo.svg" alt="Logo" className="h-6 w-auto flex-shrink-0" />
-        <div className="flex items-center gap-0 flex-shrink-0">
+        <div className="flex items-center gap-0 flex-shrink-0 overflow-visible">
         {visibleItems.map((item, i) => (
           <TopBarItem key={item} label={item} ref={(el: HTMLDivElement | null) => { itemsRefs.current[i] = el}} />
         ))}
