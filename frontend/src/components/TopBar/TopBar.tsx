@@ -57,23 +57,29 @@ export default function TopBar() {
       <div className="flex items-center gap-3 justify-start flex-shrink-0">
         <img src="/logo.svg" alt="Logo" className="h-6 w-auto flex-shrink-0" />
         <div className="flex items-center gap-0 flex-shrink-0 overflow-visible">
-        {visibleItems.map((item, i) => (
-          <TopBarItem key={item} label={item} ref={(el: HTMLDivElement | null) => { itemsRefs.current[i] = el}} />
-        ))}
-        {showDots && (
-          <div className="text-lg px-1 select-none flex-shrink-0">
-            ⋯
-          </div>
-        )}
+          {/* <DropBar dir="down"> */}
+            {visibleItems.map((item, i) => (
+              <TopBarItem
+                key={item}
+                label={item}
+                ref={(el: HTMLDivElement | null) => {
+                  itemsRefs.current[i] = el;
+                }}
+              />
+            ))}
+          {/* </DropBar> */}
+          {showDots && (
+            <div className="text-lg px-1 select-none flex-shrink-0">⋯</div>
+          )}
         </div>
       </div>
-      <div
-        ref={searchBarRef}
-        className="mx-4 flex justify-center"
-      >
+      <div ref={searchBarRef} className="mx-4 flex justify-center">
         <SearchBar />
       </div>
-      <div ref={iconsBarRef} className="flex items-center gap-3 flex-shrink-0 justify-end">
+      <div
+        ref={iconsBarRef}
+        className="flex items-center gap-3 flex-shrink-0 justify-end"
+      >
         <TopBarIcon icon={TfiLayoutLineSolid} />
         <TopBarIcon icon={IoIosSquareOutline} />
         <TopBarIcon icon={RxCross1} />
