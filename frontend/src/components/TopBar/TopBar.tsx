@@ -5,6 +5,7 @@ import { RxCross1 } from "react-icons/rx";
 import { IoIosSquareOutline } from "react-icons/io";
 import { TfiLayoutLineSolid } from "react-icons/tfi";
 import SearchBar from "../../ui/SearchBar";
+import { DropbarProviderContext } from "../../providers/DropbarContextProvider";
 export default function TopBar() {
   const topBarItems = [
     "About",
@@ -56,22 +57,20 @@ export default function TopBar() {
     >
       <div className="flex items-center gap-3 justify-start flex-shrink-0">
         <img src="/logo.svg" alt="Logo" className="h-6 w-auto flex-shrink-0" />
+        <DropbarProviderContext mode="only">
         <div className="flex items-center gap-0 flex-shrink-0 overflow-visible">
-          {/* <DropBar dir="down"> */}
-            {visibleItems.map((item, i) => (
+            {visibleItems.map((item) => (
               <TopBarItem
                 key={item}
+                id={item}
                 label={item}
-                ref={(el: HTMLDivElement | null) => {
-                  itemsRefs.current[i] = el;
-                }}
               />
             ))}
-          {/* </DropBar> */}
           {showDots && (
             <div className="text-lg px-1 select-none flex-shrink-0">⋯</div>
           )}
         </div>
+        </DropbarProviderContext>
       </div>
       <div ref={searchBarRef} className="mx-4 flex justify-center">
         <SearchBar />
