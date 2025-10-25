@@ -13,5 +13,5 @@ export default function DropBar({ id, dir = "down", children }: DropBarProps) {
     right: "top-0 left-full",
   };
   if (!isOpen) return null;
-  return <div className={`absolute z-30 ${dirStyle[dir]} bg-[#101710] px-4 py-4 rounded-lg`}>{children}</div>;
+  return <div className={`absolute z-30 ${dirStyle[dir]} bg-dropbar-bg-1 px-4 py-4 rounded-lg`}>{children}</div>;
 }
