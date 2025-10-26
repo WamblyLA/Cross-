@@ -80,7 +80,7 @@ export default function TopBar() {
         className="flex items-center gap-3 flex-shrink-0 justify-end"
       >
         <TopBarIcon icon={TfiLayoutLineSolid} />
-        <TopBarIcon icon={IoIosSquareOutline} />
+        <TopBarIcon icon={IoIosSquareOutline}  />
         <TopBarIcon icon={RxCross1} />
       </div>
     </div>
