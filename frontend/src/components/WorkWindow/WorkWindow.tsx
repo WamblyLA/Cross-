@@ -36,7 +36,7 @@ export default function WorkWindow() {
         ))}
       </div>
       <textarea
-        className="flex-1 resize-none p-2 outline-none bg-top-bar-bg"
+        className="flex-1 resize-none p-2 outline-none bg-top-bar-bg px-6 py-2"
         value={activeFile?.content}
         onChange={(e) =>
           activeFile &&

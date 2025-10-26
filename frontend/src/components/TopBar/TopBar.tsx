@@ -6,6 +6,7 @@ import { IoIosSquareOutline } from "react-icons/io";
 import { TfiLayoutLineSolid } from "react-icons/tfi";
 import SearchBar from "../../ui/SearchBar";
 import { DropbarProviderContext } from "../../providers/DropbarContextProvider";
+import DotsMenu from "./DotsMenu";
 export default function TopBar() {
   const topBarItems = [
     "About",
@@ -17,7 +18,9 @@ export default function TopBar() {
     "Run",
     "Synchronize",
   ];
+  const mockData = ["Lorem", "Ipsum", "Dolor", "Sit", "Amet"];
   const [visibleItems, setVisibleItems] = useState<string[]>(topBarItems);
+  const [hiddenItems, setHiddenItems] = useState<string[]>([]);
   const [showDots, setShowDots] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchBarRef = useRef<HTMLDivElement>(null);
@@ -30,15 +33,19 @@ export default function TopBar() {
       const maxPossibleWidth = containerWidth * 0.25 - 40;
       let usedWidth = 0;
       const newVisible: string[] = [];
+      const newHidden: string[] = [];
       for (let i = 0; i < topBarItems.length; i++) {
         const itemWidth = itemsRefs.current[i]?.offsetWidth || 60;
         if (usedWidth + itemWidth < maxPossibleWidth - 40) {
           usedWidth += itemWidth;
           newVisible.push(topBarItems[i]);
-        } else break;
+        } else {
+          newHidden.push(topBarItems[i]);
+        }
       }
       setVisibleItems(newVisible);
-      setShowDots(newVisible.length < topBarItems.length);
+      setHiddenItems(newHidden);
+      setShowDots(newHidden.length > 0);
     };
     const observer = new ResizeObserver(resize);
     if (containerRef.current) {
@@ -64,10 +71,22 @@ export default function TopBar() {
                 key={item}
                 id={item}
                 label={item}
+                dir="down"
+                data={mockData}
               />
             ))}
           {showDots && (
-            <div className="text-lg px-1 select-none flex-shrink-0">⋯</div>
+            <DotsMenu key="dots" id="dots">
+              {hiddenItems.map((item) => (
+                <TopBarItem
+                  key={item}
+                  id={item}
+                  label={item}
+                  dir="down"
+                  data={mockData}
+                />
+              ))}
+            </DotsMenu>
           )}
         </div>
         </DropbarProviderContext>
