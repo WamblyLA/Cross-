@@ -3,6 +3,7 @@ import SideBar from "../components/SideBar/SideBar";
 import SideIcons from "../components/SideIcons/SideIcons";
 import { Provider } from "react-redux";
 import store from "../store/store";
+import WorkWindow from "../components/WorkWindow/WorkWindow";
 export default function MainPage() {
   return (
     <Provider store={store}>
@@ -11,6 +12,7 @@ export default function MainPage() {
         <div className="flex-1 w-full flex">
           <SideIcons />
           <SideBar />
+          <WorkWindow />
         </div>
       </div>
     </Provider>

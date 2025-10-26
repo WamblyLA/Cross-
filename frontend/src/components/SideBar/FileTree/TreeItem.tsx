@@ -11,6 +11,7 @@ export type TreeItemType = {
   extencion?: string;
   type: "file" | "folder";
   children?: TreeItemType[];
+  content?: string;
 };
 interface TreeItemProps {
   unit: TreeItemType;
