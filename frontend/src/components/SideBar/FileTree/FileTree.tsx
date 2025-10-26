@@ -5,6 +5,9 @@ interface FileTreeProps {
   treeData?: TreeItemType[];
 }
 const FileTree: React.FC<FileTreeProps> = ({treeData}) => {
+  const clicked = (file: TreeItemType) => {
+    console.log(file.name, ' открыт');
+  }
   return (
     <div className='w-full h-full py-1 px-2'>
       {treeData?.map((unit: TreeItemType) => (
