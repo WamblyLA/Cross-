@@ -1,12 +1,13 @@
-import React from 'react'
-import DropBar from '../../ui/Dropbar/Dropbar';
-import DropbarContent from '../../ui/Dropbar/DropbarContent';
-import { useDropbar } from '../../hooks/useDropbar';
+import React from "react";
+import DropBar from "../../ui/Dropbar/Dropbar";
+import DropbarContent from "../../ui/Dropbar/DropbarContent";
+import { useDropbar } from "../../hooks/useDropbar";
+import { DropbarProviderContext } from "../../providers/DropbarContextProvider";
 interface DotsMenuProps {
-    id: string;
-    children: React.ReactNode[];
+  id: string;
+  children: React.ReactNode[];
 }
-export default function DotsMenu({id, children}: DotsMenuProps) {
+export default function DotsMenu({ id, children }: DotsMenuProps) {
   const { change } = useDropbar(id);
   return (
     <div className="relative inline-block">
@@ -14,8 +15,10 @@ export default function DotsMenu({id, children}: DotsMenuProps) {
         ...
       </div>
       <DropBar id={id} dir="down">
-        <DropbarContent elements={children} />
+        <DropbarProviderContext mode="only">
+          <DropbarContent elements={children} />
+        </DropbarProviderContext>
       </DropBar>
     </div>
-    );
+  );
 }

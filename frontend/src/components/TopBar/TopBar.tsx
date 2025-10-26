@@ -82,7 +82,7 @@ export default function TopBar() {
                   key={item}
                   id={item}
                   label={item}
-                  dir="down"
+                  dir="right"
                   data={mockData}
                 />
               ))}
