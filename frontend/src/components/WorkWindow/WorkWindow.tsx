@@ -5,11 +5,45 @@ import {
   updateFileContent,
 } from "../../features/files/filesSlice";
 import { RxCross1 } from "react-icons/rx";
+import { Editor } from "@monaco-editor/react";
+import { useCallback, useRef } from "react";
+function extToLang(ext: string | null | undefined) {
+  if (!ext) {
+    return "plaintext";
+  }
+  const extL = ext.toLowerCase();
+  switch (extL) {
+    case "cpp":
+      return "cpp";
+    case "h":
+      return "cpp";
+    case "json":
+      return "json";
+    case "md":
+      return "markdown";
+    default:
+      return "plaintext";
+  }
+}
 export default function WorkWindow() {
   const dispatch = useAppDispatch();
   const { openedFiles, activeFileId } = useAppSelector((state) => state.files);
-  if (openedFiles.length == 0) return null;
   const activeFile = openedFiles.find((file) => file.id === activeFileId);
+  const ref = useRef<number | null>(null);
+  const editorChange = useCallback((value: string | undefined) => {
+    if (!activeFile || value === undefined) {
+      return null;
+    }
+    if (ref.current) {
+      window.clearTimeout(ref.current);
+    }
+    ref.current = window.setTimeout(() => {
+      if (activeFile) {
+        dispatch(updateFileContent({ id: activeFile.id, content: value }));
+      }
+    }, 300);
+  }, [activeFile, dispatch]);
+  if (openedFiles.length === 0) return null;
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex">
@@ -35,16 +69,16 @@ export default function WorkWindow() {
           </div>
         ))}
       </div>
-      <textarea
-        className="flex-1 resize-none p-2 outline-none bg-top-bar-bg px-6 py-2"
-        value={activeFile?.content}
-        onChange={(e) =>
-          activeFile &&
-          dispatch(
-            updateFileContent({ id: activeFile.id, content: e.target.value })
-          )
-        }
-      />
+      <div className="flex-1">
+        {activeFile ? (
+          <Editor 
+            height="100%"
+            language={extToLang(activeFile.extencion)}
+            value={activeFile.content}
+            onChange={editorChange}
+          />
+        ) : null}
+    </div>
     </div>
   );
 }
