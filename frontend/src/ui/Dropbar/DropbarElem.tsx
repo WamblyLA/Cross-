@@ -3,6 +3,8 @@ interface DropbarElemProps {
 }
 export default function DropbarElem({ element }: DropbarElemProps) {
   return (
-    <div className="w-full px-2 py-1 cursor-pointer select-none">{element}</div>
+    <div className="w-full h-full cursor-pointer select-none px-2 py-1 relative">
+      {element}
+    </div>
   );
 }

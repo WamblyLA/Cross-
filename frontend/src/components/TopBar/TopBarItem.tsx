@@ -10,8 +10,8 @@ interface TopBarItemProps {
 export default function TopBarItem({ id, label, dir, data }: TopBarItemProps) {
   const { change } = useDropbar(id);
   return (
-    <div className="relative inline-block">
-      <div className="px-2 py-1 cursor-pointer text-sm" onClick={change}>
+    <div className="relative inline-block h-full justify-center align-center">
+      <div className="px-2 py-1 cursor-pointer text-sm flex justify-center items-center h-full" onClick={change}>
         {label}
       </div>
       <DropBar id={id} dir={dir}>

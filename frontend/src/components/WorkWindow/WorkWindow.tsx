@@ -1,4 +1,5 @@
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { useEffect, useRef, useCallback } from "react";
 import {
   closeFile,
   setActiveFile,
@@ -6,7 +7,6 @@ import {
 } from "../../features/files/filesSlice";
 import { RxCross1 } from "react-icons/rx";
 import { Editor } from "@monaco-editor/react";
-import { useCallback, useRef } from "react";
 import * as monaco from "monaco-editor";
 import { useRequest } from "../../hooks/useRequest";
 function extToLang(ext: string | null | undefined) {
@@ -37,11 +37,9 @@ export default function WorkWindow() {
     auto: false,
     method: "POST"
   });
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const fileSave = (editor: monaco.editor.IStandaloneCodeEditor, monacoRef: typeof monaco) => {
     editor.addCommand(monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyS, async () => {
-      if (!activeFile) {
-        return;
-      }
       const content = editor.getValue();
       dispatch(updateFileContent({ id: activeFile.id, content }));
       try {
@@ -50,7 +48,7 @@ export default function WorkWindow() {
           body: {path: activeFile.id, content},
         });
         if (data.success) {
-          console.log("Сохранилось");
+          console.log("Сохранилось", activeFile.id);
         }
       } catch (err) {
         console.error("Ошибка при сохранении файла", err);

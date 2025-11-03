@@ -10,8 +10,8 @@ interface DotsMenuProps {
 export default function DotsMenu({ id, children }: DotsMenuProps) {
   const { change } = useDropbar(id);
   return (
-    <div className="relative inline-block">
-      <div className="cursor-pointer text-sm" onClick={change}>
+    <div className="relative inline-block h-full justify-end items-end">
+      <div className="cursor-pointer text-sm h-full items-center justify-center " onClick={change}>
         ...
       </div>
       <DropBar id={id} dir="down">

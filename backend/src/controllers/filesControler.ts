@@ -45,6 +45,7 @@ export const saveFileChanges = async (req: Request, res: Response) => {
     }
     await fsPromises.writeFile(filePath, content ?? "", "utf-8");
     res.json({ success: true });
+    console.log("Путь файла", filePath)
   } catch (err) {
     console.error("Ошибка при сохранении файла", err);
     res.status(500).json({ error: "Не удалось сохранить файл" });

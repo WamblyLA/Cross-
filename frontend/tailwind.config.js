@@ -11,7 +11,8 @@ export default {
         'main-page-bg': '#0A0F0A',
         'side-bar-bg': '#121f14',
         'top-bar-bg': '#0F1710',
-        'lines-color': '#e1fae3'
+        'lines-color': '#e1fae3',
+        'dbb-color': '#3f5741',
       }
     },
   },

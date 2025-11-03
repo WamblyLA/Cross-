@@ -61,10 +61,10 @@ export default function TopBar() {
       className="top-0 left-0 w-full h-10 bg-top-bar-bg grid grid-cols-[1fr_2fr_1fr] px-2 items-center"
       ref={containerRef}
     >
-      <div className="flex items-center gap-1 justify-start flex-shrink-0">
+      <div className="flex items-center gap-1 justify-start flex-shrink-0 h-full">
         <img src="/logo.svg" alt="Logo" className="h-6 w-auto flex-shrink-0" />
         <DropbarProviderContext mode="only">
-        <div className="flex items-center gap-0 flex-shrink-0 overflow-visible">
+        <div className="flex items-center gap-0 flex-shrink-0 overflow-visible h-full">
             {visibleItems.map((item) => (
               <TopBarItem
                 key={item}

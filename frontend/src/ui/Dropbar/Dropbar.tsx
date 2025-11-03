@@ -1,6 +1,4 @@
 import { useDropbar } from "../../hooks/useDropbar";
-import React, {useRef, useEffect, useState} from "react";
-import {createPortal } from "react-dom";
 interface DropBarProps {
   id: string;
   dir?: "up" | "down" | "left" | "right";
@@ -15,5 +13,5 @@ export default function DropBar({ id, dir = "down", children }: DropBarProps) {
     right: "top-0 left-full",
   };
   if (!isOpen) return null;
-  return <div className={`absolute z-30 ${dirStyle[dir]} bg-dropbar-bg-1 px-4 py-4 rounded-lg`}>{children}</div>;
+  return <div className={`absolute z-30 ${dirStyle[dir]} bg-dropbar-bg-1 px-2 py-2 rounded-md shadow-lg border border-green-950 text-sm`}>{children}</div>;
 }
