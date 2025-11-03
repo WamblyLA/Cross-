@@ -47,5 +47,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["app.ts", "src/**/*"]
+  "include": ["app.ts", "src/**/*", "../frontend/src/hooks/api.ts"]
 }
