@@ -8,6 +8,7 @@ import { RxCross1 } from "react-icons/rx";
 import { Editor } from "@monaco-editor/react";
 import { useCallback, useRef } from "react";
 import * as monaco from "monaco-editor";
+import { useRequest } from "../../hooks/useRequest";
 function extToLang(ext: string | null | undefined) {
   if (!ext) {
     return "plaintext";
@@ -31,7 +32,32 @@ export default function WorkWindow() {
   const { openedFiles, activeFileId } = useAppSelector((state) => state.files);
   const activeFile = openedFiles.find((file) => file.id === activeFileId);
   const ref = useRef<number | null>(null);
-  const before = useCallback((monaco: any) => {
+  const { refetch: saveFile } = useRequest({
+    url: "http://localhost:3000/api/files/save",
+    auto: false,
+    method: "POST"
+  });
+  const fileSave = (editor: monaco.editor.IStandaloneCodeEditor, monacoRef: typeof monaco) => {
+    editor.addCommand(monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyS, async () => {
+      if (!activeFile) {
+        return;
+      }
+      const content = editor.getValue();
+      dispatch(updateFileContent({ id: activeFile.id, content }));
+      try {
+        const data = await saveFile({
+          method: "POST",
+          body: {path: activeFile.id, content},
+        });
+        if (data.success) {
+          console.log("Сохранилось");
+        }
+      } catch (err) {
+        console.error("Ошибка при сохранении файла", err);
+      }
+    });
+  };
+  const before = useCallback((monaco) => {
     monaco.editor.defineTheme(
       "defaultDark",
       {
@@ -53,7 +79,7 @@ export default function WorkWindow() {
       },
       []
     );
-  });
+  }, []);
   const editorChange = useCallback(
     (value: string | undefined) => {
       if (!activeFile || value === undefined) {
@@ -104,6 +130,7 @@ export default function WorkWindow() {
             value={activeFile.content}
             onChange={editorChange}
             beforeMount={before}
+            onMount={(editor, monaco) => fileSave(editor, monaco)}
             theme="defaultDark"
             options={{
               minimap: { enabled: false },
