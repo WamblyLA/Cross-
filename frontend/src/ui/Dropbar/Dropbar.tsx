@@ -1,4 +1,6 @@
 import { useDropbar } from "../../hooks/useDropbar";
+import React, {useRef, useEffect, useState} from "react";
+import {createPortal } from "react-dom";
 interface DropBarProps {
   id: string;
   dir?: "up" | "down" | "left" | "right";
