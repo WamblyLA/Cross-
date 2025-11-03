@@ -1,5 +1,5 @@
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { useEffect, useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import {
   closeFile,
   setActiveFile,
@@ -35,26 +35,42 @@ export default function WorkWindow() {
   const { refetch: saveFile } = useRequest({
     url: "http://localhost:3000/api/files/save",
     auto: false,
-    method: "POST"
+    method: "POST",
   });
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const fileSave = (editor: monaco.editor.IStandaloneCodeEditor, monacoRef: typeof monaco) => {
-    editor.addCommand(monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyS, async () => {
-      const content = editor.getValue();
-      dispatch(updateFileContent({ id: activeFile.id, content }));
-      try {
-        const data = await saveFile({
-          method: "POST",
-          body: {path: activeFile.id, content},
-        });
-        if (data.success) {
-          console.log("Сохранилось", activeFile.id);
+  useEffect(() => {
+    if (!editorRef.current) {
+      return;
+    }
+    const editor = editorRef.current;
+    const idshnik = editor.addCommand(
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
+        if (!editorRef.current) {
+          return;
         }
-      } catch (err) {
-        console.error("Ошибка при сохранении файла", err);
+        const content = editorRef.current.getValue();
+        const nowActiveFile = openedFiles.find((file) => file.id === activeFileId);
+        if (!nowActiveFile) {
+          return;
+        }
+        dispatch(updateFileContent({id: nowActiveFile.id, content}));
+        try {
+          const data = await saveFile({
+            method: "POST",
+            body: {path: nowActiveFile.id, content}
+          })
+          if (data.success) {
+            console.log("Сохранилось", nowActiveFile.id);
+          }
+    } catch (err) {
+          console.error("Ошибка при сохранении файла", err);
+        }
       }
-    });
-  };
+    )
+  }, [activeFileId, openedFiles, saveFile, dispatch])
+  const fileSave = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monaco) => {
+    editorRef.current = editor;
+  }, [])
   const before = useCallback((monaco) => {
     monaco.editor.defineTheme(
       "defaultDark",
