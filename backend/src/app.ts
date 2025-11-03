@@ -17,4 +17,4 @@ wss.on('connection', (ws) => {
 const pathToWatch = "C:/Test"
 startFolderWatching(pathToWatch, wss);
 
-app.listen(3000, () => console.log('On port 3000 started'));
+server.listen(3000, () => console.log('On port 3000 started'));

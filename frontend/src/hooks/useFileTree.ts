@@ -18,7 +18,7 @@ export function useFileTree(path: string){
         );
     }, [data, path])
     useEffect(() => {
-        const ws = new WebSocket("ws://localhost:3000");
+        const ws = new WebSocket("http://localhost:3000");
         wsRef.current = ws
         ws.onmessage = (event) => {
             try {
