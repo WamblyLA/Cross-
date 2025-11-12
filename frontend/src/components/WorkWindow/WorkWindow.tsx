@@ -70,7 +70,7 @@ export default function WorkWindow() {
   }, [activeFileId, openedFiles, saveFile, dispatch])
   const fileSave = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monaco) => {
     editorRef.current = editor;
-  }, [])
+  }, []) 
   const before = useCallback((monaco) => {
     monaco.editor.defineTheme(
       "defaultDark",
