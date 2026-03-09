@@ -8,11 +8,11 @@ async function checkProjectAccess(projectId: string, userId: string) {
   });
 
   if (!project) {
-    return { ok: false, reason: "Project not found" as const };
+    return { ok: false, reason: "Проект не найден" as const };
   }
 
   if (project.ownerId !== userId) {
-    return { ok: false, reason: "Forbidden" as const };
+    return { ok: false, reason: "Запрещено" as const };
   }
 
   return { ok: true, project };
@@ -25,17 +25,17 @@ export async function getElemsInFolder(req: Request, res: Response) {
     const folderPath = ((req.query.path as string) || "").trim();
 
     if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Не авторизован" });
     }
 
     if (!projectId) {
-      return res.status(400).json({ error: "No projectId" });
+      return res.status(400).json({ error: "Нет ID проекта" });
     }
 
     const access = await checkProjectAccess(projectId, userId);
 
     if (!access.ok) {
-      return res.status(access.reason === "Project not found" ? 404 : 403).json({
+      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
         error: access.reason
       });
     }
@@ -76,7 +76,7 @@ export async function getElemsInFolder(req: Request, res: Response) {
     return res.json({ files: Array.from(map.values()) });
   } catch (err) {
     console.error("getElemsInFolder error", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 }
 
@@ -87,17 +87,17 @@ export async function getFileContent(req: Request, res: Response) {
     const filePath = req.query.path as string;
 
     if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Не авторизован" });
     }
 
     if (!projectId || !filePath) {
-      return res.status(400).json({ error: "No projectId or file path" });
+      return res.status(400).json({ error: "Нет ID проекта или пути" });
     }
 
     const access = await checkProjectAccess(projectId, userId);
 
     if (!access.ok) {
-      return res.status(access.reason === "Project not found" ? 404 : 403).json({
+      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
         error: access.reason
       });
     }
@@ -112,13 +112,13 @@ export async function getFileContent(req: Request, res: Response) {
     });
 
     if (!file) {
-      return res.status(404).json({ error: "No such file" });
+      return res.status(404).json({ error: "Нет такого файла" });
     }
 
     return res.json({ content: file.content });
   } catch (err) {
     console.error("getFileContent error", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 }
 
@@ -128,17 +128,17 @@ export async function saveFileChanges(req: Request, res: Response) {
     const { projectId, path: filePath, content } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Не авторизован" });
     }
 
     if (!projectId || !filePath) {
-      return res.status(400).json({ error: "No projectId or file path" });
+      return res.status(400).json({ error: "Нет ID проекта или пути" });
     }
 
     const access = await checkProjectAccess(projectId, userId);
 
     if (!access.ok) {
-      return res.status(access.reason === "Project not found" ? 404 : 403).json({
+      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
         error: access.reason
       });
     }
@@ -186,17 +186,17 @@ export async function createFilder(req: Request, res: Response) {
     const { projectId, path: parentPath = "", name, isFolder } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Не авторизован" });
     }
 
     if (!projectId || !name) {
-      return res.status(400).json({ error: "Нет projectId или name" });
+      return res.status(400).json({ error: "Нет ID проекта или имени" });
     }
 
     const access = await checkProjectAccess(projectId, userId);
 
     if (!access.ok) {
-      return res.status(access.reason === "Project not found" ? 404 : 403).json({
+      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
         error: access.reason
       });
     }
@@ -255,17 +255,17 @@ export async function deleteFilder(req: Request, res: Response) {
     const { projectId, path: targetPath } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Не авторизован" });
     }
 
     if (!projectId || !targetPath) {
-      return res.status(400).json({ error: "Нет projectId или path" });
+      return res.status(400).json({ error: "Нет ID проекта или пути" });
     }
 
     const access = await checkProjectAccess(projectId, userId);
 
     if (!access.ok) {
-      return res.status(access.reason === "Project not found" ? 404 : 403).json({
+      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
         error: access.reason
       });
     }

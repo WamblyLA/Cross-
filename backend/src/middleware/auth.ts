@@ -14,17 +14,23 @@ declare global {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  const token = authHeader.slice(7);
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
-    return res.status(500).json({ error: "JWT secret is not configured" });
+    return res.status(500).json({ error: "JWT токен не существует" });
+  }
+
+  const cookieToken = req.cookies?.token;
+  const authHeader = req.headers.authorization;
+  const bearerToken =
+    authHeader && authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
+
+  const token = cookieToken || bearerToken;
+
+  if (!token) {
+    return res.status(401).json({ error: "Не авторизован" });
   }
 
   try {
@@ -32,6 +38,6 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     req.userId = payload.userId;
     next();
   } catch {
-    return res.status(401).json({ error: "Invalid token" });
+    return res.status(401).json({ error: "Неверный токен" });
   }
 }

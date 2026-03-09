@@ -15,6 +15,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
@@ -40,6 +41,26 @@ async function readFolder(folderPath) {
 
 app.whenReady().then(() => {
   createWindow();
+
+  ipcMain.handle("window:minimize", () => {
+    mainWindow?.minimize();
+  });
+
+  ipcMain.handle("window:toggle-maximize", () => {
+    if (!mainWindow) {
+      return;
+    }
+
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  });
+
+  ipcMain.handle("window:close", () => {
+    mainWindow?.close();
+  });
 
   ipcMain.handle("folder:open", async () => {
     const result = await dialog.showOpenDialog({

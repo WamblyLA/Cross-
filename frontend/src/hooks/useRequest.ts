@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import axios, { type AxiosRequestConfig } from "axios";
+
 const cacheMapa = new Map<string, any>();
+
 interface useRequestParams<T> {
   url: string;
   method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -17,6 +19,7 @@ interface useRequestParams<T> {
   signal?: AbortSignal;
   dependencies?: any[];
 }
+
 export function useRequest<T>(pars: useRequestParams<T>) {
   const {
     url,
@@ -34,59 +37,93 @@ export function useRequest<T>(pars: useRequestParams<T>) {
     signal,
     dependencies = [],
   } = pars;
+
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(auto);
   const [error, setError] = useState<any>(null);
+
   const fetchData = useCallback(
     async (override?: Partial<useRequestParams<T>>) => {
       const conf: AxiosRequestConfig = {
-        url,
-        method,
+        url: override?.url ?? url,
+        method: override?.method ?? method,
         params: { ...params, ...override?.params },
         data: override?.body ?? body,
         headers: { ...headers, ...override?.headers },
+        signal: override?.signal ?? signal,
+        withCredentials: true,
       };
+
       const key =
         keyCache ||
-        `${method}:${url}:${JSON.stringify(params)}:${JSON.stringify(body)}`;
+        `${conf.method}:${conf.url}:${JSON.stringify(conf.params)}:${JSON.stringify(conf.data)}`;
+
       if (cache && cacheMapa.has(key)) {
-        setData(cacheMapa.get(key));
+        const cached = cacheMapa.get(key);
+        setData(cached);
         setIsLoading(false);
-        return;
+        return cached;
       }
+
       setIsLoading(true);
       setError(null);
+
       let trys = 0;
+      let lastError: any = null;
+
       while (trys <= retry) {
         try {
           const res = await axios(conf);
           setData(res.data);
+
           if (cache) {
             cacheMapa.set(key, res.data);
           }
+
           onSuccess?.(res.data);
           setIsLoading(false);
           return res.data;
         } catch (err) {
+          lastError = err;
           trys++;
+
           if (trys > retry) {
             setError(err);
             onError?.(err);
             setIsLoading(false);
-          } else {
-            await new Promise((r) => {
-              setTimeout(r, retryInterval);
-            });
+            throw err;
           }
+
+          await new Promise((r) => {
+            setTimeout(r, retryInterval);
+          });
         }
       }
+
+      throw lastError;
     },
-    [...dependencies]
+    [
+      url,
+      method,
+      body,
+      params,
+      headers,
+      cache,
+      keyCache,
+      retry,
+      retryInterval,
+      onSuccess,
+      onError,
+      signal,
+      ...dependencies,
+    ],
   );
+
   useEffect(() => {
     if (auto) {
-      fetchData();
+      fetchData().catch(() => {});
     }
-  }, [fetchData]);
+  }, [fetchData, auto]);
+
   return { data, isLoading, error, refetch: fetchData };
 }

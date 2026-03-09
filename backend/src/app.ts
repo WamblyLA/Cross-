@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import http from "http";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { WebSocketServer } from "ws";
 import authRouter from "./routes/auth.js";
 import projectsRouter from "./routes/projects.js";
@@ -10,7 +11,14 @@ import { setWss } from "./services/ws.js";
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+);
+
+app.use(cookieParser());
 app.use(express.json());
 
 app.get("/ping", (_, res) => {
@@ -33,5 +41,5 @@ wss.on("connection", (ws) => {
 const port = Number(process.env.PORT || 3000);
 
 server.listen(port, () => {
-  console.log(`Server started on port ${port}`);
+  console.log(`Сервер запущен на порту ${port}`);
 });

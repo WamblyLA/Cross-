@@ -1,12 +1,18 @@
 import type { IconType } from "react-icons";
+
 interface TopBarIconProps {
-    icon: IconType;
+  icon: IconType;
+  onClick?: () => void;
 }
 
-export default function TopBarIcon({ icon: Icon }: TopBarIconProps) {
+export default function TopBarIcon({ icon: Icon, onClick }: TopBarIconProps) {
   return (
-    <div className="p-1 rounded">
+    <button
+      type="button"
+      onClick={onClick}
+      className="p-1 rounded"
+    >
       <Icon className="h-4 w-4" />
-    </div>
-  )
+    </button>
+  );
 }

@@ -6,7 +6,7 @@ export async function getProjects(req: Request, res: Response) {
     const userId = req.userId;
 
     if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Не авторизован" });
     }
 
     const projects = await prisma.project.findMany({
@@ -17,7 +17,7 @@ export async function getProjects(req: Request, res: Response) {
     return res.json({ projects });
   } catch (err) {
     console.error("getProjects error", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 }
 
@@ -27,11 +27,11 @@ export async function createProject(req: Request, res: Response) {
     const { name } = req.body;
 
     if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "Не авторизован" });
     }
 
     if (!name) {
-      return res.status(400).json({ error: "Project name is required" });
+      return res.status(400).json({ error: "Необходимо имя проекта" });
     }
 
     const project = await prisma.project.create({
@@ -44,6 +44,6 @@ export async function createProject(req: Request, res: Response) {
     return res.json({ project });
   } catch (err) {
     console.error("createProject error", err);
-    return res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Внутренняя ошибка сервера" });
   }
 }

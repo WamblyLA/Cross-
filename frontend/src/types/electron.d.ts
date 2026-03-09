@@ -3,6 +3,10 @@ export {};
 declare global {
   interface Window {
     electronAPI: {
+      minimizeWindow: () => Promise<void>;
+      toggleMaximizeWindow: () => Promise<void>;
+      closeWindow: () => Promise<void>;
+
       openFolder: () => Promise<{
         folderPath: string;
         files: { name: string; isDirectory: boolean }[];

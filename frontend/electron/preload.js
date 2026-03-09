@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
+  toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggle-maximize"),
+  closeWindow: () => ipcRenderer.invoke("window:close"),
   ping: () => "pong",
   openFolder: () => ipcRenderer.invoke("folder:open"),
   listFolder: (folderPath) => ipcRenderer.invoke("folder:list", folderPath),
