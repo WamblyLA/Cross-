@@ -1,50 +1,114 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import TreeItem from "./TreeItem";
 import type { TreeItemType } from "./TreeItem";
 import { useAppDispatch } from "../../../store/hooks";
 import { openFile } from "../../../features/files/filesSlice";
-import { useFileTree } from "../../../hooks/useFileTree";
-import { useRequest } from "../../../hooks/useRequest";
-const mockPath = "C:/Test"; //Потом заменить
-const FileTree: React.FC = () => {
+
+type FileTreeProps = {
+  rootPath: string | null;
+};
+
+const FileTree: React.FC<FileTreeProps> = ({ rootPath }) => {
   const dispatch = useAppDispatch();
-  const {tree, isLoading, error} = useFileTree(mockPath);
-  const {refetch: loadFile} = useRequest<{content: string}>({
-    url: "http://localhost:3000/api/files/content",
-    auto: false
-  })
+  const [tree, setTree] = useState<TreeItemType[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadRoot = async () => {
+      if (!rootPath) {
+        setTree([]);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const files = await window.electronAPI.listFolder(rootPath);
+
+        setTree(
+          files.map((file) => ({
+            id: `${rootPath}/${file.name}`,
+            name: file.name,
+            type: file.isDirectory ? "folder" : "file",
+          })),
+        );
+      } catch (err) {
+        console.error("Ошибка при загрузке корневой папки", err);
+        setError("Не удалось загрузить папку");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadRoot();
+  }, [rootPath]);
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onFolderChanged(async () => {
+      if (!rootPath) {
+        return;
+      }
+
+      try {
+        const files = await window.electronAPI.listFolder(rootPath);
+
+        setTree(
+          files.map((file) => ({
+            id: `${rootPath}/${file.name}`,
+            name: file.name,
+            type: file.isDirectory ? "folder" : "file",
+          })),
+        );
+      } catch (err) {
+        console.error("Ошибка при обновлении дерева", err);
+      }
+    });
+
+    return unsubscribe;
+  }, [rootPath]);
+
   const clicked = async (file: TreeItemType) => {
     if (file.type !== "file") {
       return;
     }
+
     try {
-      const res = await loadFile({
-        params: {path: file.id},
-      })
+      const content = await window.electronAPI.readFile(file.id);
+
       dispatch(
         openFile({
           id: file.id,
           name: file.name,
           extencion: file.extencion,
-          content: res?.content ?? " ",
-        })
+          content: content ?? "",
+        }),
       );
     } catch (err) {
-      console.error("Ошибка при загрузке", err);
+      console.error("Ошибка при загрузке файла", err);
     }
   };
+
+  if (!rootPath) {
+    return <div className="w-full h-full py-1 px-2">Папка не открыта</div>;
+  }
+
   if (isLoading) {
-    return <div>Загрузка</div>
+    return <div>Загрузка</div>;
   }
+
   if (error) {
-    return <div>Возникла ошибка {error.response?.statusText || error.message}</div>
+    return <div>Возникла ошибка {error}</div>;
   }
+
   return (
     <div className="w-full h-full py-1 px-2">
-      {tree?.map((unit) => (
+      {tree.map((unit) => (
         <TreeItem key={unit.id} unit={unit} onUnitClick={clicked} />
       ))}
     </div>
   );
 };
+
 export default FileTree;
