@@ -1,4 +1,4 @@
-import { getFileContent, getElemsInFolder, saveFileChanges, createFilder, deleteFilder } from "../controllers/filesControler.ts";
+import { getFileContent, getElemsInFolder, saveFileChanges, createFilder, deleteFilder } from "../controllers/filesControler.js";
 import express from "express";
 const router = express.Router()
 router.get('/',getElemsInFolder)
