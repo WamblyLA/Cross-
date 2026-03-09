@@ -1,9 +1,19 @@
-import { getFileContent, getElemsInFolder, saveFileChanges, createFilder, deleteFilder } from "../controllers/filesControler.js";
 import express from "express";
-const router = express.Router()
-router.get('/',getElemsInFolder)
-router.get('/content', getFileContent)
-router.post('/save', saveFileChanges)
-router.post('/create', createFilder)
-router.post('/remove', deleteFilder)
+import {
+  getFileContent,
+  getElemsInFolder,
+  saveFileChanges,
+  createFilder,
+  deleteFilder
+} from "../controllers/filesController.js";
+import { requireAuth } from "../middleware/auth.js";
+
+const router = express.Router();
+
+router.get("/", requireAuth, getElemsInFolder);
+router.get("/content", requireAuth, getFileContent);
+router.post("/save", requireAuth, saveFileChanges);
+router.post("/create", requireAuth, createFilder);
+router.post("/remove", requireAuth, deleteFilder);
+
 export default router;

@@ -7,7 +7,9 @@ export function setWss(server: WebSocketServer) {
 }
 
 export function broadcast(data: unknown) {
-  if (!wss) return;
+  if (!wss) {
+    return;
+  }
 
   const payload = JSON.stringify(data);
 

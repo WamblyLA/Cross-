@@ -1,9 +1,12 @@
+import "dotenv/config";
 import express from "express";
 import http from "http";
 import cors from "cors";
 import { WebSocketServer } from "ws";
+import authRouter from "./routes/auth.js";
+import projectsRouter from "./routes/projects.js";
 import filesRouter from "./routes/files.js";
-import { setWss } from "./services/ws.js"
+import { setWss } from "./services/ws.js";
 
 const app = express();
 
@@ -14,6 +17,8 @@ app.get("/ping", (_, res) => {
   res.send("pong");
 });
 
+app.use("/api/auth", authRouter);
+app.use("/api/projects", projectsRouter);
 app.use("/api/files", filesRouter);
 
 const server = http.createServer(app);
