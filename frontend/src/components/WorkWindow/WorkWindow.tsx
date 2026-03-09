@@ -1,5 +1,5 @@
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import {
   closeFile,
   setActiveFile,
@@ -8,12 +8,14 @@ import {
 import { RxCross1 } from "react-icons/rx";
 import { Editor } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import { useRequest } from "../../hooks/useRequest";
+
 function extToLang(ext: string | null | undefined) {
   if (!ext) {
     return "plaintext";
   }
+
   const extL = ext.toLowerCase();
+
   switch (extL) {
     case "cpp":
       return "cpp";
@@ -27,90 +29,132 @@ function extToLang(ext: string | null | undefined) {
       return "plaintext";
   }
 }
+
 export default function WorkWindow() {
   const dispatch = useAppDispatch();
   const { openedFiles, activeFileId } = useAppSelector((state) => state.files);
   const activeFile = openedFiles.find((file) => file.id === activeFileId);
-  const ref = useRef<number | null>(null);
-  const { refetch: saveFile } = useRequest({
-    url: "http://localhost:3000/api/files/save",
-    auto: false,
-    method: "POST",
-  });
+
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const timeoutRef = useRef<number | null>(null);
+
+  const [dirtyMap, setDirtyMap] = useState<Record<string, boolean>>({});
+
+  const saveCurrentFile = useCallback(async () => {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const currentFile = openedFiles.find((file) => file.id === activeFileId);
+    if (!currentFile) {
+      return;
+    }
+
+    const content = editor.getValue();
+
+    dispatch(updateFileContent({ id: currentFile.id, content }));
+
+    try {
+      await window.electronAPI.writeFile(currentFile.id, content);
+
+      setDirtyMap((prev) => ({
+        ...prev,
+        [currentFile.id]: false,
+      }));
+
+      console.log("Сохранилось", currentFile.id);
+    } catch (err) {
+      console.error("Ошибка при сохранении файла", err);
+    }
+  }, [activeFileId, openedFiles, dispatch]);
   useEffect(() => {
     if (!editorRef.current) {
       return;
     }
+
     const editor = editorRef.current;
-    const idshnik = editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, async () => {
-        if (!editorRef.current) {
-          return;
-        }
-        const content = editorRef.current.getValue();
-        const nowActiveFile = openedFiles.find((file) => file.id === activeFileId);
-        if (!nowActiveFile) {
-          return;
-        }
-        dispatch(updateFileContent({id: nowActiveFile.id, content}));
-        try {
-          const data = await saveFile({
-            method: "POST",
-            body: {path: nowActiveFile.id, content}
-          })
-          if (data.success) {
-            console.log("Сохранилось", nowActiveFile.id);
-          }
-    } catch (err) {
-          console.error("Ошибка при сохранении файла", err);
-        }
-      }
-    )
-  }, [activeFileId, openedFiles, saveFile, dispatch])
-  const fileSave = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monaco) => {
-    editorRef.current = editor;
-  }, []) 
-  const before = useCallback((monaco) => {
-    monaco.editor.defineTheme(
-      "defaultDark",
-      {
-        base: "hc-black",
-        inherit: true,
-        colors: {
-          "editor.background": "#0F1710",
-          "editor.lineHighlightBackground": "#101a11",
-          "editor.selectionBackground": "#3b5933",
-          "editorLineNumber.foreground": "#e1fae3",
-        },
-        rules: [
-          { token: "comment", foreground: "#324734", fontStyle: "italic" },
-          { token: "keyword", foreground: "#b0550b", fontStyle: "bold" },
-          { token: "string", foreground: "#24a616" },
-          { token: "number", foreground: "#1a76bd" },
-          { token: "function", foreground: "#10e843" },
-        ],
+
+    const disposable = editor.addAction({
+      id: "save-file",
+      label: "Save File",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+      run: async () => {
+        await saveCurrentFile();
       },
-      []
-    );
+    });
+
+    return () => {
+      disposable.dispose();
+    };
+  }, [saveCurrentFile]);
+
+  const onMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor) => {
+    editorRef.current = editor;
   }, []);
+
+  const before = useCallback((monacoInstance: typeof monaco) => {
+    monacoInstance.editor.defineTheme("defaultDark", {
+      base: "hc-black",
+      inherit: true,
+      colors: {
+        "editor.background": "#0F1710",
+        "editor.lineHighlightBackground": "#101a11",
+        "editor.selectionBackground": "#3b5933",
+        "editorLineNumber.foreground": "#e1fae3",
+      },
+      rules: [
+        { token: "comment", foreground: "#324734", fontStyle: "italic" },
+        { token: "keyword", foreground: "#b0550b", fontStyle: "bold" },
+        { token: "string", foreground: "#24a616" },
+        { token: "number", foreground: "#1a76bd" },
+        { token: "function", foreground: "#10e843" },
+      ],
+    });
+  }, []);
+
   const editorChange = useCallback(
     (value: string | undefined) => {
       if (!activeFile || value === undefined) {
-        return null;
+        return;
       }
-      if (ref.current) {
-        window.clearTimeout(ref.current);
+
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
       }
-      ref.current = window.setTimeout(() => {
-        if (activeFile) {
-          dispatch(updateFileContent({ id: activeFile.id, content: value }));
-        }
-      }, 300);
+
+      timeoutRef.current = window.setTimeout(() => {
+        dispatch(updateFileContent({ id: activeFile.id, content: value }));
+
+        setDirtyMap((prev) => ({
+          ...prev,
+          [activeFile.id]: true,
+        }));
+      }, 150);
     },
-    [activeFile, dispatch]
+    [activeFile, dispatch],
   );
-  if (openedFiles.length === 0) return null;
+
+  useEffect(() => {
+    const existingIds = new Set(openedFiles.map((file) => file.id));
+
+    setDirtyMap((prev) => {
+      const next: Record<string, boolean> = {};
+
+      for (const key of Object.keys(prev)) {
+        if (existingIds.has(key)) {
+          next[key] = prev[key];
+        }
+      }
+
+      return next;
+    });
+  }, [openedFiles]);
+
+  if (openedFiles.length === 0) {
+    return null;
+  }
+
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex">
@@ -122,9 +166,17 @@ export default function WorkWindow() {
               activeFileId === f.id ? "border-b-2 border-lines-color" : ""
             } px-2 py-1 flex gap-2 items-center`}
           >
-            <span>
-              {f.name}.{f.extencion}
+            <span className="flex items-center gap-2">
+              <span>
+                {f.name}
+                {f.extencion ? `.${f.extencion}` : ""}
+              </span>
+
+              {dirtyMap[f.id] ? (
+                <span className="text-white text-sm leading-none">●</span>
+              ) : null}
             </span>
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -136,6 +188,7 @@ export default function WorkWindow() {
           </div>
         ))}
       </div>
+
       <div className="flex-1">
         {activeFile ? (
           <Editor
@@ -144,7 +197,7 @@ export default function WorkWindow() {
             value={activeFile.content}
             onChange={editorChange}
             beforeMount={before}
-            onMount={(editor, monaco) => fileSave(editor, monaco)}
+            onMount={onMount}
             theme="defaultDark"
             options={{
               minimap: { enabled: false },
