@@ -29,14 +29,14 @@ export default function AuthPage() {
 
   const { refetch: loginRequest, isLoading: isLoginLoading } =
     useRequest<AuthResponse>({
-      url: "http://localhost:3000/api/auth/login",
+      url: "/api/auth/login",
       method: "POST",
       auto: false,
     });
 
   const { refetch: registerRequest, isLoading: isRegisterLoading } =
     useRequest<AuthResponse>({
-      url: "http://localhost:3000/api/auth/register",
+      url: "/api/auth/register",
       method: "POST",
       auto: false,
     });

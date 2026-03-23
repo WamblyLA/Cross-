@@ -7,13 +7,21 @@ import { WebSocketServer } from "ws";
 import authRouter from "./routes/auth.js";
 import projectsRouter from "./routes/projects.js";
 import filesRouter from "./routes/files.js";
+import { API_URL, CORS_ORIGINS, PORT, WS_URL } from "./config.js";
 import { setWss } from "./services/ws.js";
 
 const app = express();
 
 app.use(
   cors({
-    origin: true,
+    // Разрешаем Vite и Electron без жесткой привязки к localhost в коде.
+    origin(origin, callback) {
+      if (!origin || origin === "null" || CORS_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
     credentials: true,
   }),
 );
@@ -38,8 +46,9 @@ wss.on("connection", (ws) => {
   ws.send(JSON.stringify({ type: "connected" }));
 });
 
-const port = Number(process.env.PORT || 3000);
-
-server.listen(port, () => {
-  console.log(`Сервер запущен на порту ${port}`);
+server.listen(PORT, () => {
+  console.log(`Сервер запущен на порту ${PORT}`);
+  console.log(`API: ${API_URL}`);
+  console.log(`WebSocket: ${WS_URL}`);
+  console.log(`Разрешенные origin: ${CORS_ORIGINS.join(", ")}`);
 });

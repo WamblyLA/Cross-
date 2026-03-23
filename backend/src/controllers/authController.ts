@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { IS_PROD } from "../config.js";
 import { prisma } from "../lib/prisma.js";
 
 function makeToken(userId: string) {
@@ -17,7 +18,7 @@ function setAuthCookie(res: Response, token: string) {
   res.cookie("token", token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: IS_PROD,
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
@@ -125,6 +126,11 @@ export async function me(req: Request, res: Response) {
 }
 
 export async function logout(_: Request, res: Response) {
-  res.clearCookie("token");
+  res.clearCookie("token", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: IS_PROD,
+  });
+
   return res.json({ success: true });
 }

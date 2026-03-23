@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import axios, { type AxiosRequestConfig } from "axios";
+import { resolveApiUrl } from "../config/runtime";
 
 const cacheMapa = new Map<string, any>();
 
@@ -45,7 +46,7 @@ export function useRequest<T>(pars: useRequestParams<T>) {
   const fetchData = useCallback(
     async (override?: Partial<useRequestParams<T>>) => {
       const conf: AxiosRequestConfig = {
-        url: override?.url ?? url,
+        url: resolveApiUrl(override?.url ?? url),
         method: override?.method ?? method,
         params: { ...params, ...override?.params },
         data: override?.body ?? body,

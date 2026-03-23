@@ -1,0 +1,45 @@
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:3000";
+
+function trimTrailingSlash(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
+function isAbsoluteUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
+
+function toWsUrl(url: string) {
+  if (url.startsWith("https://")) {
+    return url.replace("https://", "wss://");
+  }
+
+  if (url.startsWith("http://")) {
+    return url.replace("http://", "ws://");
+  }
+
+  return url;
+}
+
+export const API_BASE_URL = trimTrailingSlash(
+  import.meta.env.VITE_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL,
+);
+
+export const WS_URL = import.meta.env.VITE_WS_URL?.trim() || toWsUrl(API_BASE_URL);
+
+export function resolveApiUrl(path: string) {
+  if (isAbsoluteUrl(path)) {
+    return path;
+  }
+
+  return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+export function resolveWsUrl(path = "") {
+  const normalizedBase = trimTrailingSlash(WS_URL);
+
+  if (!path) {
+    return normalizedBase;
+  }
+
+  return `${normalizedBase}${path.startsWith("/") ? path : `/${path}`}`;
+}

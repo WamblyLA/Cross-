@@ -12,6 +12,9 @@ let mainWindow = null;
 let currentWatcher = null;
 
 function createWindow() {
+  const rendererUrl =
+    process.env.ELECTRON_RENDERER_URL ?? process.env.VITE_DEV_SERVER_URL;
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -23,8 +26,8 @@ function createWindow() {
     },
   });
 
-  if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  if (rendererUrl) {
+    mainWindow.loadURL(rendererUrl);
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }

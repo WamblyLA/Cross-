@@ -1,0 +1,25 @@
+{
+  "name": "crossplusplus",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "start": "concurrently -k -n backend,renderer,electron \"npm run dev:backend\" \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dev": "npm run start",
+    "dev:backend": "npm run dev -w ./backend",
+    "dev:desktop": "concurrently -k -n renderer,electron \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dev:renderer": "npm run dev:renderer -w ./frontend",
+    "dev:electron": "npm run dev:electron -w ./frontend",
+    "build": "npm run build:backend && npm run build:desktop",
+    "build:backend": "npm run build -w ./backend",
+    "build:desktop": "npm run build -w ./frontend",
+    "start:backend": "npm run start -w ./backend",
+    "start:desktop": "npm run start -w ./frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

@@ -38,13 +38,13 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
   const itemsRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const { data: meData, refetch: refetchMe } = useRequest<MeResponse>({
-    url: "http://localhost:3000/api/auth/me",
+    url: "/api/auth/me",
     auto: true,
     retry: 0,
   });
 
   const { refetch: logoutRequest } = useRequest<{ success: true }>({
-    url: "http://localhost:3000/api/auth/logout",
+    url: "/api/auth/logout",
     method: "POST",
     auto: false,
   });
