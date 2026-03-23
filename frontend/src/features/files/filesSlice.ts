@@ -72,6 +72,13 @@ const filesSlice = createSlice({
       existing.content = action.payload.content;
       existing.isDirty = true;
     },
+    markFileDirty(state, action: PayloadAction<string>) {
+      const existing = state.openedFiles.find((file) => file.path === action.payload);
+
+      if (existing) {
+        existing.isDirty = true;
+      }
+    },
     markFileSaved(state, action: PayloadAction<string>) {
       const existing = state.openedFiles.find((file) => file.path === action.payload);
 
@@ -148,6 +155,7 @@ export const {
   openFile,
   setActiveFile,
   updateFileContent,
+  markFileDirty,
   markFileSaved,
   renameFilePath,
   closeFile,

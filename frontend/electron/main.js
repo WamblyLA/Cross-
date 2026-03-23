@@ -1,24 +1,53 @@
-import { spawn, spawnSync } from "child_process";
+import { spawnSync } from "child_process";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import fsSync from "fs";
 import fs from "fs/promises";
+import { createRequire } from "module";
 import path from "path";
 import { fileURLToPath } from "url";
 import { startFolderWatcher } from "./folderWatcher.js";
+import { createNotebookKernelManager } from "./notebookKernel.js";
+
+const require = createRequire(import.meta.url);
+
+let nodePty = null;
+let nodePtyLoadError = null;
+
+try {
+  nodePty = require("node-pty");
+} catch (error) {
+  nodePtyLoadError = error;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const RUN_SENTINEL_PREFIX = "__CROSSPP_RUN_END__";
+const CLEAR_TERMINAL_SEQUENCE = "\u001b[2J\u001b[3J\u001b[H";
+const DEFAULT_TERMINAL_COLS = 120;
+const DEFAULT_TERMINAL_ROWS = 30;
+const pythonCommand = "";
+const resolvedFilePath = "";
 
 let mainWindow = null;
 let currentWatcher = null;
 let watchedRootPath = null;
-let terminalSession = null;
+let terminalSessions = new Map();
+let terminalOrder = [];
+let defaultShellTerminalId = null;
+let ideRunTerminalId = null;
+let activeIdeRunTerminalId = null;
+let terminalSize = {
+  cols: DEFAULT_TERMINAL_COLS,
+  rows: DEFAULT_TERMINAL_ROWS,
+};
+const notebookKernelManager = createNotebookKernelManager({
+  nodePty,
+  nodePtyLoadError,
+  sendToRenderer,
+});
 
 function createWindow() {
-  const rendererUrl =
-    process.env.ELECTRON_RENDERER_URL ?? process.env.VITE_DEV_SERVER_URL;
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? process.env.VITE_DEV_SERVER_URL;
 
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -60,10 +89,7 @@ function sortEntries(entries) {
 
 function normalizePathCase(filePath) {
   const resolvedPath = path.resolve(filePath);
-
-  return process.platform === "win32"
-    ? resolvedPath.toLowerCase()
-    : resolvedPath;
+  return process.platform === "win32" ? resolvedPath.toLowerCase() : resolvedPath;
 }
 
 function isSamePath(leftPath, rightPath) {
@@ -153,7 +179,8 @@ function getShellCandidate() {
       return {
         command: "powershell.exe",
         args: ["-NoLogo"],
-        kind: "powershell",
+        kind: "shell",
+        shellType: "powershell",
         label: "PowerShell",
       };
     }
@@ -161,7 +188,8 @@ function getShellCandidate() {
     return {
       command: "cmd.exe",
       args: [],
-      kind: "cmd",
+      kind: "shell",
+      shellType: "cmd",
       label: "Command Prompt",
     };
   }
@@ -171,40 +199,161 @@ function getShellCandidate() {
   return {
     command: shellCommand,
     args: [],
-    kind: "posix",
+    kind: "shell",
+    shellType: "posix",
     label: path.basename(shellCommand),
   };
 }
 
-function cleanupTerminalSession(notifyRenderer = true) {
-  if (!terminalSession) {
-    return;
-  }
+function buildNodePtyUnavailableError() {
+  const baseMessage =
+    "node-pty РЅРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґР»СЏ Electron. Р’С‹РїРѕР»РЅРёС‚Рµ `npm run rebuild:native -w ./frontend`. Р”Р»СЏ Windows С‚Р°РєР¶Рµ РЅСѓР¶РЅС‹ Visual Studio Build Tools.";
+  const details = nodePtyLoadError instanceof Error ? nodePtyLoadError.message : null;
 
-  const shellProcess = terminalSession.process;
-
-  terminalSession = null;
-
-  if (shellProcess && !shellProcess.killed) {
-    shellProcess.removeAllListeners();
-    shellProcess.stdout?.removeAllListeners();
-    shellProcess.stderr?.removeAllListeners();
-    shellProcess.kill();
-  }
-
-  if (notifyRenderer) {
-    sendToRenderer("terminal:status", {
-      type: "closed",
-    });
-  }
+  return new Error(details ? `${baseMessage} РџРѕРґСЂРѕР±РЅРѕСЃС‚Рё: ${details}` : baseMessage);
 }
 
-function emitTerminalData(text) {
+function createTerminalId(prefix) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createSpawnId() {
+  return createTerminalId("spawn");
+}
+
+function resolveExecutablePath(command) {
+  if (!command) {
+    return null;
+  }
+
+  if (path.isAbsolute(command) && fsSync.existsSync(command)) {
+    return command;
+  }
+
+  const pathEntries = (process.env.PATH ?? "")
+    .split(path.delimiter)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  const extensions =
+    process.platform === "win32"
+      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM")
+          .split(";")
+          .map((extension) => extension.trim().toLowerCase())
+          .filter(Boolean)
+      : [""];
+
+  for (const entry of pathEntries) {
+    const directCandidate = path.join(entry, command);
+
+    if (fsSync.existsSync(directCandidate)) {
+      return directCandidate;
+    }
+
+    for (const extension of extensions) {
+      const candidatePath = path.join(entry, `${command}${extension}`);
+
+      if (fsSync.existsSync(candidatePath)) {
+        return candidatePath;
+      }
+    }
+  }
+
+  return null;
+}
+
+function isPythonLauncherPath(commandPath) {
+  if (!commandPath) {
+    return false;
+  }
+
+  const normalizedPath = path.normalize(commandPath).toLowerCase();
+  return normalizedPath.endsWith(`${path.sep}launcher${path.sep}py.exe`) || path.basename(normalizedPath) === "py.exe";
+}
+
+function selectExistingPythonPath(candidates) {
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    const resolvedCandidate = path.resolve(candidate);
+
+    if (fsSync.existsSync(resolvedCandidate) && !isPythonLauncherPath(resolvedCandidate)) {
+      return resolvedCandidate;
+    }
+  }
+
+  return null;
+}
+
+function extractPythonExecutableFromText(text) {
+  if (!text) {
+    return null;
+  }
+
+  return text.match(/[A-Za-z]:\\[^\r\n]*?python(?:w)?\.exe/gi)?.[0] ?? null;
+}
+
+function resolvePythonRuntimeFromLauncher(candidate) {
+  const launcherListResult = spawnSync(candidate.command, ["-0p"], {
+    encoding: "utf-8",
+    windowsHide: true,
+  });
+
+  const combinedOutput = `${launcherListResult.stdout ?? ""}\n${launcherListResult.stderr ?? ""}`;
+  const extractedPaths = combinedOutput
+    .split(/\r?\n/)
+    .map((line) => extractPythonExecutableFromText(line))
+    .filter(Boolean);
+
+  const preferredPath =
+    combinedOutput
+      .split(/\r?\n/)
+      .find((line) => line.includes("*"))
+      ?.match(/[A-Za-z]:\\[^\r\n]*?python(?:w)?\.exe/i)?.[0] ?? null;
+
+  return selectExistingPythonPath([preferredPath, ...extractedPaths]);
+}
+
+function resolveWindowsPythonFromKnownLocations() {
+  if (process.platform !== "win32") {
+    return null;
+  }
+
+  const basePath = process.env.LOCALAPPDATA
+    ? path.join(process.env.LOCALAPPDATA, "Programs", "Python")
+    : null;
+
+  if (!basePath || !fsSync.existsSync(basePath)) {
+    return null;
+  }
+
+  const installationCandidates = fsSync
+    .readdirSync(basePath, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^python/i.test(entry.name))
+    .map((entry) => path.join(basePath, entry.name, "python.exe"))
+    .sort((left, right) => right.localeCompare(left));
+
+  return selectExistingPythonPath(installationCandidates);
+}
+
+function buildTerminalMeta(session) {
+  return {
+    id: session.id,
+    title: session.title,
+    shellLabel: session.label,
+    kind: session.mode,
+  };
+}
+
+function emitTerminalData(terminalId, text) {
   if (!text) {
     return;
   }
 
   sendToRenderer("terminal:data", {
+    terminalId,
     text,
   });
 }
@@ -213,114 +362,322 @@ function emitTerminalStatus(payload) {
   sendToRenderer("terminal:status", payload);
 }
 
-function processTerminalChunk(text) {
-  if (!terminalSession) {
-    emitTerminalData(text);
-    return;
+function getTerminalSession(terminalId) {
+  if (!terminalId) {
+    return null;
   }
 
-  const activeRun = terminalSession.activeRun;
-
-  if (!activeRun) {
-    emitTerminalData(text);
-    return;
-  }
-
-  const marker = `${RUN_SENTINEL_PREFIX}:${activeRun.token}:`;
-  const combined = `${terminalSession.pendingChunk}${text}`;
-  const markerIndex = combined.indexOf(marker);
-
-  if (markerIndex === -1) {
-    const safeLength = Math.max(0, combined.length - marker.length);
-
-    emitTerminalData(combined.slice(0, safeLength));
-    terminalSession.pendingChunk = combined.slice(safeLength);
-    return;
-  }
-
-  const afterMarker = combined.slice(markerIndex + marker.length);
-  const match = afterMarker.match(/^(-?\d+)(\r?\n)?/);
-
-  if (!match) {
-    emitTerminalData(combined.slice(0, markerIndex));
-    terminalSession.pendingChunk = combined.slice(markerIndex);
-    return;
-  }
-
-  emitTerminalData(combined.slice(0, markerIndex));
-
-  const exitCode = Number.parseInt(match[1], 10);
-  const consumedLength = markerIndex + marker.length + match[0].length;
-  const suffix = combined.slice(consumedLength);
-
-  terminalSession.pendingChunk = "";
-  terminalSession.activeRun = null;
-
-  emitTerminalStatus({
-    type: "run-finished",
-    exitCode,
-  });
-
-  if (suffix) {
-    emitTerminalData(suffix);
-  }
+  return terminalSessions.get(terminalId) ?? null;
 }
 
-async function ensureTerminalSession() {
-  if (terminalSession && !terminalSession.process.killed) {
+function ensureShellTerminal() {
+  const defaultShellSession = getTerminalSession(defaultShellTerminalId);
+
+  if (defaultShellSession) {
     return {
-      shellLabel: terminalSession.label,
+      terminal: buildTerminalMeta(defaultShellSession),
     };
   }
 
-  const candidate = getShellCandidate();
-  const shellProcess = spawn(candidate.command, candidate.args, {
-    cwd: getInitialTerminalCwd(),
-    windowsHide: true,
-    stdio: "pipe",
-  });
-
-  shellProcess.stdout.setEncoding("utf-8");
-  shellProcess.stderr.setEncoding("utf-8");
-
-  terminalSession = {
-    process: shellProcess,
-    kind: candidate.kind,
-    label: candidate.label,
-    activeRun: null,
-    pendingChunk: "",
-  };
-
-  shellProcess.stdout.on("data", (chunk) => {
-    processTerminalChunk(chunk.toString());
-  });
-
-  shellProcess.stderr.on("data", (chunk) => {
-    processTerminalChunk(chunk.toString());
-  });
-
-  shellProcess.on("error", (error) => {
-    emitTerminalData(
-      `\r\n[Terminal] Не удалось запустить shell: ${error.message}\r\n`,
-    );
-    cleanupTerminalSession();
-  });
-
-  shellProcess.on("close", () => {
-    cleanupTerminalSession();
-  });
-
   return {
-    shellLabel: candidate.label,
+    terminal: createShellSession(),
   };
 }
 
-function escapePowerShellLiteral(value) {
-  return value.replace(/'/g, "''");
+function requireTerminalSession(terminalId) {
+  const session = getTerminalSession(terminalId);
+
+  if (!session) {
+    throw new Error("РўРµСЂРјРёРЅР°Р» Р±С‹Р» Р·Р°РєСЂС‹С‚. РћС‚РєСЂРѕР№С‚Рµ РµРіРѕ Р·Р°РЅРѕРІРѕ.");
+  }
+
+  return session;
 }
 
-function escapeCmdArgument(value) {
-  return value.replace(/"/g, '""');
+function pickNextDefaultShellTerminal() {
+  const nextShellSession = terminalOrder
+    .map((terminalId) => terminalSessions.get(terminalId) ?? null)
+    .find((session) => session?.mode === "shell");
+
+  defaultShellTerminalId = nextShellSession?.id ?? null;
+}
+
+function removeTerminalSessionState(terminalId) {
+  terminalSessions.delete(terminalId);
+  terminalOrder = terminalOrder.filter((id) => id !== terminalId);
+
+  if (defaultShellTerminalId === terminalId) {
+    pickNextDefaultShellTerminal();
+  }
+}
+
+function handleTerminalExit(terminalId, spawnId, event) {
+  const session = getTerminalSession(terminalId);
+
+  if (!session || session.disposed || session.spawnId !== spawnId) {
+    return;
+  }
+
+  const exitCode = Number.isInteger(event?.exitCode) ? event.exitCode : 0;
+
+  session.pty = null;
+  removeTerminalSessionState(terminalId);
+
+  emitTerminalStatus({
+    type: "closed",
+    terminalId,
+  });
+}
+
+function disposePty(session) {
+  if (!session?.pty) {
+    return;
+  }
+
+  try {
+    session.pty.kill();
+  } catch {
+    // РРіРЅРѕСЂРёСЂСѓРµРј РѕС€РёР±РєРё Р·Р°РІРµСЂС€РµРЅРёСЏ PTY, РµСЃР»Рё РїСЂРѕС†РµСЃСЃ СѓР¶Рµ РѕСЃС‚Р°РЅРѕРІР»РµРЅ.
+  }
+
+  session.pty = null;
+}
+
+function resizePty(session, cols, rows) {
+  if (!session?.pty) {
+    return;
+  }
+
+  try {
+    session.pty.resize(cols, rows);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : `${error ?? ""}`;
+    const normalizedMessage = message.toLowerCase();
+
+    if (
+      normalizedMessage.includes("already exited") ||
+      normalizedMessage.includes("cannot resize") ||
+      normalizedMessage.includes("closed")
+    ) {
+      session.pty = null;
+      return;
+    }
+
+    throw error;
+  }
+}
+
+function disposeTerminalSession(terminalId, { notifyRenderer = true } = {}) {
+  const session = getTerminalSession(terminalId);
+
+  if (!session) {
+    return;
+  }
+
+  session.disposed = true;
+
+  disposePty(session);
+  removeTerminalSessionState(terminalId);
+
+  if (notifyRenderer) {
+    emitTerminalStatus({
+      type: "closed",
+      terminalId,
+    });
+  }
+}
+
+function emitTerminalChunk(terminalId, text) {
+  if (!text) {
+    return;
+  }
+
+  emitTerminalData(terminalId, text);
+}
+
+function handleTerminalChunk(session, chunk) {
+  emitTerminalChunk(session.id, chunk);
+}
+
+function quoteForPowerShell(value) {
+  return `'${`${value}`.replace(/'/g, "''")}'`;
+}
+
+function quoteForCmd(value) {
+  return `"${`${value}`.replace(/"/g, '""')}"`;
+}
+
+function quoteForPosixShell(value) {
+  return `'${`${value}`.replace(/'/g, `'\\''`)}'`;
+}
+
+function buildPythonRunCommand({ shellType, cwd, filePath, commandName }) {
+  switch (shellType) {
+    case "powershell":
+      return [
+        `Set-Location -LiteralPath ${quoteForPowerShell(cwd)}`,
+        `${commandName} ${quoteForPowerShell(filePath)}`,
+      ].join("\r");
+    case "cmd":
+      return `cd /d ${quoteForCmd(cwd)}\r${commandName} ${quoteForCmd(filePath)}`;
+    case "posix":
+    default:
+      return `cd ${quoteForPosixShell(cwd)} && ${commandName} ${quoteForPosixShell(filePath)}`;
+  }
+}
+
+function createPtySession({
+  terminalId = createTerminalId("terminal"),
+  mode,
+  title,
+  command,
+  args,
+  cwd,
+  label,
+  shellType = null,
+}) {
+  if (!nodePty) {
+    throw buildNodePtyUnavailableError();
+  }
+
+  const existingSession = getTerminalSession(terminalId);
+  const session =
+    existingSession ??
+    {
+      id: terminalId,
+      mode,
+      title,
+      label,
+      shellType,
+      pty: null,
+      spawnId: null,
+      disposed: false,
+      isRunning: false,
+      activeRun: null,
+    };
+
+  if (existingSession?.pty) {
+    disposePty(existingSession);
+  }
+
+  const pty = nodePty.spawn(command, args, {
+    cwd,
+    cols: terminalSize.cols,
+    rows: terminalSize.rows,
+    env: {
+      ...process.env,
+      TERM: process.platform === "win32" ? "xterm" : "xterm-256color",
+    },
+    name: process.platform === "win32" ? "xterm" : "xterm-256color",
+    useConpty: process.platform === "win32",
+  });
+  const spawnId = createSpawnId();
+  session.mode = mode;
+  session.title = title;
+  session.label = label;
+  session.shellType = shellType;
+  session.pty = pty;
+  session.spawnId = spawnId;
+  session.disposed = false;
+
+  pty.onData((chunk) => {
+    const currentSession = getTerminalSession(terminalId);
+
+    if (!currentSession || currentSession.spawnId !== spawnId) {
+      return;
+    }
+
+    handleTerminalChunk(currentSession, chunk);
+  });
+
+  pty.onExit((event) => {
+    handleTerminalExit(terminalId, spawnId, event);
+  });
+
+  terminalSessions.set(terminalId, session);
+
+  if (!terminalOrder.includes(terminalId)) {
+    terminalOrder.push(terminalId);
+  }
+
+  return session;
+}
+
+function createShellSession() {
+  const candidate = getShellCandidate();
+  const terminalId = createTerminalId("terminal");
+  const shellIndex =
+    terminalOrder.filter((terminalIdValue) => {
+      const session = terminalSessions.get(terminalIdValue);
+      return session?.mode === "shell";
+    }).length + 1;
+  const title = shellIndex === 1 ? "Terminal" : `Terminal ${shellIndex}`;
+  const session = createPtySession({
+    terminalId,
+    mode: "shell",
+    title,
+    command: candidate.command,
+    args: candidate.args,
+    cwd: getInitialTerminalCwd(),
+    label: candidate.label,
+    shellType: candidate.shellType,
+  });
+
+  if (!defaultShellTerminalId) {
+    defaultShellTerminalId = session.id;
+  }
+
+  return buildTerminalMeta(session);
+}
+
+function ensureIdeRunTerminalSession() {
+  const existingRunSession = ideRunTerminalId ? getTerminalSession(ideRunTerminalId) : null;
+
+  if (existingRunSession?.pty) {
+    return existingRunSession;
+  }
+
+  const candidate = getShellCandidate();
+  const terminalId = existingRunSession?.id ?? createTerminalId("run");
+
+  try {
+    return createPtySession({
+      terminalId,
+      mode: "python-run",
+      title: "Python",
+      command: candidate.command,
+      args: candidate.args,
+      cwd: getInitialTerminalCwd(),
+      label: candidate.label,
+      shellType: candidate.shellType,
+    });
+  } catch (error) {
+    ideRunTerminalId = existingRunSession?.id ?? null;
+    activeIdeRunTerminalId = null;
+
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error("Failed to open the Python terminal.");
+
+    const message =
+      error instanceof Error ? error.message : "РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ С‚РµСЂРјРёРЅР°Р» РґР»СЏ Python.";
+
+    throw new Error(
+      `РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ Python (${path.basename(pythonCommand)}) РґР»СЏ С„Р°Р№Р»Р° ${resolvedFilePath}. ${message}`,
+    );
+  }
+}
+
+function ensureTerminalSession(terminalId = null) {
+  if (terminalId) {
+    return {
+      terminal: buildTerminalMeta(requireTerminalSession(terminalId)),
+    };
+  }
+
+  return ensureShellTerminal();
 }
 
 function findAvailablePythonInterpreter() {
@@ -368,115 +725,242 @@ function findAvailablePythonInterpreter() {
     });
 
     if (result.status === 0) {
-      return candidate;
+      return {
+        ...candidate,
+        resolvedCommand: resolveExecutablePath(candidate.command),
+      };
     }
   }
 
   return null;
 }
 
-function buildRunCommand(shellKind, interpreter, filePath, token) {
-  const fileDirectory = path.dirname(filePath);
+function resolvePythonRuntime(candidate) {
+  const probeResult = spawnSync(
+    candidate.command,
+    [...candidate.args, "-c", "import sys; print(getattr(sys, '_base_executable', '') or sys.executable)"],
+    {
+      encoding: "utf-8",
+      windowsHide: true,
+    },
+  );
 
-  if (shellKind === "powershell") {
-    const escapedDirectory = escapePowerShellLiteral(fileDirectory);
-    const escapedCommand = escapePowerShellLiteral(interpreter.command);
-    const escapedFilePath = escapePowerShellLiteral(filePath);
-    const args = interpreter.args
-      .map((argument) => `'${escapePowerShellLiteral(argument)}'`)
-      .join(" ");
-
-    return [
-      `Set-Location -LiteralPath '${escapedDirectory}'`,
-      `& '${escapedCommand}' ${args} '${escapedFilePath}'`,
-      `$crossppCode = $LASTEXITCODE`,
-      `Write-Output '${RUN_SENTINEL_PREFIX}:${token}:' + $crossppCode`,
-    ].join("; ");
+  if (probeResult.status !== 0) {
+    return candidate.resolvedCommand ?? null;
   }
 
-  if (shellKind === "cmd") {
-    const escapedDirectory = escapeCmdArgument(fileDirectory);
-    const escapedFilePath = escapeCmdArgument(filePath);
-    const args = interpreter.args
-      .map((argument) => `"${escapeCmdArgument(argument)}"`)
-      .join(" ");
+  const output = `${probeResult.stdout ?? ""}`
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .at(-1);
 
-    return [
-      `cd /d "${escapedDirectory}"`,
-      `"${interpreter.command}" ${args} "${escapedFilePath}"`,
-      `echo ${RUN_SENTINEL_PREFIX}:${token}:%errorlevel%`,
-    ].join("\r\n");
+  if (!output) {
+    return candidate.resolvedCommand ?? null;
   }
 
-  const escapedDirectory = fileDirectory.replace(/'/g, "'\\''");
-  const escapedFilePath = filePath.replace(/'/g, "'\\''");
-  const args = interpreter.args
-    .map((argument) => `'${argument.replace(/'/g, "'\\''")}'`)
-    .join(" ");
+  const resolvedRuntimePath = path.resolve(output);
 
-  return [
-    `cd '${escapedDirectory}'`,
-    `'${interpreter.command.replace(/'/g, "'\\''")}' ${args} '${escapedFilePath}'`,
-    `echo ${RUN_SENTINEL_PREFIX}:${token}:$?`,
-  ].join("\n");
+  if (fsSync.existsSync(resolvedRuntimePath) && !isPythonLauncherPath(resolvedRuntimePath)) {
+    return resolvedRuntimePath;
+  }
+
+  if (candidate.command === "py" || isPythonLauncherPath(candidate.resolvedCommand ?? "")) {
+    return (
+      resolvePythonRuntimeFromLauncher(candidate) ??
+      resolveWindowsPythonFromKnownLocations() ??
+      null
+    );
+  }
+
+  if (candidate.resolvedCommand && !isPythonLauncherPath(candidate.resolvedCommand)) {
+    return candidate.resolvedCommand;
+  }
+
+  return resolveWindowsPythonFromKnownLocations();
 }
 
-async function runPythonInTerminal(filePath) {
+function resolvePythonRunTarget(filePath) {
+  if (typeof filePath !== "string") {
+    throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РїСѓС‚СЊ Рє С„Р°Р№Р»Сѓ Python РґР»СЏ Р·Р°РїСѓСЃРєР°.");
+  }
+
+  const trimmedPath = filePath.trim();
+
+  if (!trimmedPath || trimmedPath === "." || trimmedPath === path.sep) {
+    throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РїСѓС‚СЊ Рє С„Р°Р№Р»Сѓ Python РґР»СЏ Р·Р°РїСѓСЃРєР°.");
+  }
+
+  const resolvedFilePath = path.resolve(trimmedPath);
+
+  let fileStats = null;
+
+  try {
+    fileStats = fsSync.statSync(resolvedFilePath);
+  } catch {
+    throw new Error(`Р¤Р°Р№Р» РґР»СЏ Р·Р°РїСѓСЃРєР° РЅРµ РЅР°Р№РґРµРЅ: ${resolvedFilePath}`);
+  }
+
+  if (!fileStats.isFile()) {
+    throw new Error(`РЈРєР°Р·Р°РЅРЅС‹Р№ РїСѓС‚СЊ РЅРµ СЏРІР»СЏРµС‚СЃСЏ С„Р°Р№Р»РѕРј: ${resolvedFilePath}`);
+  }
+
+  const fileDirectory = path.dirname(resolvedFilePath);
+
+  let directoryStats = null;
+
+  try {
+    directoryStats = fsSync.statSync(fileDirectory);
+  } catch {
+    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ РґРёСЂРµРєС‚РѕСЂРёСЋ Р·Р°РїСѓСЃРєР°: ${fileDirectory}`);
+  }
+
+  if (!directoryStats.isDirectory()) {
+    throw new Error(`РќРµРєРѕСЂСЂРµРєС‚РЅР°СЏ РґРёСЂРµРєС‚РѕСЂРёСЏ Р·Р°РїСѓСЃРєР°: ${fileDirectory}`);
+  }
+
+  return {
+    resolvedFilePath,
+    fileDirectory,
+  };
+}
+
+function pickPythonShellCommand() {
+  if (resolveExecutablePath("python")) {
+    return "python";
+  }
+
+  if (process.platform === "win32" && resolveExecutablePath("py")) {
+    return "py";
+  }
+
+  if (resolveExecutablePath("python3")) {
+    return "python3";
+  }
+
+  return process.platform === "win32" ? "python" : "python3";
+}
+
+function formatPythonRunHeader() {
+  return "";
+}
+
+function runPythonInTerminal(filePath) {
+  if (!filePath) {
+    throw new Error("РќРµ РІС‹Р±СЂР°РЅ С„Р°Р№Р» РґР»СЏ Р·Р°РїСѓСЃРєР°.");
+  }
+
+  if (!filePath.toLowerCase().endsWith(".py")) {
+    throw new Error("РњРѕР¶РЅРѕ Р·Р°РїСѓСЃРєР°С‚СЊ С‚РѕР»СЊРєРѕ Python-С„Р°Р№Р»С‹ СЃ СЂР°СЃС€РёСЂРµРЅРёРµРј .py.");
+  }
+
+  if (activeIdeRunTerminalId) {
+    throw new Error("РџСЂРµРґС‹РґСѓС‰РёР№ Р·Р°РїСѓСЃРє РµС‰Рµ РЅРµ Р·Р°РІРµСЂС€РµРЅ.");
+  }
+
+  const { resolvedFilePath, fileDirectory } = resolvePythonRunTarget(filePath);
+  const interpreter = findAvailablePythonInterpreter();
+
+  if (!interpreter) {
+    const { terminal } = ensureShellTerminal();
+    emitTerminalData(terminal.id, "\r\nPython РЅРµ РЅР°Р№РґРµРЅ. РЈСЃС‚Р°РЅРѕРІРёС‚Рµ Python РёР»Рё py launcher.\r\n");
+    return {
+      started: false,
+      terminal,
+      reason: "python-missing",
+    };
+  }
+
+  const pythonRuntime = resolvePythonRuntime(interpreter);
+  const pythonCommand = pythonRuntime ?? interpreter.resolvedCommand ?? null;
+
+  if (!pythonCommand || !path.isAbsolute(pythonCommand) || !fsSync.existsSync(pythonCommand)) {
+    throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РїСѓС‚СЊ Рє Python РёРЅС‚РµСЂРїСЂРµС‚Р°С‚РѕСЂСѓ.");
+  }
+
+  const existingRunSession = ideRunTerminalId ? getTerminalSession(ideRunTerminalId) : null;
+
+  if (existingRunSession?.isRunning) {
+    throw new Error("Предыдущий запуск еще не завершен.");
+  }
+
+  const interpreterLabel = path.basename(pythonCommand);
+  const terminalId = existingRunSession?.id ?? createTerminalId("run");
+  const session = createPtySession({
+    terminalId,
+    mode: "python-run",
+    title: "Python",
+    command: pythonCommand,
+    args: ["-u", resolvedFilePath],
+    cwd: fileDirectory,
+    label: interpreterLabel,
+  });
+
+  ideRunTerminalId = session.id;
+  activeIdeRunTerminalId = session.id;
+  session.isRunning = true;
+  session.activeRun = {
+    filePath: resolvedFilePath,
+    interpreter: interpreterLabel,
+  };
+
+  emitTerminalData(session.id, formatPythonRunHeader(resolvedFilePath));
+
+  emitTerminalStatus({
+    type: "run-started",
+    terminalId: session.id,
+    filePath: resolvedFilePath,
+    interpreter: interpreterLabel,
+  });
+
+  return {
+    started: true,
+    terminal: buildTerminalMeta(session),
+  };
+}
+
+function runPythonInShellTerminal(filePath) {
   if (!filePath) {
     throw new Error("Не выбран файл для запуска.");
   }
 
   if (!filePath.toLowerCase().endsWith(".py")) {
-    throw new Error("Можно запускать только Python-файлы с расширением .py.");
+    throw new Error("Для локального запуска нужен Python-файл с расширением .py.");
   }
 
-  if (!fsSync.existsSync(filePath)) {
-    throw new Error("Файл для запуска не найден.");
-  }
-
-  const session = await ensureTerminalSession();
-
-  if (terminalSession.activeRun) {
-    throw new Error("Предыдущий запуск еще не завершен.");
-  }
-
-  const interpreter = findAvailablePythonInterpreter();
-
-  if (!interpreter) {
-    emitTerminalData(
-      "\r\nPython не найден. Установите Python или py launcher.\r\n",
-    );
-    return {
-      started: false,
-      reason: "python-missing",
-    };
-  }
-
-  const token = Date.now().toString(36);
-  const command = buildRunCommand(
-    terminalSession.kind,
-    interpreter,
-    filePath,
-    token,
-  );
-
-  terminalSession.activeRun = {
-    token,
-    filePath,
-  };
-  terminalSession.pendingChunk = "";
-
-  emitTerminalStatus({
-    type: "run-started",
-    filePath,
-    interpreter: interpreter.label,
+  const { resolvedFilePath, fileDirectory } = resolvePythonRunTarget(filePath);
+  const terminal = createShellSession();
+  const session = requireTerminalSession(terminal.id);
+  const commandText = buildPythonRunCommand({
+    shellType: session.shellType,
+    cwd: fileDirectory,
+    filePath: resolvedFilePath,
+    commandName: pickPythonShellCommand(),
   });
 
-  terminalSession.process.stdin.write(`${command}\r\n`);
+  session.pty?.write(`${commandText}\r`);
 
   return {
     started: true,
-    shellLabel: session.shellLabel,
+    terminal,
+  };
+}
+
+function interruptTerminalSession(terminalId) {
+  const session = requireTerminalSession(terminalId);
+
+  if (!session.pty) {
+    return {
+      success: true,
+      terminal: buildTerminalMeta(session),
+    };
+  }
+
+  session.pty.write("\u0003");
+
+  return {
+    success: true,
+    terminal: buildTerminalMeta(session),
   };
 }
 
@@ -540,13 +1024,13 @@ app.whenReady().then(() => {
     const trimmedName = name?.trim();
 
     if (!trimmedName) {
-      throw new Error("Имя не может быть пустым.");
+      throw new Error("Name cannot be empty.");
     }
 
     const fullPath = path.join(parentPath, trimmedName);
 
     if (fsSync.existsSync(fullPath)) {
-      throw new Error("Такой объект уже существует.");
+      throw new Error("That item already exists.");
     }
 
     if (isFolder) {
@@ -562,7 +1046,7 @@ app.whenReady().then(() => {
     const trimmedName = newName?.trim();
 
     if (!trimmedName) {
-      throw new Error("Имя не может быть пустым.");
+      throw new Error("Name cannot be empty.");
     }
 
     const nextPath = path.join(path.dirname(targetPath), trimmedName);
@@ -572,7 +1056,7 @@ app.whenReady().then(() => {
     }
 
     if (fsSync.existsSync(nextPath)) {
-      throw new Error("Объект с таким именем уже существует.");
+      throw new Error("An item with that name already exists.");
     }
 
     await withWorkspaceWatcherPaused(targetPath, async () => {
@@ -596,51 +1080,111 @@ app.whenReady().then(() => {
     return { success: true };
   });
 
-  ipcMain.handle("terminal:ensure", async () => {
-    return ensureTerminalSession();
+  ipcMain.handle("terminal:create", async () => {
+    return {
+      terminal: createShellSession(),
+    };
   });
 
-  ipcMain.handle("terminal:write", async (_, data) => {
-    const session = await ensureTerminalSession();
-
-    terminalSession.process.stdin.write(data);
-
-    return { success: true, shellLabel: session.shellLabel };
+  ipcMain.handle("terminal:ensure", async (_, terminalId) => {
+    return ensureTerminalSession(terminalId ?? null);
   });
 
-  ipcMain.handle("terminal:resize", async () => {
+  ipcMain.handle("terminal:close", async (_, terminalId) => {
+    disposeTerminalSession(terminalId);
+
     return { success: true };
   });
 
-  ipcMain.handle("terminal:clear", async () => {
-    const session = await ensureTerminalSession();
-    const clearCommand =
-      terminalSession.kind === "powershell"
-        ? "Clear-Host\r\n"
-        : terminalSession.kind === "cmd"
-          ? "cls\r\n"
-          : "clear\n";
+  ipcMain.handle("terminal:write", async (_, terminalId, data) => {
+    const session = requireTerminalSession(terminalId);
 
-    terminalSession.process.stdin.write(clearCommand);
+    if (session?.pty) {
+      session.pty.write(data);
+    }
 
-    return { success: true, shellLabel: session.shellLabel };
+    return {
+      success: true,
+      terminal: buildTerminalMeta(session),
+    };
   });
 
-  ipcMain.handle("terminal:message", async (_, text) => {
-    await ensureTerminalSession();
-    emitTerminalData(`${text.endsWith("\n") ? text : `${text}\r\n`}`);
+  ipcMain.handle("terminal:resize", async (_, terminalId, cols, rows) => {
+    const session = requireTerminalSession(terminalId);
+    const nextCols = Number.isFinite(cols) && cols > 0 ? Math.floor(cols) : terminalSize.cols;
+    const nextRows = Number.isFinite(rows) && rows > 0 ? Math.floor(rows) : terminalSize.rows;
+
+    terminalSize = {
+      cols: nextCols,
+      rows: nextRows,
+    };
+
+    resizePty(session, nextCols, nextRows);
+
+    return { success: true };
+  });
+
+  ipcMain.handle("terminal:interrupt", async (_, terminalId) => {
+    return interruptTerminalSession(terminalId);
+  });
+
+  ipcMain.handle("terminal:clear", async (_, terminalId) => {
+    const session = requireTerminalSession(terminalId);
+    emitTerminalData(session.id, CLEAR_TERMINAL_SEQUENCE);
+
+    return {
+      success: true,
+      terminal: buildTerminalMeta(session),
+    };
+  });
+
+  ipcMain.handle("terminal:message", async (_, terminalId, text) => {
+    const session = requireTerminalSession(terminalId);
+    emitTerminalData(session.id, `${text.endsWith("\n") ? text : `${text}\r\n`}`);
 
     return { success: true };
   });
 
   ipcMain.handle("terminal:run-python", async (_, filePath) => {
-    return runPythonInTerminal(filePath);
+    return runPythonInShellTerminal(filePath);
+  });
+
+  ipcMain.handle("notebook:list-kernels", async (_, options) => {
+    return notebookKernelManager.listKernels(options ?? {});
+  });
+
+  ipcMain.handle("notebook:refresh-kernels", async (_, options) => {
+    return notebookKernelManager.refreshKernels(options ?? {});
+  });
+
+  ipcMain.handle("notebook:get-kernel-diagnostics", async (_, options) => {
+    return notebookKernelManager.getKernelDiagnostics(options ?? {});
+  });
+
+  ipcMain.handle("notebook:execute-cell", async (_, payload) => {
+    return notebookKernelManager.executeCell(payload);
+  });
+
+  ipcMain.handle("notebook:interrupt-kernel", async (_, notebookPath) => {
+    return notebookKernelManager.interruptKernel(notebookPath);
+  });
+
+  ipcMain.handle("notebook:restart-kernel", async (_, payload) => {
+    return notebookKernelManager.restartKernel(payload);
+  });
+
+  ipcMain.handle("notebook:release-kernel", async (_, notebookPath) => {
+    return notebookKernelManager.releaseKernel(notebookPath);
   });
 });
 
 app.on("before-quit", async () => {
   await closeFolderWatcher();
-  cleanupTerminalSession(false);
+  notebookKernelManager.disposeAll();
+
+  for (const terminalId of [...terminalOrder]) {
+    disposeTerminalSession(terminalId, { notifyRenderer: false });
+  }
 });
 
 app.on("window-all-closed", () => {

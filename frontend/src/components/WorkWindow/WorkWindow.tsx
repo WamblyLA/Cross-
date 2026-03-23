@@ -2,11 +2,19 @@ import { Editor } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { useCallback, useEffect, useRef } from "react";
 import { RxCross1 } from "react-icons/rx";
-import { closeFile, setActiveFile, updateFileContent } from "../../features/files/filesSlice";
+import {
+  closeFile,
+  markFileDirty,
+  markFileSaved,
+  setActiveFile,
+  updateFileContent,
+} from "../../features/files/filesSlice";
 import { useDesktopActions } from "../../hooks/useDesktopActions";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { registerMonacoThemes } from "../../styles/monacoTheme";
 import { getMonacoThemeName, type ThemeName } from "../../styles/tokens";
+import MarkdownEditor from "./MarkdownEditor";
+import NotebookEditor from "./NotebookEditor";
 
 type WorkWindowProps = {
   theme: ThemeName;
@@ -69,8 +77,11 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
   const { openedFiles, activeFilePath } = useAppSelector((state) => state.files);
   const activeFile = openedFiles.find((file) => file.path === activeFilePath) ?? null;
   const { saveActiveFile } = useDesktopActions();
+  const isNotebookFile = activeFile?.extension?.toLowerCase() === "ipynb";
+  const isMarkdownFile = activeFile?.extension?.toLowerCase() === "md";
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const notebookPathsRef = useRef<string[]>([]);
 
   const handleSave = useCallback(async () => {
     await saveActiveFile();
@@ -119,12 +130,75 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
     [activeFile, dispatch],
   );
 
+  const handleCommitActiveFileContent = useCallback(
+    (nextContent: string) => {
+      if (!activeFile) {
+        return;
+      }
+
+      dispatch(
+        updateFileContent({
+          path: activeFile.path,
+          content: nextContent,
+        }),
+      );
+    },
+    [activeFile, dispatch],
+  );
+
+  const handleMarkActiveFileDirty = useCallback(() => {
+    if (!activeFile || activeFile.isDirty) {
+      return;
+    }
+
+    dispatch(markFileDirty(activeFile.path));
+  }, [activeFile, dispatch]);
+
+  const handleSaveActiveFileContent = useCallback(
+    async (nextContent?: string) => {
+      if (!activeFile) {
+        return;
+      }
+
+      const contentToSave = nextContent ?? activeFile.content;
+
+      if (nextContent !== undefined) {
+        dispatch(
+          updateFileContent({
+            path: activeFile.path,
+            content: contentToSave,
+          }),
+        );
+      }
+
+      await window.electronAPI.writeFile(activeFile.path, contentToSave);
+      dispatch(markFileSaved(activeFile.path));
+    },
+    [activeFile, dispatch],
+  );
+
+  useEffect(() => {
+    const currentNotebookPaths = openedFiles
+      .filter((file) => file.extension?.toLowerCase() === "ipynb")
+      .map((file) => file.path);
+    const previousNotebookPaths = notebookPathsRef.current;
+    const removedNotebookPaths = previousNotebookPaths.filter(
+      (filePath) => !currentNotebookPaths.includes(filePath),
+    );
+
+    notebookPathsRef.current = currentNotebookPaths;
+
+    removedNotebookPaths.forEach((filePath) => {
+      void window.electronAPI.releaseNotebookKernel(filePath);
+    });
+  }, [openedFiles]);
+
   if (!rootPath) {
     return (
       <div className="min-h-0 flex-1 bg-editor">
         <EmptyEditorState
           title="Откройте локальную папку"
-          description="Открытие проекта начинается из верхнего меню File или по сочетанию Ctrl+O. После этого появятся проводник, редактор, кнопка Run и встроенный терминал."
+          description="Откройте проект через меню File или сочетанием Ctrl+O. После этого появятся проводник, редактор, кнопка Run и встроенный терминал."
         />
       </div>
     );
@@ -152,7 +226,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
             >
               <span className="flex items-center gap-2 whitespace-nowrap">
                 <span>{file.name}</span>
-                {file.isDirty ? <span className="text-warning text-xs">●</span> : null}
+                {file.isDirty ? <span className="text-[11px] text-emerald-400">●</span> : null}
               </span>
 
               <button
@@ -175,32 +249,57 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
 
       <div className="min-h-0 flex-1 border-t border-default">
         {activeFile ? (
-          <Editor
-            path={activeFile.path}
-            height="100%"
-            language={extToLang(activeFile.extension)}
-            value={activeFile.content}
-            onChange={handleEditorChange}
-            beforeMount={beforeMount}
-            onMount={onMount}
-            theme={getMonacoThemeName(theme)}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              lineNumbers: "on",
-              automaticLayout: true,
-              wordWrap: "off",
-              scrollBeyondLastLine: true,
-              smoothScrolling: true,
-              renderWhitespace: "none",
-              tabSize: 4,
-              insertSpaces: true,
-            }}
-          />
+          isNotebookFile ? (
+            <NotebookEditor
+              filePath={activeFile.path}
+              content={activeFile.content}
+              isDirty={activeFile.isDirty}
+              theme={theme}
+              rootPath={rootPath}
+              beforeMount={beforeMount}
+              onCommitContent={handleCommitActiveFileContent}
+              onMarkDirty={handleMarkActiveFileDirty}
+              onSaveContent={handleSaveActiveFileContent}
+            />
+          ) : isMarkdownFile ? (
+            <MarkdownEditor
+              filePath={activeFile.path}
+              content={activeFile.content}
+              isDirty={activeFile.isDirty}
+              theme={theme}
+              beforeMount={beforeMount}
+              onCommitContent={handleCommitActiveFileContent}
+              onMarkDirty={handleMarkActiveFileDirty}
+              onSaveContent={handleSaveActiveFileContent}
+            />
+          ) : (
+            <Editor
+              path={activeFile.path}
+              height="100%"
+              language={extToLang(activeFile.extension)}
+              value={activeFile.content}
+              onChange={handleEditorChange}
+              beforeMount={beforeMount}
+              onMount={onMount}
+              theme={getMonacoThemeName(theme)}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: "on",
+                automaticLayout: true,
+                wordWrap: "off",
+                scrollBeyondLastLine: true,
+                smoothScrolling: true,
+                renderWhitespace: "none",
+                tabSize: 4,
+                insertSpaces: true,
+              }}
+            />
+          )
         ) : (
           <EmptyEditorState
             title="Выберите файл в проводнике"
-            description="Откройте папку через File или по Ctrl+O, затем выберите файл в левой панели. Для запуска Python используйте кнопку Run или клавишу F5. Терминал открывается по Ctrl+J."
+            description="Откройте папку через File или Ctrl+O, затем выберите файл в левой панели. Для запуска Python используйте Run или F5, а терминал открывается по Ctrl+J."
           />
         )}
       </div>

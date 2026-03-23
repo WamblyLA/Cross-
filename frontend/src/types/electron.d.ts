@@ -1,30 +1,157 @@
 export {};
 
-type FileSystemItem = {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-};
-
-type TerminalDataEvent = {
-  text: string;
-};
-
-type TerminalStatusEvent =
-  | {
-      type: "closed";
-    }
-  | {
-      type: "run-started";
-      filePath: string;
-      interpreter: string;
-    }
-  | {
-      type: "run-finished";
-      exitCode: number;
-    };
-
 declare global {
+  type FileSystemItem = {
+    name: string;
+    path: string;
+    isDirectory: boolean;
+  };
+
+  type TerminalMeta = {
+    id: string;
+    title: string;
+    shellLabel: string;
+    kind: "shell";
+  };
+
+  type TerminalDataEvent = {
+    terminalId: string;
+    text: string;
+  };
+
+  type TerminalStatusEvent =
+    | {
+        type: "closed";
+        terminalId: string;
+      };
+
+  type NotebookKernelKind = "venv" | "conda" | "system";
+  type NotebookKernelManagerName =
+    | "workspace-venv"
+    | "conda"
+    | "pyenv"
+    | "poetry"
+    | "pipenv"
+    | "launcher"
+    | "path"
+    | "registry"
+    | "known-install"
+    | "selected";
+  type NotebookKernelLocationKind =
+    | "workspace-local"
+    | "user-local"
+    | "global-path"
+    | "system";
+  type NotebookKernelDiagnosticSeverity = "info" | "warn" | "error";
+
+  type NotebookKernelDiscoveryDiagnostic = {
+    source: string;
+    severity: NotebookKernelDiagnosticSeverity;
+    message: string;
+    details?: string | null;
+    interpreterPath?: string | null;
+    manager?: NotebookKernelManagerName | null;
+    phase?: string | null;
+    cwd?: string | null;
+    durationMs?: number | null;
+    lastOutputLine?: string | null;
+  };
+
+  type NotebookKernelDescriptor = {
+    id: string;
+    interpreterPath: string;
+    resolvedInterpreterPath: string;
+    displayName: string;
+    version: string | null;
+    kind: NotebookKernelKind;
+    source: string;
+    manager: NotebookKernelManagerName;
+    locationKind: NotebookKernelLocationKind;
+    envName: string;
+    isRecommended: boolean;
+    isWorkspaceLocal: boolean;
+    diagnostics: NotebookKernelDiscoveryDiagnostic[];
+    isLaunchable: boolean;
+  };
+
+  type NotebookKernelListResult = {
+    kernels: NotebookKernelDescriptor[];
+    refreshId: number;
+    diagnostics: NotebookKernelDiscoveryDiagnostic[];
+    durationMs: number;
+  };
+
+  type NotebookStreamOutput = {
+    output_type: "stream";
+    name: "stdout" | "stderr";
+    text: string;
+  };
+
+  type NotebookErrorOutput = {
+    output_type: "error";
+    ename: string;
+    evalue: string;
+    traceback: string[];
+  };
+
+  type NotebookRichOutput = {
+    output_type: "display_data" | "execute_result";
+    data: Record<string, unknown>;
+    metadata: Record<string, unknown>;
+    execution_count?: number | null;
+  };
+
+  type NotebookOutput = NotebookStreamOutput | NotebookErrorOutput | NotebookRichOutput;
+
+  type NotebookExecutionStatus = "ok" | "error" | "interrupted";
+
+  type NotebookExecutionResult = {
+    status: NotebookExecutionStatus;
+    executionCount: number | null;
+    outputs: NotebookOutput[];
+    interpreterPath: string;
+  };
+
+  type NotebookKernelEvent =
+    | {
+        type: "kernel-ready";
+        notebookPath: string;
+        interpreterPath: string;
+        displayName: string;
+        version: string | null;
+      }
+    | {
+        type: "kernel-restarted";
+        notebookPath: string;
+        interpreterPath: string;
+      }
+    | {
+        type: "kernel-exited";
+        notebookPath: string;
+        interpreterPath: string;
+        reason: string;
+      }
+    | {
+        type: "execution-started";
+        notebookPath: string;
+        cellId: string;
+        executionCount: number | null;
+      }
+    | {
+        type: "output";
+        notebookPath: string;
+        cellId: string;
+        output: NotebookOutput;
+      }
+    | {
+        type: "execution-finished";
+        notebookPath: string;
+        cellId: string;
+        status: NotebookExecutionStatus;
+        executionCount: number | null;
+        outputs: NotebookOutput[];
+      };
+
   interface Window {
     electronAPI: {
       minimizeWindow: () => Promise<void>;
@@ -49,27 +176,70 @@ declare global {
       ) => Promise<{ success: true; path: string }>;
       removeFileSystemItem: (targetPath: string) => Promise<{ success: true }>;
 
-      ensureTerminalSession: () => Promise<{
-        shellLabel: string;
+      ensureTerminalSession: (
+        terminalId?: string | null,
+      ) => Promise<{
+        terminal: TerminalMeta;
       }>;
-      writeToTerminal: (data: string) => Promise<{
+      createTerminalSession: () => Promise<{
+        terminal: TerminalMeta;
+      }>;
+      closeTerminalSession: (terminalId: string) => Promise<{
         success: true;
-        shellLabel: string;
       }>;
-      resizeTerminal: (cols: number, rows: number) => Promise<{
+      writeToTerminal: (terminalId: string, data: string) => Promise<{
+        success: true;
+        terminal: TerminalMeta;
+      }>;
+      resizeTerminal: (terminalId: string, cols: number, rows: number) => Promise<{
         success: true;
       }>;
-      clearTerminal: () => Promise<{
+      interruptTerminal: (terminalId: string) => Promise<{
         success: true;
-        shellLabel: string;
+        terminal: TerminalMeta;
       }>;
-      printTerminalMessage: (text: string) => Promise<{
+      clearTerminal: (terminalId: string) => Promise<{
+        success: true;
+        terminal: TerminalMeta;
+      }>;
+      printTerminalMessage: (terminalId: string, text: string) => Promise<{
         success: true;
       }>;
       runPythonInTerminal: (filePath: string) => Promise<{
         started: boolean;
-        shellLabel?: string;
+        terminal?: TerminalMeta;
         reason?: string;
+      }>;
+      listNotebookKernels: (options?: {
+        workspacePath?: string | null;
+        notebookPath?: string | null;
+      }) => Promise<NotebookKernelListResult>;
+      refreshNotebookKernels: (options?: {
+        workspacePath?: string | null;
+        notebookPath?: string | null;
+      }) => Promise<NotebookKernelListResult>;
+      getNotebookKernelDiagnostics: (options?: {
+        workspacePath?: string | null;
+        notebookPath?: string | null;
+      }) => Promise<NotebookKernelDiscoveryDiagnostic[]>;
+      executeNotebookCell: (payload: {
+        notebookPath: string;
+        interpreterPath: string;
+        cellId: string;
+        source: string;
+      }) => Promise<NotebookExecutionResult>;
+      interruptNotebookKernel: (notebookPath: string) => Promise<{
+        success: true;
+      }>;
+      restartNotebookKernel: (payload: {
+        notebookPath: string;
+        interpreterPath: string;
+      }) => Promise<{
+        success: true;
+        kernel: NotebookKernelDescriptor | null;
+      }>;
+      releaseNotebookKernel: (notebookPath: string) => Promise<{
+        success: true;
       }>;
 
       onFolderChanged: (
@@ -77,6 +247,7 @@ declare global {
       ) => () => void;
       onTerminalData: (callback: (payload: TerminalDataEvent) => void) => () => void;
       onTerminalStatus: (callback: (payload: TerminalStatusEvent) => void) => () => void;
+      onNotebookKernelEvent: (callback: (payload: NotebookKernelEvent) => void) => () => void;
     };
   }
 }

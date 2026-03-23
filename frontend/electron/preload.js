@@ -20,6 +20,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   clearTerminal: () => ipcRenderer.invoke("terminal:clear"),
   printTerminalMessage: (text) => ipcRenderer.invoke("terminal:message", text),
   runPythonInTerminal: (filePath) => ipcRenderer.invoke("terminal:run-python", filePath),
+  listNotebookKernels: (options) => ipcRenderer.invoke("notebook:list-kernels", options),
+  refreshNotebookKernels: (options) => ipcRenderer.invoke("notebook:refresh-kernels", options),
+  getNotebookKernelDiagnostics: (options) =>
+    ipcRenderer.invoke("notebook:get-kernel-diagnostics", options),
+  executeNotebookCell: (payload) => ipcRenderer.invoke("notebook:execute-cell", payload),
+  interruptNotebookKernel: (notebookPath) =>
+    ipcRenderer.invoke("notebook:interrupt-kernel", notebookPath),
+  restartNotebookKernel: (payload) => ipcRenderer.invoke("notebook:restart-kernel", payload),
+  releaseNotebookKernel: (notebookPath) => ipcRenderer.invoke("notebook:release-kernel", notebookPath),
   onFolderChanged: (callback) => {
     const listener = (_, payload) => callback(payload);
     ipcRenderer.on("folder:changed", listener);
@@ -34,5 +43,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     const listener = (_, payload) => callback(payload);
     ipcRenderer.on("terminal:status", listener);
     return () => ipcRenderer.removeListener("terminal:status", listener);
+  },
+  onNotebookKernelEvent: (callback) => {
+    const listener = (_, payload) => callback(payload);
+    ipcRenderer.on("notebook:kernel-event", listener);
+    return () => ipcRenderer.removeListener("notebook:kernel-event", listener);
   },
 });
