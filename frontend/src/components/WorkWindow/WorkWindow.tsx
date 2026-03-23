@@ -1,223 +1,186 @@
 import { Editor } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { RxCross1 } from "react-icons/rx";
-import {
-  closeFile,
-  setActiveFile,
-  updateFileContent,
-} from "../../features/files/filesSlice";
+import { closeFile, setActiveFile, updateFileContent } from "../../features/files/filesSlice";
+import { useDesktopActions } from "../../hooks/useDesktopActions";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { applyMonacoTheme } from "../../styles/monacoTheme";
+import { registerMonacoThemes } from "../../styles/monacoTheme";
 import { getMonacoThemeName, type ThemeName } from "../../styles/tokens";
 
 type WorkWindowProps = {
   theme: ThemeName;
 };
 
-function extToLang(ext: string | null | undefined) {
-  if (!ext) {
+function extToLang(extension: string | null | undefined) {
+  if (!extension) {
     return "plaintext";
   }
 
-  const extL = ext.toLowerCase();
-
-  switch (extL) {
+  switch (extension.toLowerCase()) {
+    case "py":
+      return "python";
+    case "ts":
+    case "tsx":
+      return "typescript";
+    case "js":
+    case "jsx":
+      return "javascript";
     case "cpp":
-      return "cpp";
+    case "cc":
+    case "cxx":
     case "h":
+    case "hpp":
       return "cpp";
     case "json":
       return "json";
     case "md":
       return "markdown";
+    case "html":
+      return "html";
+    case "css":
+      return "css";
     default:
       return "plaintext";
   }
 }
 
+function EmptyEditorState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex h-full items-center justify-center px-6">
+      <div className="max-w-lg rounded-2xl border border-default bg-panel px-6 py-8 text-center shadow-sm">
+        <div className="text-xs uppercase tracking-[0.22em] text-muted">Cross++ IDE</div>
+        <h2 className="mt-3 text-xl text-primary">{title}</h2>
+        <p className="mt-2 text-sm leading-6 text-secondary">{description}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function WorkWindow({ theme }: WorkWindowProps) {
   const dispatch = useAppDispatch();
-  const { openedFiles, activeFileId } = useAppSelector((state) => state.files);
-  const activeFile = openedFiles.find((file) => file.id === activeFileId);
+  const rootPath = useAppSelector((state) => state.workspace.rootPath);
+  const { openedFiles, activeFilePath } = useAppSelector((state) => state.files);
+  const activeFile = openedFiles.find((file) => file.path === activeFilePath) ?? null;
+  const { saveActiveFile } = useDesktopActions();
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const monacoRef = useRef<typeof monaco | null>(null);
-  const timeoutRef = useRef<number | null>(null);
-  const [dirtyMap, setDirtyMap] = useState<Record<string, boolean>>({});
 
-  const saveCurrentFile = useCallback(async () => {
-    const editor = editorRef.current;
-    if (!editor) {
-      return;
-    }
-
-    const currentFile = openedFiles.find((file) => file.id === activeFileId);
-    if (!currentFile) {
-      return;
-    }
-
-    const content = editor.getValue();
-
-    dispatch(updateFileContent({ id: currentFile.id, content }));
-
-    try {
-      await window.electronAPI.writeFile(currentFile.id, content);
-
-      setDirtyMap((prev) => ({
-        ...prev,
-        [currentFile.id]: false,
-      }));
-
-      console.log("Сохранилось", currentFile.id);
-    } catch (err) {
-      console.error("Ошибка при сохранении файла", err);
-    }
-  }, [activeFileId, openedFiles, dispatch]);
+  const handleSave = useCallback(async () => {
+    await saveActiveFile();
+  }, [saveActiveFile]);
 
   useEffect(() => {
     if (!editorRef.current) {
       return;
     }
 
-    const editor = editorRef.current;
-
-    const disposable = editor.addAction({
+    const disposable = editorRef.current.addAction({
       id: "save-file",
-      label: "Save File",
+      label: "Сохранить файл",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
       run: async () => {
-        await saveCurrentFile();
+        await handleSave();
       },
     });
 
     return () => {
       disposable.dispose();
     };
-  }, [saveCurrentFile]);
+  }, [handleSave]);
 
-  const onMount = useCallback(
-    (
-      editor: monaco.editor.IStandaloneCodeEditor,
-      monacoInstance: typeof monaco,
-    ) => {
-      editorRef.current = editor;
-      monacoRef.current = monacoInstance;
-      applyMonacoTheme(monacoInstance, theme);
-      monacoInstance.editor.setTheme(getMonacoThemeName(theme));
-    },
-    [theme],
-  );
+  const beforeMount = useCallback((monacoInstance: typeof monaco) => {
+    registerMonacoThemes(monacoInstance);
+  }, []);
 
-  const beforeMount = useCallback(
-    (monacoInstance: typeof monaco) => {
-      applyMonacoTheme(monacoInstance, theme);
-    },
-    [theme],
-  );
+  const onMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor) => {
+    editorRef.current = editor;
+  }, []);
 
-  const editorChange = useCallback(
+  const handleEditorChange = useCallback(
     (value: string | undefined) => {
       if (!activeFile || value === undefined) {
         return;
       }
 
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-
-      timeoutRef.current = window.setTimeout(() => {
-        dispatch(updateFileContent({ id: activeFile.id, content: value }));
-
-        setDirtyMap((prev) => ({
-          ...prev,
-          [activeFile.id]: true,
-        }));
-      }, 150);
+      dispatch(
+        updateFileContent({
+          path: activeFile.path,
+          content: value,
+        }),
+      );
     },
     [activeFile, dispatch],
   );
 
-  useEffect(() => {
-    if (!monacoRef.current) {
-      return;
-    }
-
-    applyMonacoTheme(monacoRef.current, theme);
-    monacoRef.current.editor.setTheme(getMonacoThemeName(theme));
-  }, [theme]);
-
-  useEffect(() => {
-    const existingIds = new Set(openedFiles.map((file) => file.id));
-
-    setDirtyMap((prev) => {
-      const next: Record<string, boolean> = {};
-
-      for (const key of Object.keys(prev)) {
-        if (existingIds.has(key)) {
-          next[key] = prev[key];
-        }
-      }
-
-      return next;
-    });
-  }, [openedFiles]);
-
-  if (openedFiles.length === 0) {
-    return <div className="flex-1 bg-editor" />;
+  if (!rootPath) {
+    return (
+      <div className="min-h-0 flex-1 bg-editor">
+        <EmptyEditorState
+          title="Откройте локальную папку"
+          description="Открытие проекта начинается из верхнего меню File или по сочетанию Ctrl+O. После этого появятся проводник, редактор, кнопка Run и встроенный терминал."
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-editor min-w-0">
-      <div className="flex items-end px-2 pt-2 border-b border-default bg-editor overflow-x-auto">
-        {openedFiles.map((file) => (
-          <div
-            key={file.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => dispatch(setActiveFile(file.id))}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                dispatch(setActiveFile(file.id));
-              }
-            }}
-            className={`ui-tab px-3 py-2 flex gap-2 items-center ${
-              activeFileId === file.id ? "ui-tab-active border-b-editor" : ""
-            }`}
-          >
-            <span className="flex items-center gap-2 whitespace-nowrap">
-              <span>
-                {file.name}
-                {file.extencion ? `.${file.extencion}` : ""}
+    <div className="flex min-h-0 flex-1 min-w-0 flex-col bg-editor">
+      <div className="flex items-end overflow-x-auto border-b border-default bg-editor px-2 pt-2">
+        {openedFiles.length > 0 ? (
+          openedFiles.map((file) => (
+            <div
+              key={file.path}
+              role="button"
+              tabIndex={0}
+              onClick={() => dispatch(setActiveFile(file.path))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  dispatch(setActiveFile(file.path));
+                }
+              }}
+              className={`ui-tab flex items-center gap-2 px-3 py-2 ${
+                activeFilePath === file.path ? "ui-tab-active" : ""
+              }`}
+            >
+              <span className="flex items-center gap-2 whitespace-nowrap">
+                <span>{file.name}</span>
+                {file.isDirty ? <span className="text-warning text-xs">●</span> : null}
               </span>
 
-              {dirtyMap[file.id] ? (
-                <span className="text-warning text-sm leading-none">●</span>
-              ) : null}
-            </span>
-
-            <button
-              type="button"
-              className="ui-control h-5 w-5"
-              onClick={(e) => {
-                e.stopPropagation();
-                dispatch(closeFile(file.id));
-              }}
-            >
-              <RxCross1 className="h-3 w-3" />
-            </button>
-          </div>
-        ))}
+              <button
+                type="button"
+                className="ui-control h-5 w-5 shrink-0"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  dispatch(closeFile(file.path));
+                }}
+                title="Закрыть файл"
+              >
+                <RxCross1 className="h-3 w-3" />
+              </button>
+            </div>
+          ))
+        ) : (
+          <div className="px-3 py-2 text-sm text-muted">Файлы пока не открыты</div>
+        )}
       </div>
 
-      <div className="flex-1 min-h-0 border-t border-default">
+      <div className="min-h-0 flex-1 border-t border-default">
         {activeFile ? (
           <Editor
+            path={activeFile.path}
             height="100%"
-            language={extToLang(activeFile.extencion)}
+            language={extToLang(activeFile.extension)}
             value={activeFile.content}
-            onChange={editorChange}
+            onChange={handleEditorChange}
             beforeMount={beforeMount}
             onMount={onMount}
             theme={getMonacoThemeName(theme)}
@@ -234,7 +197,12 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
               insertSpaces: true,
             }}
           />
-        ) : null}
+        ) : (
+          <EmptyEditorState
+            title="Выберите файл в проводнике"
+            description="Откройте папку через File или по Ctrl+O, затем выберите файл в левой панели. Для запуска Python используйте кнопку Run или клавишу F5. Терминал открывается по Ctrl+J."
+          />
+        )}
       </div>
     </div>
   );

@@ -1,95 +1,325 @@
-import React, { useState } from "react";
+import { useEffect, useRef } from "react";
 import { CiFileOn } from "react-icons/ci";
-import { IoMdFolderOpen } from "react-icons/io";
-import { IoFolderOpenOutline } from "react-icons/io5";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { IoMdFolder, IoMdFolderOpen } from "react-icons/io";
 import { RiArrowDropDownLine, RiArrowDropRightLine } from "react-icons/ri";
+import { VscNewFile, VscNewFolder } from "react-icons/vsc";
+import type { FsNodeType } from "../../../utils/path";
 
-export type TreeItemType = {
-  id: string;
+export type WorkspaceTreeNode = {
   name: string;
-  extencion?: string;
-  type: "file" | "folder";
-  children?: TreeItemType[];
-  content?: string;
+  path: string;
+  type: FsNodeType;
+  children: WorkspaceTreeNode[];
+  isLoaded: boolean;
 };
 
-interface TreeItemProps {
-  unit: TreeItemType;
-  onUnitClick: (unit: TreeItemType) => void;
+export type TreeDraft =
+  | {
+      mode: "create";
+      parentPath: string;
+      nodeType: FsNodeType;
+      value: string;
+    }
+  | {
+      mode: "rename";
+      targetPath: string;
+      parentPath: string;
+      nodeType: FsNodeType;
+      value: string;
+    };
+
+type InlineNameInputProps = {
+  value: string;
+  placeholder: string;
+  depth: number;
+  nodeType: FsNodeType;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+};
+
+export function InlineNameInput({
+  value,
+  placeholder,
+  depth,
+  nodeType,
+  onChange,
+  onSubmit,
+  onCancel,
+}: InlineNameInputProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  return (
+    <div className="px-2 py-1.5" style={{ paddingLeft: `${depth * 16 + 8}px` }}>
+      <div className="ui-tree-item flex items-center gap-2 border border-default bg-active px-2 py-1.5">
+        <span className="w-4 shrink-0" />
+        <span className="w-4 shrink-0 text-secondary">
+          {nodeType === "folder" ? <IoMdFolder className="h-4 w-4" /> : <CiFileOn className="h-4 w-4" />}
+        </span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onCancel}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              onSubmit();
+            }
+
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onCancel();
+            }
+          }}
+          placeholder={placeholder}
+          className="w-full border-none bg-transparent text-sm text-primary placeholder:text-muted focus:outline-none focus:ring-0"
+        />
+      </div>
+    </div>
+  );
 }
 
-const TreeItem: React.FC<TreeItemProps> = ({ unit, onUnitClick }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [children, setChildren] = useState<TreeItemType[] | null>(unit.children ?? null);
+type TreeItemProps = {
+  node: WorkspaceTreeNode;
+  depth: number;
+  expandedPaths: Set<string>;
+  selectedPath: string | null;
+  draft: TreeDraft | null;
+  loadingPath: string | null;
+  onToggleFolder: (node: WorkspaceTreeNode) => void;
+  onOpenFile: (node: WorkspaceTreeNode) => void;
+  onRequestCreate: (parentPath: string, nodeType: FsNodeType) => void;
+  onRequestRename: (node: WorkspaceTreeNode) => void;
+  onRequestDelete: (node: WorkspaceTreeNode) => void;
+  onDraftChange: (value: string) => void;
+  onDraftSubmit: () => void;
+  onDraftCancel: () => void;
+};
 
-  const processClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    if (unit.type === "folder") {
-      if (!isOpen && !children) {
-        try {
-          const files = await window.electronAPI.listFolder(unit.id);
-
-          setChildren(
-            files.map((file) => ({
-              id: `${unit.id}/${file.name}`,
-              type: file.isDirectory ? "folder" : "file",
-              name: file.name,
-            })),
-          );
-        } catch (err) {
-          console.error("Ошибка при загрузке папки", err);
-        }
-      }
-
-      setIsOpen(!isOpen);
-      return;
-    }
-
-    onUnitClick(unit);
-  };
+export default function TreeItem({
+  node,
+  depth,
+  expandedPaths,
+  selectedPath,
+  draft,
+  loadingPath,
+  onToggleFolder,
+  onOpenFile,
+  onRequestCreate,
+  onRequestRename,
+  onRequestDelete,
+  onDraftChange,
+  onDraftSubmit,
+  onDraftCancel,
+}: TreeItemProps) {
+  const isExpanded = expandedPaths.has(node.path);
+  const isSelected = selectedPath === node.path;
+  const isRenaming = draft?.mode === "rename" && draft.targetPath === node.path;
+  const showCreateInside = draft?.mode === "create" && draft.parentPath === node.path && isExpanded;
 
   return (
     <div className="select-none">
-      <button
-        type="button"
-        className="ui-tree-item w-full px-2 py-1.5 flex gap-2 items-center text-left"
-        onClick={processClick}
+      <div
+        className={`group flex items-center gap-2 px-2 py-1.5 text-left ${
+          isSelected ? "ui-tree-item border border-default bg-active text-primary" : "ui-tree-item"
+        }`}
+        style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
-        <span className="w-4 flex justify-center text-secondary">
-          {unit.type === "folder" ? (
-            isOpen ? (
-              <RiArrowDropDownLine className="text-lg" />
-            ) : (
-              <RiArrowDropRightLine className="text-lg" />
-            )
+        {isRenaming ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="flex w-4 shrink-0 justify-center text-secondary">
+              {node.type === "folder" ? (
+                isExpanded ? (
+                  <RiArrowDropDownLine className="h-4 w-4" />
+                ) : (
+                  <RiArrowDropRightLine className="h-4 w-4" />
+                )
+              ) : null}
+            </span>
+
+            <span className="flex w-4 shrink-0 justify-center text-secondary">
+              {node.type === "folder" ? (
+                isExpanded ? (
+                  <IoMdFolderOpen className="h-4 w-4" />
+                ) : (
+                  <IoMdFolder className="h-4 w-4" />
+                )
+              ) : (
+                <CiFileOn className="h-4 w-4" />
+              )}
+            </span>
+
+            <input
+              type="text"
+              value={draft.value}
+              onChange={(event) => onDraftChange(event.target.value)}
+              onBlur={onDraftCancel}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onDraftSubmit();
+                }
+
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  onDraftCancel();
+                }
+              }}
+              className="w-full rounded-[6px] border border-default bg-input px-2 py-1 text-sm text-primary focus:outline-none focus:ring-0"
+              autoFocus
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            onClick={() => {
+              if (node.type === "folder") {
+                onToggleFolder(node);
+                return;
+              }
+
+              onOpenFile(node);
+            }}
+          >
+            <span className="flex w-4 shrink-0 justify-center text-secondary">
+              {node.type === "folder" ? (
+                isExpanded ? (
+                  <RiArrowDropDownLine className="h-4 w-4" />
+                ) : (
+                  <RiArrowDropRightLine className="h-4 w-4" />
+                )
+              ) : null}
+            </span>
+
+            <span className="flex w-4 shrink-0 justify-center text-secondary">
+              {node.type === "folder" ? (
+                isExpanded ? (
+                  <IoMdFolderOpen className="h-4 w-4" />
+                ) : (
+                  <IoMdFolder className="h-4 w-4" />
+                )
+              ) : (
+                <CiFileOn className="h-4 w-4" />
+              )}
+            </span>
+
+            <span className="block min-w-0 flex-1 truncate text-sm">{node.name}</span>
+          </button>
+        )}
+
+        {!isRenaming ? (
+          <div
+            className={`ml-auto flex items-center gap-1 transition-opacity ${
+              isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            }`}
+          >
+            {node.type === "folder" ? (
+              <>
+                <button
+                  type="button"
+                  className="ui-control h-6 w-6"
+                  title="Новый файл"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRequestCreate(node.path, "file");
+                  }}
+                >
+                  <VscNewFile className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="ui-control h-6 w-6"
+                  title="Новая папка"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRequestCreate(node.path, "folder");
+                  }}
+                >
+                  <VscNewFolder className="h-3.5 w-3.5" />
+                </button>
+              </>
+            ) : null}
+
+            <button
+              type="button"
+              className="ui-control h-6 w-6"
+              title="Переименовать"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRequestRename(node);
+              }}
+            >
+              <FiEdit2 className="h-3.5 w-3.5" />
+            </button>
+
+            <button
+              type="button"
+              className="ui-control h-6 w-6"
+              title="Удалить"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRequestDelete(node);
+              }}
+            >
+              <FiTrash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {node.type === "folder" && isExpanded ? (
+        <div>
+          {showCreateInside ? (
+            <InlineNameInput
+              value={draft.value}
+              placeholder={draft.nodeType === "folder" ? "Имя новой папки" : "Имя нового файла"}
+              depth={depth + 1}
+              nodeType={draft.nodeType}
+              onChange={onDraftChange}
+              onSubmit={onDraftSubmit}
+              onCancel={onDraftCancel}
+            />
           ) : null}
-        </span>
-        <span className="w-4 flex justify-center text-secondary">
-          {unit.type === "folder" ? (
-            isOpen ? (
-              <IoFolderOpenOutline className="text-lg" />
-            ) : (
-              <IoMdFolderOpen className="text-lg" />
-            )
-          ) : (
-            <CiFileOn className="text-lg" />
-          )}
-        </span>
-        <span className="truncate">
-          {unit.name}
-          {unit.type === "file" && unit.extencion ? `.${unit.extencion}` : ""}
-        </span>
-      </button>
-      {isOpen && children ? (
-        <div className="pl-4">
-          {children.map((child) => (
-            <TreeItem key={child.id} unit={child} onUnitClick={onUnitClick} />
+
+          {loadingPath === node.path ? (
+            <div
+              className="px-2 py-1 text-xs text-muted"
+              style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }}
+            >
+              Загрузка...
+            </div>
+          ) : null}
+
+          {node.children.map((child) => (
+            <TreeItem
+              key={child.path}
+              node={child}
+              depth={depth + 1}
+              expandedPaths={expandedPaths}
+              selectedPath={selectedPath}
+              draft={draft}
+              loadingPath={loadingPath}
+              onToggleFolder={onToggleFolder}
+              onOpenFile={onOpenFile}
+              onRequestCreate={onRequestCreate}
+              onRequestRename={onRequestRename}
+              onRequestDelete={onRequestDelete}
+              onDraftChange={onDraftChange}
+              onDraftSubmit={onDraftSubmit}
+              onDraftCancel={onDraftCancel}
+            />
           ))}
         </div>
       ) : null}
     </div>
   );
-};
-
-export default TreeItem;
+}

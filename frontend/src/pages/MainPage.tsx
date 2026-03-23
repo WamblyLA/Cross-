@@ -1,56 +1,68 @@
-import { Provider } from "react-redux";
+import { useEffect } from "react";
+import Console from "../components/Console";
 import SideBar from "../components/SideBar/SideBar";
-import SideIcons from "../components/SideIcons/SideIcons";
 import TopBar from "../components/TopBar/TopBar";
 import WorkWindow from "../components/WorkWindow/WorkWindow";
-import store from "../store/store";
+import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
+import {
+  terminalClosed,
+  terminalRunFinished,
+  terminalRunStarted,
+} from "../features/runner/runnerSlice";
 import type { ThemeName } from "../styles/tokens";
-import PrimaryButton from "../ui/PrimaryButton";
+import { useAppDispatch } from "../store/hooks";
 
 type MainPageProps = {
-  rootPath: string | null;
-  setRootPath: React.Dispatch<React.SetStateAction<string | null>>;
   theme: ThemeName;
   onToggleTheme: () => void;
 };
 
-export default function MainPage({
-  rootPath,
-  setRootPath,
-  theme,
-  onToggleTheme,
-}: MainPageProps) {
-  const handleOpenFolder = async () => {
-    try {
-      const result = await window.electronAPI.openFolder();
-      if (!result) return;
+export default function MainPage({ theme, onToggleTheme }: MainPageProps) {
+  const dispatch = useAppDispatch();
 
-      setRootPath(result.folderPath);
-      console.log("Opened folder:", result.folderPath);
-    } catch (err) {
-      console.error("Open folder error", err);
-    }
-  };
+  useGlobalShortcuts();
+
+  useEffect(() => {
+    const unsubscribeStatus = window.electronAPI.onTerminalStatus((payload) => {
+      if (payload.type === "closed") {
+        dispatch(terminalClosed());
+        return;
+      }
+
+      if (payload.type === "run-started") {
+        dispatch(
+          terminalRunStarted({
+            filePath: payload.filePath,
+            interpreter: payload.interpreter,
+          }),
+        );
+        return;
+      }
+
+      dispatch(
+        terminalRunFinished({
+          exitCode: payload.exitCode,
+        }),
+      );
+    });
+
+    return () => {
+      unsubscribeStatus();
+    };
+  }, [dispatch]);
 
   return (
-    <Provider store={store}>
-      <div className="h-screen w-full bg-app text-primary flex flex-col">
-        <TopBar theme={theme} onToggleTheme={onToggleTheme} />
+    <div className="flex h-screen w-full flex-col overflow-hidden bg-app text-primary">
+      <TopBar theme={theme} onToggleTheme={onToggleTheme} />
 
-        <div className="px-2 py-2 border-b border-default bg-app flex items-center gap-3">
-          <PrimaryButton onClick={handleOpenFolder} className="px-3 py-1.5 text-sm">
-            Открыть
-          </PrimaryButton>
+      <div className="flex min-h-0 flex-1">
+        <SideBar />
 
-          {rootPath ? <span className="text-sm text-muted">{rootPath}</span> : null}
-        </div>
-
-        <div className="flex-1 w-full flex min-h-0">
-          <SideIcons />
-          <SideBar rootPath={rootPath} />
+        <div className="flex min-w-0 flex-1 flex-col bg-editor">
           <WorkWindow theme={theme} />
+          <Console theme={theme} />
         </div>
       </div>
-    </Provider>
+    </div>
   );
 }

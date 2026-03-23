@@ -2,16 +2,12 @@ import ResizeableBlock from "../../ui/ResizeableBlock";
 import FileTree from "./FileTree/FileTree";
 import OptionsBar from "./OptionsBar/OptionsBar";
 
-type SideBarProps = {
-  rootPath: string | null;
-};
-
-export default function SideBar({ rootPath }: SideBarProps) {
+export default function SideBar() {
   return (
-    <ResizeableBlock minWidth={200} direction="r" defaultWidth={300}>
-      <div className="bg-chrome border-r border-default w-full h-full flex flex-col">
+    <ResizeableBlock minWidth={220} direction="r" defaultWidth={300}>
+      <div className="bg-chrome border-r border-default w-full h-full flex flex-col min-w-0">
         <OptionsBar />
-        <FileTree rootPath={rootPath} />
+        <FileTree />
       </div>
     </ResizeableBlock>
   );
