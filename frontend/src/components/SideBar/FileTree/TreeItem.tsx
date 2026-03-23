@@ -1,9 +1,8 @@
 import React, { useState } from "react";
+import { CiFileOn } from "react-icons/ci";
 import { IoMdFolderOpen } from "react-icons/io";
 import { IoFolderOpenOutline } from "react-icons/io5";
-import { CiFileOn } from "react-icons/ci";
-import { RiArrowDropRightLine } from "react-icons/ri";
-import { RiArrowDropDownLine } from "react-icons/ri";
+import { RiArrowDropDownLine, RiArrowDropRightLine } from "react-icons/ri";
 
 export type TreeItemType = {
   id: string;
@@ -21,9 +20,7 @@ interface TreeItemProps {
 
 const TreeItem: React.FC<TreeItemProps> = ({ unit, onUnitClick }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [children, setChildren] = useState<TreeItemType[] | null>(
-    unit.children ?? null,
-  );
+  const [children, setChildren] = useState<TreeItemType[] | null>(unit.children ?? null);
 
   const processClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -54,22 +51,21 @@ const TreeItem: React.FC<TreeItemProps> = ({ unit, onUnitClick }) => {
 
   return (
     <div className="select-none">
-      <div
-        className="w-full px-1 py-1 flex gap-2 items-center hover:cursor-pointer"
+      <button
+        type="button"
+        className="ui-tree-item w-full px-2 py-1.5 flex gap-2 items-center text-left"
         onClick={processClick}
       >
-        <div>
+        <span className="w-4 flex justify-center text-secondary">
           {unit.type === "folder" ? (
             isOpen ? (
               <RiArrowDropDownLine className="text-lg" />
             ) : (
               <RiArrowDropRightLine className="text-lg" />
             )
-          ) : (
-            ""
-          )}
-        </div>
-        <div>
+          ) : null}
+        </span>
+        <span className="w-4 flex justify-center text-secondary">
           {unit.type === "folder" ? (
             isOpen ? (
               <IoFolderOpenOutline className="text-lg" />
@@ -79,19 +75,19 @@ const TreeItem: React.FC<TreeItemProps> = ({ unit, onUnitClick }) => {
           ) : (
             <CiFileOn className="text-lg" />
           )}
-        </div>
-        <span>
+        </span>
+        <span className="truncate">
           {unit.name}
           {unit.type === "file" && unit.extencion ? `.${unit.extencion}` : ""}
         </span>
-      </div>
-      {isOpen && children && (
-        <div style={{ paddingLeft: "16px" }}>
+      </button>
+      {isOpen && children ? (
+        <div className="pl-4">
           {children.map((child) => (
             <TreeItem key={child.id} unit={child} onUnitClick={onUnitClick} />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

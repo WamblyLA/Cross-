@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { openFile } from "../../../features/files/filesSlice";
+import { useAppDispatch } from "../../../store/hooks";
 import TreeItem from "./TreeItem";
 import type { TreeItemType } from "./TreeItem";
-import { useAppDispatch } from "../../../store/hooks";
-import { openFile } from "../../../features/files/filesSlice";
 
 type FileTreeProps = {
   rootPath: string | null;
@@ -91,19 +91,19 @@ const FileTree: React.FC<FileTreeProps> = ({ rootPath }) => {
   };
 
   if (!rootPath) {
-    return <div className="w-full h-full py-1 px-2">Папка не открыта</div>;
+    return <div className="w-full h-full px-3 py-3 text-sm text-muted">Папка не открыта</div>;
   }
 
   if (isLoading) {
-    return <div>Загрузка</div>;
+    return <div className="px-3 py-3 text-sm text-secondary">Загрузка</div>;
   }
 
   if (error) {
-    return <div>Возникла ошибка {error}</div>;
+    return <div className="px-3 py-3 text-sm text-error">Возникла ошибка {error}</div>;
   }
 
   return (
-    <div className="w-full h-full py-1 px-2">
+    <div className="w-full h-full py-2 px-2 text-sm text-secondary overflow-auto">
       {tree.map((unit) => (
         <TreeItem key={unit.id} unit={unit} onUnitClick={clicked} />
       ))}

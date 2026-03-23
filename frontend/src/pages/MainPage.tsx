@@ -1,16 +1,25 @@
-import TopBar from "../components/TopBar/TopBar";
+import { Provider } from "react-redux";
 import SideBar from "../components/SideBar/SideBar";
 import SideIcons from "../components/SideIcons/SideIcons";
-import { Provider } from "react-redux";
-import store from "../store/store";
+import TopBar from "../components/TopBar/TopBar";
 import WorkWindow from "../components/WorkWindow/WorkWindow";
+import store from "../store/store";
+import type { ThemeName } from "../styles/tokens";
+import PrimaryButton from "../ui/PrimaryButton";
 
 type MainPageProps = {
   rootPath: string | null;
   setRootPath: React.Dispatch<React.SetStateAction<string | null>>;
+  theme: ThemeName;
+  onToggleTheme: () => void;
 };
 
-export default function MainPage({ rootPath, setRootPath }: MainPageProps) {
+export default function MainPage({
+  rootPath,
+  setRootPath,
+  theme,
+  onToggleTheme,
+}: MainPageProps) {
   const handleOpenFolder = async () => {
     try {
       const result = await window.electronAPI.openFolder();
@@ -25,27 +34,21 @@ export default function MainPage({ rootPath, setRootPath }: MainPageProps) {
 
   return (
     <Provider store={store}>
-      <div className="h-screen w-full bg-main-page-bg flex flex-col">
-        <TopBar />
+      <div className="h-screen w-full bg-app text-primary flex flex-col">
+        <TopBar theme={theme} onToggleTheme={onToggleTheme} />
 
-        {/* <TODO>Эту кнопку потом убрать, это открытие папки</TODO> */}
-        <div className="px-2 py-1">
-          <button
-            onClick={handleOpenFolder}
-            className="px-3 py-1 bg-green-800 text-white rounded"
-          >
+        <div className="px-2 py-2 border-b border-default bg-app flex items-center gap-3">
+          <PrimaryButton onClick={handleOpenFolder} className="px-3 py-1.5 text-sm">
             Открыть
-          </button>
+          </PrimaryButton>
 
-          {rootPath && (
-            <span className="ml-3 text-sm text-gray-400">{rootPath}</span>
-          )}
+          {rootPath ? <span className="text-sm text-muted">{rootPath}</span> : null}
         </div>
 
-        <div className="flex-1 w-full flex">
+        <div className="flex-1 w-full flex min-h-0">
           <SideIcons />
           <SideBar rootPath={rootPath} />
-          <WorkWindow />
+          <WorkWindow theme={theme} />
         </div>
       </div>
     </Provider>

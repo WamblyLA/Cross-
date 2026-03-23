@@ -1,12 +1,33 @@
+@import "./styles/theme.css";
+@import "./styles/ui.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
+
 html, body, #root {
   height: 100%;
-  color: #e1fae3;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--selection);
+  color: var(--text-primary);
 }

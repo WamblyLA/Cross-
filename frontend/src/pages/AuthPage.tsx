@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import InputField from "../ui/InputField";
-import PrimaryButton from "../ui/PrimaryButton";
 import AuthTabs from "../components/Auth/AuthTabs";
 import { useRequest } from "../hooks/useRequest";
+import InputField from "../ui/InputField";
+import PrimaryButton from "../ui/PrimaryButton";
 
 type AuthMode = "signin" | "signup";
 
@@ -107,9 +107,9 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-main-page-bg px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 p-6 flex flex-col gap-4 bg-white/5">
-        <h1 className="text-2xl font-semibold">
+    <div className="min-h-screen w-full flex items-center justify-center bg-app px-4">
+      <div className="ui-panel w-full max-w-md p-6 flex flex-col gap-4">
+        <h1 className="text-2xl font-semibold text-primary">
           {mode === "signin" ? "Уже есть аккаунт?" : "Готовы создать аккаунт?"}
         </h1>
 
@@ -144,9 +144,7 @@ export default function AuthPage() {
               placeholder="••••••••"
             />
           ) : null}
-          {serverError ? (
-            <div className="text-red-500 text-sm">{serverError}</div>
-          ) : null}
+          {serverError ? <div className="text-error text-sm">{serverError}</div> : null}
           <PrimaryButton type="submit" disabled={isLoading || hasErrors}>
             {isLoading
               ? "Загрузка..."

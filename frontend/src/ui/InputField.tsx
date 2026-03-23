@@ -17,15 +17,15 @@ export default function InputField({
 }: InputFieldProps) {
   return (
     <div className="flex flex-col gap-1 w-full">
-      <label className="text-sm">{label}</label>
+      <label className="text-sm text-secondary">{label}</label>
       <input
         type={type}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-2 rounded border border-white/20 bg-transparent outline-none"
+        className="ui-input px-3 py-2"
       />
-      {error ? <span className="text-red-500 text-xs">{error}</span> : null}
+      {error ? <span className="text-error text-xs">{error}</span> : null}
     </div>
   );
 }

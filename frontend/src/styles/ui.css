@@ -1,0 +1,166 @@
+﻿@layer components {
+  .ui-panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .ui-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .ui-control:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .ui-control:active {
+    background: var(--bg-active);
+  }
+
+  .ui-control:focus-visible,
+  .ui-input:focus-visible,
+  .ui-field:focus-within,
+  .ui-tree-item:focus-visible,
+  .ui-tab:focus-visible {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: var(--focus-ring);
+  }
+
+  .ui-button-primary {
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    color: var(--text-inverse);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+
+  .ui-button-primary:hover {
+    background: var(--accent-strong);
+    border-color: var(--accent-strong);
+  }
+
+  .ui-button-primary:active {
+    transform: translateY(1px);
+  }
+
+  .ui-button-primary:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+  }
+
+  .ui-button-secondary {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+  }
+
+  .ui-button-secondary:hover {
+    border-color: var(--border-strong);
+  }
+
+  .ui-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .ui-input:hover {
+    border-color: var(--border-strong);
+  }
+
+  .ui-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  .ui-field {
+    background: var(--bg-input);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .ui-field:hover {
+    border-color: var(--border-strong);
+  }
+
+  .ui-field:focus-within {
+    color: var(--text-primary);
+  }
+
+  .ui-tab {
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    color: var(--text-secondary);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .ui-tab:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .ui-tab-active {
+    background: var(--bg-panel);
+    border-color: var(--border-default);
+    color: var(--text-primary);
+  }
+
+  .ui-tree-item {
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .ui-tree-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .ui-resize-handle {
+    background: transparent;
+    transition: background-color 0.15s ease;
+  }
+
+  .ui-resize-handle:hover {
+    background: var(--border-strong);
+  }
+}

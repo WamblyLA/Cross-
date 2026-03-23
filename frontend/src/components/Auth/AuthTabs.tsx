@@ -7,18 +7,22 @@ type AuthTabsProps = {
 
 export default function AuthTabs({ mode, setMode }: AuthTabsProps) {
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 rounded-md bg-chrome p-1 border border-default">
       <button
         type="button"
         onClick={() => setMode("signin")}
-        className={`px-3 py-1 rounded ${mode === "signin" ? "bg-white/20" : "bg-transparent"}`}
+        className={`ui-control flex-1 px-3 py-1.5 text-sm ${
+          mode === "signin" ? "bg-active text-primary border border-default" : "text-secondary"
+        }`}
       >
         Войти
       </button>
       <button
         type="button"
         onClick={() => setMode("signup")}
-        className={`px-3 py-1 rounded ${mode === "signup" ? "bg-white/20" : "bg-transparent"}`}
+        className={`ui-control flex-1 px-3 py-1.5 text-sm ${
+          mode === "signup" ? "bg-active text-primary border border-default" : "text-secondary"
+        }`}
       >
         Зарегистрироваться
       </button>

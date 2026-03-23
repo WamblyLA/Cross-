@@ -1,15 +1,21 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import TopBarItem from "./TopBarItem";
-import TopBarIcon from "./TopBarIcon";
-import { RxCross1 } from "react-icons/rx";
-import { IoIosSquareOutline } from "react-icons/io";
-import { TfiLayoutLineSolid } from "react-icons/tfi";
 import { FiUser } from "react-icons/fi";
-import SearchBar from "../../ui/SearchBar";
+import { IoIosSquareOutline } from "react-icons/io";
+import { RxCross1 } from "react-icons/rx";
+import { TfiLayoutLineSolid } from "react-icons/tfi";
 import { DropbarProviderContext } from "../../providers/DropbarContextProvider";
-import DotsMenu from "./DotsMenu";
+import type { ThemeName } from "../../styles/tokens";
 import { useRequest } from "../../hooks/useRequest";
+import SearchBar from "../../ui/SearchBar";
+import DotsMenu from "./DotsMenu";
+import TopBarIcon from "./TopBarIcon";
+import TopBarItem from "./TopBarItem";
+
+type TopBarProps = {
+  theme: ThemeName;
+  onToggleTheme: () => void;
+};
 
 type MeResponse = {
   user: {
@@ -18,18 +24,10 @@ type MeResponse = {
   };
 };
 
-export default function TopBar() {
+export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
   const navigate = useNavigate();
 
-  const topBarItems = [
-    "About",
-    "File",
-    "Edit",
-    "Menu",
-    "Terminal",
-    "Help",
-    "Run",
-  ];
+  const topBarItems = ["About", "File", "Edit", "Menu", "Terminal", "Help", "Run"];
 
   const mockData = ["Lorem", "Ipsum", "Dolor", "Sit", "Amet"];
   const [visibleItems, setVisibleItems] = useState<string[]>(topBarItems);
@@ -37,8 +35,6 @@ export default function TopBar() {
   const [showDots, setShowDots] = useState<boolean>(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const searchBarRef = useRef<HTMLDivElement>(null);
-  const iconsBarRef = useRef<HTMLDivElement>(null);
   const itemsRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const { data: meData, refetch: refetchMe } = useRequest<MeResponse>({
@@ -103,13 +99,13 @@ export default function TopBar() {
 
   return (
     <div
-      className="top-0 left-0 w-full h-10 bg-top-bar-bg grid grid-cols-[1fr_2fr_1fr] px-2 items-center"
+      className="top-0 left-0 w-full h-10 bg-chrome border-b border-default grid grid-cols-[1fr_2fr_1fr] px-2 items-center"
       ref={containerRef}
     >
-      <div className="flex items-center gap-1 justify-start flex-shrink-0 h-full">
+      <div className="flex items-center gap-1 justify-start flex-shrink-0 h-full min-w-0">
         <img src="/logo.svg" alt="Logo" className="h-6 w-auto flex-shrink-0" />
         <DropbarProviderContext mode="only">
-          <div className="flex items-center gap-0 flex-shrink-0 overflow-visible h-full">
+          <div className="flex items-center gap-0 flex-shrink-0 overflow-visible h-full min-w-0">
             {visibleItems.map((item, index) => (
               <div
                 key={item}
@@ -121,39 +117,38 @@ export default function TopBar() {
               </div>
             ))}
 
-            {showDots && (
+            {showDots ? (
               <DotsMenu key="dots" id="dots">
                 {hiddenItems.map((item) => (
-                  <TopBarItem
-                    key={item}
-                    id={item}
-                    label={item}
-                    dir="right"
-                    data={mockData}
-                  />
+                  <TopBarItem key={item} id={item} label={item} dir="right" data={mockData} />
                 ))}
               </DotsMenu>
-            )}
+            ) : null}
           </div>
         </DropbarProviderContext>
       </div>
 
-      <div ref={searchBarRef} className="mx-4 flex justify-center">
+      <div className="mx-4 flex justify-center min-w-0">
         <SearchBar />
       </div>
 
-      <div
-        ref={iconsBarRef}
-        className="flex items-center gap-3 flex-shrink-0 justify-end"
-      >
+      <div className="flex items-center gap-2 flex-shrink-0 justify-end">
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          className="ui-button-secondary ui-control px-2 py-1 text-xs"
+        >
+          {theme === "dark" ? "Dark" : "Light"}
+        </button>
+
         {meData?.user ? (
-          <div className="flex items-center gap-2 text-sm">
-            <FiUser className="h-4 w-4" />
-            <span>{meData.user.email}</span>
+          <div className="flex items-center gap-2 text-sm min-w-0">
+            <FiUser className="h-4 w-4 text-secondary" />
+            <span className="text-secondary truncate max-w-36">{meData.user.email}</span>
             <button
               type="button"
               onClick={handleLogout}
-              className="px-2 py-1 rounded hover:bg-white/10"
+              className="ui-control px-2 py-1 text-sm"
             >
               Выйти
             </button>
@@ -162,7 +157,7 @@ export default function TopBar() {
           <button
             type="button"
             onClick={() => navigate("/auth")}
-            className="px-2 py-1 rounded hover:bg-white/10 text-sm"
+            className="ui-control px-2 py-1 text-sm"
           >
             Войти
           </button>
@@ -176,10 +171,7 @@ export default function TopBar() {
           icon={IoIosSquareOutline}
           onClick={() => window.electronAPI.toggleMaximizeWindow()}
         />
-        <TopBarIcon
-          icon={RxCross1}
-          onClick={() => window.electronAPI.closeWindow()}
-        />
+        <TopBarIcon icon={RxCross1} onClick={() => window.electronAPI.closeWindow()} />
       </div>
     </div>
   );
