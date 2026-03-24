@@ -1,4 +1,4 @@
-import { spawnSync } from "child_process";
+﻿import { spawnSync } from "child_process";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import fsSync from "fs";
 import fs from "fs/promises";
@@ -207,10 +207,10 @@ function getShellCandidate() {
 
 function buildNodePtyUnavailableError() {
   const baseMessage =
-    "node-pty РЅРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґР»СЏ Electron. Р’С‹РїРѕР»РЅРёС‚Рµ `npm run rebuild:native -w ./frontend`. Р”Р»СЏ Windows С‚Р°РєР¶Рµ РЅСѓР¶РЅС‹ Visual Studio Build Tools.";
+    "node-pty не удалось загрузить для Electron. Выполните npm run rebuild:native -w ./frontend. Для Windows также нужны Visual Studio Build Tools.";
   const details = nodePtyLoadError instanceof Error ? nodePtyLoadError.message : null;
 
-  return new Error(details ? `${baseMessage} РџРѕРґСЂРѕР±РЅРѕСЃС‚Рё: ${details}` : baseMessage);
+  return new Error(details ? `${baseMessage} Подробности: ${details}` : baseMessage);
 }
 
 function createTerminalId(prefix) {
@@ -388,7 +388,7 @@ function requireTerminalSession(terminalId) {
   const session = getTerminalSession(terminalId);
 
   if (!session) {
-    throw new Error("РўРµСЂРјРёРЅР°Р» Р±С‹Р» Р·Р°РєСЂС‹С‚. РћС‚РєСЂРѕР№С‚Рµ РµРіРѕ Р·Р°РЅРѕРІРѕ.");
+    throw new Error("Терминал был закрыт. Откройте его заново.");
   }
 
   return session;
@@ -437,7 +437,7 @@ function disposePty(session) {
   try {
     session.pty.kill();
   } catch {
-    // РРіРЅРѕСЂРёСЂСѓРµРј РѕС€РёР±РєРё Р·Р°РІРµСЂС€РµРЅРёСЏ PTY, РµСЃР»Рё РїСЂРѕС†РµСЃСЃ СѓР¶Рµ РѕСЃС‚Р°РЅРѕРІР»РµРЅ.
+    // Игнорируем ошибки завершения PTY, если процесс уже остановлен.
   }
 
   session.pty = null;
@@ -662,10 +662,10 @@ function ensureIdeRunTerminalSession() {
     throw new Error("Failed to open the Python terminal.");
 
     const message =
-      error instanceof Error ? error.message : "РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ С‚РµСЂРјРёРЅР°Р» РґР»СЏ Python.";
+      error instanceof Error ? error.message : "Не удалось открыть терминал для Python.";
 
     throw new Error(
-      `РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ Python (${path.basename(pythonCommand)}) РґР»СЏ С„Р°Р№Р»Р° ${resolvedFilePath}. ${message}`,
+      `Не удалось запустить Python (${path.basename(pythonCommand)}) для файла ${resolvedFilePath}. ${message}`,
     );
   }
 }
@@ -782,13 +782,13 @@ function resolvePythonRuntime(candidate) {
 
 function resolvePythonRunTarget(filePath) {
   if (typeof filePath !== "string") {
-    throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РїСѓС‚СЊ Рє С„Р°Р№Р»Сѓ Python РґР»СЏ Р·Р°РїСѓСЃРєР°.");
+    throw new Error("Не удалось определить путь к файлу Python для запуска.");
   }
 
   const trimmedPath = filePath.trim();
 
   if (!trimmedPath || trimmedPath === "." || trimmedPath === path.sep) {
-    throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РїСѓС‚СЊ Рє С„Р°Р№Р»Сѓ Python РґР»СЏ Р·Р°РїСѓСЃРєР°.");
+    throw new Error("Не удалось определить путь к файлу Python для запуска.");
   }
 
   const resolvedFilePath = path.resolve(trimmedPath);
@@ -798,11 +798,11 @@ function resolvePythonRunTarget(filePath) {
   try {
     fileStats = fsSync.statSync(resolvedFilePath);
   } catch {
-    throw new Error(`Р¤Р°Р№Р» РґР»СЏ Р·Р°РїСѓСЃРєР° РЅРµ РЅР°Р№РґРµРЅ: ${resolvedFilePath}`);
+    throw new Error(`Файл для запуска не найден: ${resolvedFilePath}`);
   }
 
   if (!fileStats.isFile()) {
-    throw new Error(`РЈРєР°Р·Р°РЅРЅС‹Р№ РїСѓС‚СЊ РЅРµ СЏРІР»СЏРµС‚СЃСЏ С„Р°Р№Р»РѕРј: ${resolvedFilePath}`);
+    throw new Error(`Указанный путь не является файлом: ${resolvedFilePath}`);
   }
 
   const fileDirectory = path.dirname(resolvedFilePath);
@@ -812,11 +812,11 @@ function resolvePythonRunTarget(filePath) {
   try {
     directoryStats = fsSync.statSync(fileDirectory);
   } catch {
-    throw new Error(`РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ РґРёСЂРµРєС‚РѕСЂРёСЋ Р·Р°РїСѓСЃРєР°: ${fileDirectory}`);
+    throw new Error(`Не удалось открыть директорию запуска: ${fileDirectory}`);
   }
 
   if (!directoryStats.isDirectory()) {
-    throw new Error(`РќРµРєРѕСЂСЂРµРєС‚РЅР°СЏ РґРёСЂРµРєС‚РѕСЂРёСЏ Р·Р°РїСѓСЃРєР°: ${fileDirectory}`);
+    throw new Error(`Некорректная директория запуска: ${fileDirectory}`);
   }
 
   return {
@@ -847,15 +847,15 @@ function formatPythonRunHeader() {
 
 function runPythonInTerminal(filePath) {
   if (!filePath) {
-    throw new Error("РќРµ РІС‹Р±СЂР°РЅ С„Р°Р№Р» РґР»СЏ Р·Р°РїСѓСЃРєР°.");
+    throw new Error("Не выбран файл для запуска.");
   }
 
   if (!filePath.toLowerCase().endsWith(".py")) {
-    throw new Error("РњРѕР¶РЅРѕ Р·Р°РїСѓСЃРєР°С‚СЊ С‚РѕР»СЊРєРѕ Python-С„Р°Р№Р»С‹ СЃ СЂР°СЃС€РёСЂРµРЅРёРµРј .py.");
+    throw new Error("Можно запускать только Python-файлы с расширением .py.");
   }
 
   if (activeIdeRunTerminalId) {
-    throw new Error("РџСЂРµРґС‹РґСѓС‰РёР№ Р·Р°РїСѓСЃРє РµС‰Рµ РЅРµ Р·Р°РІРµСЂС€РµРЅ.");
+    throw new Error("Предыдущий запуск еще не завершен.");
   }
 
   const { resolvedFilePath, fileDirectory } = resolvePythonRunTarget(filePath);
@@ -863,7 +863,7 @@ function runPythonInTerminal(filePath) {
 
   if (!interpreter) {
     const { terminal } = ensureShellTerminal();
-    emitTerminalData(terminal.id, "\r\nPython РЅРµ РЅР°Р№РґРµРЅ. РЈСЃС‚Р°РЅРѕРІРёС‚Рµ Python РёР»Рё py launcher.\r\n");
+    emitTerminalData(terminal.id, "\r\nPython не найден. Установите Python или py launcher.\r\n");
     return {
       started: false,
       terminal,
@@ -875,7 +875,7 @@ function runPythonInTerminal(filePath) {
   const pythonCommand = pythonRuntime ?? interpreter.resolvedCommand ?? null;
 
   if (!pythonCommand || !path.isAbsolute(pythonCommand) || !fsSync.existsSync(pythonCommand)) {
-    throw new Error("РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РїСѓС‚СЊ Рє Python РёРЅС‚РµСЂРїСЂРµС‚Р°С‚РѕСЂСѓ.");
+    throw new Error("Не удалось определить путь к Python интерпретатору.");
   }
 
   const existingRunSession = ideRunTerminalId ? getTerminalSession(ideRunTerminalId) : null;
@@ -1192,3 +1192,4 @@ app.on("window-all-closed", () => {
     app.quit();
   }
 });
+
