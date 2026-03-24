@@ -10,9 +10,9 @@ const PROBE_TIMEOUT_MS = 5000;
 const DISCOVERY_DEPTH_LIMIT = 3;
 const ANSI_ESCAPE_PATTERN =
   /[\u001B\u009B][[\]()#;?]*(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~])/g;
-const KERNEL_BOOTSTRAP_PATH = path.join(
+const KERNEL_PYTHON_PATH = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
-  "notebookKernelBootstrap.py",
+  "notebookKernelPython.py",
 );
 const NOTEBOOK_DEBUG_ENABLED =
   process.env.NODE_ENV !== "production" || process.env.CROSSPP_NOTEBOOK_DEBUG === "1";
@@ -1987,7 +1987,7 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
       startedAt: Date.now(),
       firstProtocolAt: null,
       lastNonProtocolLine: null,
-      pty: nodePty.spawn(runtimeInterpreterPath, [KERNEL_BOOTSTRAP_PATH], {
+      pty: nodePty.spawn(runtimeInterpreterPath, [KERNEL_PYTHON_PATH], {
         cwd: notebookDirectory,
         cols: 120,
         rows: 30,
