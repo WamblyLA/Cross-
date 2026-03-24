@@ -59,7 +59,7 @@ export function useDesktopActions() {
   const ensureTerminalSession = useCallback(async () => {
     const session = await window.electronAPI.ensureTerminalSession();
 
-    dispatch(terminalReady({ shellLabel: session.shellLabel }));
+    dispatch(terminalReady({ shellLabel: session.terminal.shellLabel }));
 
     return session;
   }, [dispatch]);

@@ -78,6 +78,23 @@ def safe_repr(value):
         return f"<{value.__class__.__name__}>"
 
 
+def build_text_fallback_bundle(value):
+    return {"text/plain": safe_repr(value)}, {}
+
+
+def normalize_fromlist(fromlist):
+    if fromlist is None:
+        return ()
+
+    if isinstance(fromlist, str):
+        return (fromlist,)
+
+    if isinstance(fromlist, (list, tuple, set)):
+        return tuple(item for item in fromlist if isinstance(item, str))
+
+    return ()
+
+
 def normalize_bundle_result(bundle_result):
     if isinstance(bundle_result, tuple) and len(bundle_result) == 2:
         data, metadata = bundle_result
@@ -153,18 +170,26 @@ def add_bundle_value(bundle, mime_type, value):
     bundle[mime_type] = str(value)
 
 
+def call_mimebundle_method(method):
+    try:
+        return method(include=None, exclude=None)
+    except TypeError:
+        return method()
+
+
 def build_mime_bundle(value):
     if value is None:
         return None, None
+
+    if isinstance(value, (str, int, float, bool)):
+        return {"text/plain": safe_repr(value)}, {}
 
     bundle = {}
     metadata = {}
 
     if hasattr(value, "_repr_mimebundle_"):
         try:
-            raw_bundle, raw_metadata = normalize_bundle_result(
-                value._repr_mimebundle_(include=None, exclude=None)
-            )
+            raw_bundle, raw_metadata = normalize_bundle_result(call_mimebundle_method(value._repr_mimebundle_))
 
             for mime_type, mime_value in raw_bundle.items():
                 add_bundle_value(bundle, mime_type, mime_value)
@@ -226,7 +251,10 @@ def emit_display_output(value, output_type="display_data"):
     if context is None:
         return
 
-    bundle, metadata = build_mime_bundle(value)
+    try:
+        bundle, metadata = build_mime_bundle(value)
+    except Exception:
+        bundle, metadata = build_text_fallback_bundle(value)
 
     if not bundle:
         return
@@ -263,9 +291,9 @@ def emit_error_output(error):
 
 
 def patch_ipython_display():
-    try:
-        import IPython.display as ipython_display
-    except Exception:
+    ipython_display = sys.modules.get("IPython.display")
+
+    if ipython_display is None:
         return
 
     if getattr(ipython_display, "_crosspp_display_patched", False):
@@ -280,9 +308,9 @@ def patch_ipython_display():
 
 
 def patch_plotly():
-    try:
-        import plotly.basedatatypes as plotly_base
-    except Exception:
+    plotly_base = sys.modules.get("plotly.basedatatypes")
+
+    if plotly_base is None:
         return
 
     if getattr(plotly_base.BaseFigure, "_crosspp_show_patched", False):
@@ -297,17 +325,21 @@ def patch_plotly():
 
 
 def patch_matplotlib():
+    matplotlib = sys.modules.get("matplotlib")
+    plt = sys.modules.get("matplotlib.pyplot")
+    matplotlib_figure = sys.modules.get("matplotlib.figure")
+
+    if matplotlib is None or plt is None or matplotlib_figure is None:
+        return
+
     try:
-        import matplotlib
-
-        try:
-            matplotlib.use("Agg", force=True)
-        except Exception:
-            pass
-
-        import matplotlib.pyplot as plt
-        from matplotlib.figure import Figure
+        matplotlib.use("Agg", force=True)
     except Exception:
+        pass
+
+    Figure = getattr(matplotlib_figure, "Figure", None)
+
+    if Figure is None:
         return
 
     if not getattr(plt, "_crosspp_show_patched", False):
@@ -336,8 +368,9 @@ def patch_matplotlib():
 
 
 def patched_import(name, globals=None, locals=None, fromlist=(), level=0):
-    module = ORIGINAL_IMPORT(name, globals, locals, fromlist, level)
-    requested_names = [name, *[item for item in fromlist if isinstance(item, str)]]
+    normalized_fromlist = normalize_fromlist(fromlist)
+    module = ORIGINAL_IMPORT(name, globals, locals, normalized_fromlist, level)
+    requested_names = [name, *normalized_fromlist]
 
     for requested_name in requested_names:
         if requested_name.startswith("IPython"):

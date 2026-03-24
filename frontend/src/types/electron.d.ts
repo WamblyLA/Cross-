@@ -11,7 +11,7 @@ declare global {
     id: string;
     title: string;
     shellLabel: string;
-    kind: "shell";
+    kind: "shell" | "python-run";
   };
 
   type TerminalDataEvent = {
@@ -23,6 +23,17 @@ declare global {
     | {
         type: "closed";
         terminalId: string;
+      }
+    | {
+        type: "run-started";
+        terminalId: string;
+        filePath: string;
+        interpreter: string;
+      }
+    | {
+        type: "run-finished";
+        terminalId: string;
+        exitCode: number;
       };
 
   type NotebookKernelKind = "venv" | "conda" | "system";
@@ -187,22 +198,22 @@ declare global {
       closeTerminalSession: (terminalId: string) => Promise<{
         success: true;
       }>;
-      writeToTerminal: (terminalId: string, data: string) => Promise<{
+      writeToTerminal: (data: string, terminalId?: string | null) => Promise<{
         success: true;
         terminal: TerminalMeta;
       }>;
-      resizeTerminal: (terminalId: string, cols: number, rows: number) => Promise<{
+      resizeTerminal: (cols: number, rows: number, terminalId?: string | null) => Promise<{
         success: true;
       }>;
       interruptTerminal: (terminalId: string) => Promise<{
         success: true;
         terminal: TerminalMeta;
       }>;
-      clearTerminal: (terminalId: string) => Promise<{
+      clearTerminal: (terminalId?: string | null) => Promise<{
         success: true;
         terminal: TerminalMeta;
       }>;
-      printTerminalMessage: (terminalId: string, text: string) => Promise<{
+      printTerminalMessage: (text: string, terminalId?: string | null) => Promise<{
         success: true;
       }>;
       runPythonInTerminal: (filePath: string) => Promise<{

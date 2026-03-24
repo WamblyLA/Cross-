@@ -38,10 +38,35 @@ export default function NotebookSourceEditor({
 }: NotebookSourceEditorProps) {
   const [height, setHeight] = useState(minHeight);
   const disposablesRef = useRef<Monaco.IDisposable[]>([]);
+  const onSaveRequestRef = useRef(onSaveRequest);
+  const onRunRef = useRef(onRun);
+  const onRunAndAdvanceRef = useRef(onRunAndAdvance);
+  const onFocusRef = useRef(onFocus);
+  const onRegisterEditorRef = useRef(onRegisterEditor);
+
+  useEffect(() => {
+    onSaveRequestRef.current = onSaveRequest;
+  }, [onSaveRequest]);
+
+  useEffect(() => {
+    onRunRef.current = onRun;
+  }, [onRun]);
+
+  useEffect(() => {
+    onRunAndAdvanceRef.current = onRunAndAdvance;
+  }, [onRunAndAdvance]);
+
+  useEffect(() => {
+    onFocusRef.current = onFocus;
+  }, [onFocus]);
+
+  useEffect(() => {
+    onRegisterEditorRef.current = onRegisterEditor;
+  }, [onRegisterEditor]);
 
   const handleMount = useCallback(
     (editor: Monaco.editor.IStandaloneCodeEditor, monacoInstance: typeof Monaco) => {
-      onRegisterEditor?.(editor);
+      onRegisterEditorRef.current?.(editor);
 
       const syncHeight = () => {
         setHeight(Math.max(minHeight, Math.min(editor.getContentHeight() + 4, 720)));
@@ -51,12 +76,12 @@ export default function NotebookSourceEditor({
 
       disposablesRef.current = [
         editor.onDidContentSizeChange(syncHeight),
-        editor.onDidFocusEditorWidget(() => onFocus?.()),
+        editor.onDidFocusEditorWidget(() => onFocusRef.current?.()),
         editor.addAction({
           id: `${editorPath}-save`,
           label: "Сохранить файл",
           keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS],
-          run: async () => onSaveRequest(),
+          run: async () => onSaveRequestRef.current(),
         }),
       ];
 
@@ -66,7 +91,7 @@ export default function NotebookSourceEditor({
             id: `${editorPath}-run`,
             label: "Выполнить ячейку",
             keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter],
-            run: () => onRun(),
+            run: () => onRunRef.current?.(),
           }),
         );
       }
@@ -77,12 +102,12 @@ export default function NotebookSourceEditor({
             id: `${editorPath}-run-next`,
             label: "Выполнить ячейку и перейти дальше",
             keybindings: [monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.Enter],
-            run: () => onRunAndAdvance(),
+            run: () => onRunAndAdvanceRef.current?.(),
           }),
         );
       }
     },
-    [editorPath, minHeight, onFocus, onRegisterEditor, onRun, onRunAndAdvance, onSaveRequest],
+    [editorPath, minHeight, onRun, onRunAndAdvance],
   );
 
   useEffect(() => {
@@ -90,9 +115,9 @@ export default function NotebookSourceEditor({
       for (const disposable of disposablesRef.current) {
         disposable.dispose();
       }
-      onRegisterEditor?.(null);
+      onRegisterEditorRef.current?.(null);
     };
-  }, [onRegisterEditor]);
+  }, []);
 
   return (
     <Editor

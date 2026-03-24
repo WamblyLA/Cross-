@@ -1,5 +1,5 @@
 const DEFAULT_PORT = 3000;
-const DEFAULT_RENDERER_ORIGIN = "http://127.0.0.1:5173";
+const DEFAULT_RENDERER_ORIGIN = "http://127.0.0.1:4173";
 
 function parsePort(value: string | undefined) {
   const port = Number.parseInt(value ?? `${DEFAULT_PORT}`, 10);

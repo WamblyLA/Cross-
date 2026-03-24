@@ -39,11 +39,13 @@ export default function MainPage({ theme, onToggleTheme }: MainPageProps) {
         return;
       }
 
-      dispatch(
-        terminalRunFinished({
-          exitCode: payload.exitCode,
-        }),
-      );
+      if (payload.type === "run-finished") {
+        dispatch(
+          terminalRunFinished({
+            exitCode: payload.exitCode,
+          }),
+        );
+      }
     });
 
     return () => {

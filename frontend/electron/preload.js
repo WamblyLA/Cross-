@@ -14,11 +14,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   renameFileSystemItem: (targetPath, newName) =>
     ipcRenderer.invoke("file:rename", targetPath, newName),
   removeFileSystemItem: (targetPath) => ipcRenderer.invoke("file:remove", targetPath),
-  ensureTerminalSession: () => ipcRenderer.invoke("terminal:ensure"),
-  writeToTerminal: (data) => ipcRenderer.invoke("terminal:write", data),
-  resizeTerminal: (cols, rows) => ipcRenderer.invoke("terminal:resize", cols, rows),
-  clearTerminal: () => ipcRenderer.invoke("terminal:clear"),
-  printTerminalMessage: (text) => ipcRenderer.invoke("terminal:message", text),
+  ensureTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:ensure", terminalId),
+  writeToTerminal: (data, terminalId) => ipcRenderer.invoke("terminal:write", terminalId ?? null, data),
+  resizeTerminal: (cols, rows, terminalId) =>
+    ipcRenderer.invoke("terminal:resize", terminalId ?? null, cols, rows),
+  clearTerminal: (terminalId) => ipcRenderer.invoke("terminal:clear", terminalId ?? null),
+  printTerminalMessage: (text, terminalId) =>
+    ipcRenderer.invoke("terminal:message", terminalId ?? null, text),
   runPythonInTerminal: (filePath) => ipcRenderer.invoke("terminal:run-python", filePath),
   listNotebookKernels: (options) => ipcRenderer.invoke("notebook:list-kernels", options),
   refreshNotebookKernels: (options) => ipcRenderer.invoke("notebook:refresh-kernels", options),

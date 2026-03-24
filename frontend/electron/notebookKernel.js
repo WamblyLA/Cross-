@@ -14,8 +14,20 @@ const KERNEL_PYTHON_PATH = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "notebookKernelPython.py",
 );
-const NOTEBOOK_DEBUG_ENABLED =
-  process.env.NODE_ENV !== "production" || process.env.CROSSPP_NOTEBOOK_DEBUG === "1";
+const NOTEBOOK_DEBUG_ENABLED = process.env.CROSSPP_NOTEBOOK_DEBUG === "1";
+let NOTEBOOK_DEBUG_BROKEN_PIPE = false;
+
+function isBrokenPipeError(error) {
+  if (!error) {
+    return false;
+  }
+
+  if (error.code === "EPIPE") {
+    return true;
+  }
+
+  return `${error.message ?? error}`.toLowerCase().includes("broken pipe");
+}
 
 function createDeferred() {
   let resolve;
@@ -30,18 +42,29 @@ function createDeferred() {
 }
 
 function writeLog(namespace, level, message, payload) {
-  if (!NOTEBOOK_DEBUG_ENABLED) {
+  if (!NOTEBOOK_DEBUG_ENABLED || NOTEBOOK_DEBUG_BROKEN_PIPE) {
     return;
   }
 
   const prefix = `[${namespace}] ${message}`;
+  const logger =
+    typeof console[level] === "function" ? console[level] : console.log;
 
-  if (payload === undefined) {
-    console[level](prefix);
-    return;
+  try {
+    if (payload === undefined) {
+      logger(prefix);
+      return;
+    }
+
+    logger(prefix, payload);
+  } catch (error) {
+    if (isBrokenPipeError(error)) {
+      NOTEBOOK_DEBUG_BROKEN_PIPE = true;
+      return;
+    }
+
+    throw error;
   }
-
-  console[level](prefix, payload);
 }
 
 function sanitizeProtocolLine(line) {
@@ -64,7 +87,13 @@ function logExecution(level, message, payload) {
   writeLog("crosspp:notebook:execution", level, message, payload);
 }
 
-function buildDiagnostic(source, severity, message, details = null, extra = {}) {
+function buildDiagnostic(
+  source,
+  severity,
+  message,
+  details = null,
+  extra = {},
+) {
   return {
     source,
     severity,
@@ -76,7 +105,9 @@ function buildDiagnostic(source, severity, message, details = null, extra = {}) 
 
 function normalizePathCase(filePath) {
   const resolvedPath = path.resolve(filePath);
-  return process.platform === "win32" ? resolvedPath.toLowerCase() : resolvedPath;
+  return process.platform === "win32"
+    ? resolvedPath.toLowerCase()
+    : resolvedPath;
 }
 
 function existsFile(filePath) {
@@ -206,20 +237,30 @@ function quoteWindowsArg(value) {
   return `"${value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/g, "$1$1")}"`;
 }
 
-function runCommand(command, args = [], { timeoutMs = PROBE_TIMEOUT_MS, cwd, env } = {}) {
+function runCommand(
+  command,
+  args = [],
+  { timeoutMs = PROBE_TIMEOUT_MS, cwd, env } = {},
+) {
   try {
     const isWindowsScript =
       process.platform === "win32" && /\.(cmd|bat)$/i.test(command);
 
     if (isWindowsScript) {
-      const commandLine = [command, ...args].map((part) => quoteWindowsArg(`${part}`)).join(" ");
-      const result = spawnSync(process.env.comspec || "cmd.exe", ["/d", "/s", "/c", commandLine], {
-        cwd,
-        env,
-        encoding: "utf-8",
-        windowsHide: true,
-        timeout: timeoutMs,
-      });
+      const commandLine = [command, ...args]
+        .map((part) => quoteWindowsArg(`${part}`))
+        .join(" ");
+      const result = spawnSync(
+        process.env.comspec || "cmd.exe",
+        ["/d", "/s", "/c", commandLine],
+        {
+          cwd,
+          env,
+          encoding: "utf-8",
+          windowsHide: true,
+          timeout: timeoutMs,
+        },
+      );
 
       return {
         status: result.status,
@@ -308,7 +349,9 @@ function inferKindFromCandidate(candidate, info) {
 function buildKernelDisplayName(candidate, version, interpreterPath) {
   const versionLabel = version ? `Python ${version}` : "Python";
   const fallbackName =
-    candidate.envName || path.basename(path.dirname(interpreterPath)) || path.basename(interpreterPath);
+    candidate.envName ||
+    path.basename(path.dirname(interpreterPath)) ||
+    path.basename(interpreterPath);
 
   switch (candidate.manager) {
     case "workspace-venv":
@@ -376,7 +419,10 @@ function pushCandidate(candidateMap, diagnostics, interpreterPath, metadata) {
     candidateMap.set(key, {
       discoveredPath: resolvedInterpreterPath,
       interpreterPath: resolvedInterpreterPath,
-      diagnostics: [...(existing?.diagnostics ?? []), ...(metadata.diagnostics ?? [])],
+      diagnostics: [
+        ...(existing?.diagnostics ?? []),
+        ...(metadata.diagnostics ?? []),
+      ],
       ...metadata,
     });
     return;
@@ -388,9 +434,12 @@ function pushCandidate(candidateMap, diagnostics, interpreterPath, metadata) {
 function buildNodePtyUnavailableError(nodePtyLoadError) {
   const baseMessage =
     "Для локального выполнения notebook нужен модуль node-pty. Запустите `npm run rebuild:native -w ./frontend`.";
-  const details = nodePtyLoadError instanceof Error ? nodePtyLoadError.message : null;
+  const details =
+    nodePtyLoadError instanceof Error ? nodePtyLoadError.message : null;
 
-  return new Error(details ? `${baseMessage} Подробности: ${details}` : baseMessage);
+  return new Error(
+    details ? `${baseMessage} Подробности: ${details}` : baseMessage,
+  );
 }
 
 function createSessionKey(notebookPath) {
@@ -422,7 +471,10 @@ function collectNearbyVirtualEnvPaths(notebookPath, workspacePath) {
       }
     }
 
-    if (!workspaceRoot || normalizePathCase(currentPath) === normalizePathCase(workspaceRoot)) {
+    if (
+      !workspaceRoot ||
+      normalizePathCase(currentPath) === normalizePathCase(workspaceRoot)
+    ) {
       break;
     }
 
@@ -495,32 +547,47 @@ function collectWorkspaceVirtualEnvPaths(workspacePath) {
 }
 
 function locateWorkspaceVenvCandidates(context, candidateMap, diagnostics) {
-  const nearbyEnvironments = collectNearbyVirtualEnvPaths(context.notebookPath, context.workspacePath);
-  const scannedEnvironments = collectWorkspaceVirtualEnvPaths(context.workspacePath);
+  const nearbyEnvironments = collectNearbyVirtualEnvPaths(
+    context.notebookPath,
+    context.workspacePath,
+  );
+  const scannedEnvironments = collectWorkspaceVirtualEnvPaths(
+    context.workspacePath,
+  );
 
   for (const envPath of nearbyEnvironments) {
-    pushCandidate(candidateMap, diagnostics, getVirtualEnvironmentInterpreter(envPath), {
-      kind: "venv",
-      source: "workspace-nearby",
-      manager: "workspace-venv",
-      locationKind: "workspace-local",
-      envName: path.basename(envPath),
-      isWorkspaceLocal: true,
-      isRecommended: true,
-      priority: 1000,
-    });
+    pushCandidate(
+      candidateMap,
+      diagnostics,
+      getVirtualEnvironmentInterpreter(envPath),
+      {
+        kind: "venv",
+        source: "workspace-nearby",
+        manager: "workspace-venv",
+        locationKind: "workspace-local",
+        envName: path.basename(envPath),
+        isWorkspaceLocal: true,
+        isRecommended: true,
+        priority: 1000,
+      },
+    );
   }
 
   for (const envPath of scannedEnvironments) {
-    pushCandidate(candidateMap, diagnostics, getVirtualEnvironmentInterpreter(envPath), {
-      kind: "venv",
-      source: "workspace-scan",
-      manager: "workspace-venv",
-      locationKind: "workspace-local",
-      envName: path.basename(envPath),
-      isWorkspaceLocal: true,
-      priority: 920,
-    });
+    pushCandidate(
+      candidateMap,
+      diagnostics,
+      getVirtualEnvironmentInterpreter(envPath),
+      {
+        kind: "venv",
+        source: "workspace-scan",
+        manager: "workspace-venv",
+        locationKind: "workspace-local",
+        envName: path.basename(envPath),
+        isWorkspaceLocal: true,
+        priority: 920,
+      },
+    );
   }
 
   logDiscovery("info", "Завершён поиск локальных окружений проекта.", {
@@ -535,12 +602,24 @@ function getKnownCondaRoots() {
   for (const candidate of [
     process.env.CONDA_PREFIX,
     process.env.MAMBA_ROOT_PREFIX,
-    process.env.USERPROFILE ? path.join(process.env.USERPROFILE, "anaconda3") : null,
-    process.env.USERPROFILE ? path.join(process.env.USERPROFILE, "miniconda3") : null,
-    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "anaconda3") : null,
-    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "miniconda3") : null,
-    process.env.ProgramData ? path.join(process.env.ProgramData, "Anaconda3") : null,
-    process.env.ProgramData ? path.join(process.env.ProgramData, "Miniconda3") : null,
+    process.env.USERPROFILE
+      ? path.join(process.env.USERPROFILE, "anaconda3")
+      : null,
+    process.env.USERPROFILE
+      ? path.join(process.env.USERPROFILE, "miniconda3")
+      : null,
+    process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, "anaconda3")
+      : null,
+    process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, "miniconda3")
+      : null,
+    process.env.ProgramData
+      ? path.join(process.env.ProgramData, "Anaconda3")
+      : null,
+    process.env.ProgramData
+      ? path.join(process.env.ProgramData, "Miniconda3")
+      : null,
   ]) {
     if (candidate && existsDirectory(candidate)) {
       candidates.add(path.resolve(candidate));
@@ -584,7 +663,9 @@ function locateCondaCandidates(candidateMap, diagnostics) {
   const condaExecutables = getCondaExecutableCandidates();
 
   for (const condaExecutable of condaExecutables) {
-    const result = runCommand(condaExecutable, ["env", "list", "--json"], { timeoutMs: 7000 });
+    const result = runCommand(condaExecutable, ["env", "list", "--json"], {
+      timeoutMs: 7000,
+    });
 
     if (result.error || result.status !== 0) {
       diagnostics.push(
@@ -629,7 +710,9 @@ function locateCondaCandidates(candidateMap, diagnostics) {
 
   for (const rootPath of getKnownCondaRoots()) {
     const rootInterpreter =
-      process.platform === "win32" ? path.join(rootPath, "python.exe") : path.join(rootPath, "bin", "python");
+      process.platform === "win32"
+        ? path.join(rootPath, "python.exe")
+        : path.join(rootPath, "bin", "python");
 
     if (existsFile(rootInterpreter)) {
       interpreterPaths.add(rootInterpreter);
@@ -691,7 +774,9 @@ function locatePyenvCandidates(candidateMap, diagnostics) {
         continue;
       }
 
-      for (const versionPath of getToolManagedEnvDirectories(versionsDirectory)) {
+      for (const versionPath of getToolManagedEnvDirectories(
+        versionsDirectory,
+      )) {
         const interpreterPath = getVirtualEnvironmentInterpreter(versionPath);
 
         if (!interpreterPath || !existsFile(interpreterPath)) {
@@ -723,16 +808,26 @@ function getPoetryRoots() {
 
   return [
     process.env.POETRY_VIRTUALENVS_PATH,
-    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, "pypoetry", "Cache", "virtualenvs") : null,
-    process.env.APPDATA ? path.join(process.env.APPDATA, "pypoetry", "virtualenvs") : null,
-    homeDirectory ? path.join(homeDirectory, ".cache", "pypoetry", "virtualenvs") : null,
+    process.env.LOCALAPPDATA
+      ? path.join(process.env.LOCALAPPDATA, "pypoetry", "Cache", "virtualenvs")
+      : null,
+    process.env.APPDATA
+      ? path.join(process.env.APPDATA, "pypoetry", "virtualenvs")
+      : null,
+    homeDirectory
+      ? path.join(homeDirectory, ".cache", "pypoetry", "virtualenvs")
+      : null,
   ].filter(Boolean);
 }
 
 function locatePoetryCandidates(context, candidateMap, diagnostics) {
-  const roots = getPoetryRoots().filter((rootPath) => existsDirectory(rootPath));
+  const roots = getPoetryRoots().filter((rootPath) =>
+    existsDirectory(rootPath),
+  );
   const discovered = new Set();
-  const workspaceRoot = context.workspacePath ? normalizePathCase(path.resolve(context.workspacePath)) : null;
+  const workspaceRoot = context.workspacePath
+    ? normalizePathCase(path.resolve(context.workspacePath))
+    : null;
 
   for (const rootPath of roots) {
     for (const envPath of getToolManagedEnvDirectories(rootPath)) {
@@ -743,7 +838,10 @@ function locatePoetryCandidates(context, candidateMap, diagnostics) {
       }
     }
   }
-  for (const basePath of [context.workspacePath, context.notebookPath ? path.dirname(context.notebookPath) : null]) {
+  for (const basePath of [
+    context.workspacePath,
+    context.notebookPath ? path.dirname(context.notebookPath) : null,
+  ]) {
     if (!basePath) {
       continue;
     }
@@ -782,7 +880,9 @@ function locatePoetryCandidates(context, candidateMap, diagnostics) {
 function locatePipenvCandidates(candidateMap, diagnostics) {
   const roots = [
     process.env.WORKON_HOME,
-    process.env.USERPROFILE ? path.join(process.env.USERPROFILE, ".virtualenvs") : null,
+    process.env.USERPROFILE
+      ? path.join(process.env.USERPROFILE, ".virtualenvs")
+      : null,
   ].filter(Boolean);
   const discovered = new Set();
 
@@ -841,7 +941,9 @@ function locateLauncherCandidates(candidateMap, diagnostics) {
     return;
   }
 
-  const interpreterPaths = extractPythonExecutableFromText(`${result.stdout}\n${result.stderr}`);
+  const interpreterPaths = extractPythonExecutableFromText(
+    `${result.stdout}\n${result.stderr}`,
+  );
 
   for (const interpreterPath of interpreterPaths) {
     pushCandidate(candidateMap, diagnostics, interpreterPath, {
@@ -865,7 +967,9 @@ function locatePathCandidates(candidateMap, diagnostics) {
 
   if (process.platform === "win32") {
     for (const commandName of ["python", "python3"]) {
-      const result = runCommand("where.exe", [commandName], { timeoutMs: 4000 });
+      const result = runCommand("where.exe", [commandName], {
+        timeoutMs: 4000,
+      });
 
       if (result.error || result.status !== 0) {
         continue;
@@ -919,17 +1023,23 @@ function locateRegistryCandidates(candidateMap, diagnostics) {
   const discovered = new Set();
 
   for (const registryRoot of registryRoots) {
-    const result = runCommand("reg.exe", ["query", registryRoot, "/s"], { timeoutMs: 6000 });
+    const result = runCommand("reg.exe", ["query", registryRoot, "/s"], {
+      timeoutMs: 6000,
+    });
 
     if (result.error || result.status !== 0) {
       continue;
     }
 
-    for (const executablePath of extractPythonExecutableFromText(result.stdout)) {
+    for (const executablePath of extractPythonExecutableFromText(
+      result.stdout,
+    )) {
       discovered.add(executablePath);
     }
 
-    for (const match of result.stdout.matchAll(/InstallPath\s+REG_\w+\s+([^\r\n]+)/gi)) {
+    for (const match of result.stdout.matchAll(
+      /InstallPath\s+REG_\w+\s+([^\r\n]+)/gi,
+    )) {
       const installPath = match[1]?.trim();
 
       if (!installPath) {
@@ -967,7 +1077,9 @@ function locateKnownInstallCandidates(candidateMap, diagnostics) {
 
   if (process.platform === "win32") {
     if (process.env.LOCALAPPDATA) {
-      windowsLocations.push(path.join(process.env.LOCALAPPDATA, "Programs", "Python"));
+      windowsLocations.push(
+        path.join(process.env.LOCALAPPDATA, "Programs", "Python"),
+      );
     }
 
     if (process.env.ProgramFiles) {
@@ -1147,7 +1259,11 @@ function describeInterpreter(candidate, diagnostics) {
   return {
     id: normalizePathCase(reportedExecutable),
     interpreterPath: reportedExecutable,
-    displayName: buildKernelDisplayName(candidate, probeResult.info?.version ?? null, reportedExecutable),
+    displayName: buildKernelDisplayName(
+      candidate,
+      probeResult.info?.version ?? null,
+      reportedExecutable,
+    ),
     version: probeResult.info?.version ?? null,
     kind,
     source: candidate.source,
@@ -1232,7 +1348,8 @@ function probeInterpreterDescriptor(candidate, diagnostics) {
   }
 
   const version =
-    extractPythonVersion(`${versionResult.stdout}\n${versionResult.stderr}`) ?? null;
+    extractPythonVersion(`${versionResult.stdout}\n${versionResult.stderr}`) ??
+    null;
 
   if (!version) {
     const diagnostic = buildDiagnostic(
@@ -1267,7 +1384,9 @@ function probeInterpreterDescriptor(candidate, diagnostics) {
     version,
     prefix: null,
     base_prefix: null,
-    env_name: candidate.envName ?? path.basename(path.dirname(candidate.interpreterPath)),
+    env_name:
+      candidate.envName ??
+      path.basename(path.dirname(candidate.interpreterPath)),
     conda_env: null,
   };
 
@@ -1341,7 +1460,8 @@ function probeInterpreterDescriptor(candidate, diagnostics) {
   try {
     const parsedInfo = JSON.parse(output);
     const reportedExecutable =
-      typeof parsedInfo.executable === "string" && existsFile(parsedInfo.executable)
+      typeof parsedInfo.executable === "string" &&
+      existsFile(parsedInfo.executable)
         ? path.resolve(parsedInfo.executable)
         : fallbackInfo.executable;
 
@@ -1368,7 +1488,10 @@ function probeInterpreterDescriptor(candidate, diagnostics) {
     return {
       info: {
         ...parsedInfo,
-        version: typeof parsedInfo.version === "string" && parsedInfo.version ? parsedInfo.version : version,
+        version:
+          typeof parsedInfo.version === "string" && parsedInfo.version
+            ? parsedInfo.version
+            : version,
         executable: reportedExecutable,
       },
       diagnostics: [],
@@ -1396,10 +1519,18 @@ function probeInterpreterDescriptor(candidate, diagnostics) {
   }
 }
 
-function buildVersionedKernelDisplayName(candidate, version, interpreterPath, envName) {
+function buildVersionedKernelDisplayName(
+  candidate,
+  version,
+  interpreterPath,
+  envName,
+) {
   const versionLabel = version ? `Python ${version}` : "Python";
   const fallbackName =
-    envName || candidate.envName || path.basename(path.dirname(interpreterPath)) || path.basename(interpreterPath);
+    envName ||
+    candidate.envName ||
+    path.basename(path.dirname(interpreterPath)) ||
+    path.basename(interpreterPath);
 
   switch (candidate.manager) {
     case "workspace-venv":
@@ -1418,7 +1549,8 @@ function buildVersionedKernelDisplayName(candidate, version, interpreterPath, en
 function describeLaunchableInterpreter(candidate, diagnostics) {
   const probeResult = probeInterpreterDescriptor(candidate, diagnostics);
   const reportedExecutable =
-    probeResult.resolvedInterpreterPath && existsFile(probeResult.resolvedInterpreterPath)
+    probeResult.resolvedInterpreterPath &&
+    existsFile(probeResult.resolvedInterpreterPath)
       ? path.resolve(probeResult.resolvedInterpreterPath)
       : candidate.interpreterPath;
   const envName =
@@ -1453,8 +1585,16 @@ function describeLaunchableInterpreter(candidate, diagnostics) {
 }
 
 function sortKernels(left, right) {
-  const leftAvailability = left.diagnostics.some((diagnostic) => diagnostic.severity === "error") ? 1 : 0;
-  const rightAvailability = right.diagnostics.some((diagnostic) => diagnostic.severity === "error") ? 1 : 0;
+  const leftAvailability = left.diagnostics.some(
+    (diagnostic) => diagnostic.severity === "error",
+  )
+    ? 1
+    : 0;
+  const rightAvailability = right.diagnostics.some(
+    (diagnostic) => diagnostic.severity === "error",
+  )
+    ? 1
+    : 0;
 
   if (leftAvailability !== rightAvailability) {
     return leftAvailability - rightAvailability;
@@ -1475,7 +1615,10 @@ function sortKernels(left, right) {
   return left.displayName.localeCompare(right.displayName, "ru");
 }
 
-function buildDiscoveryCacheKey({ workspacePath = null, notebookPath = null } = {}) {
+function buildDiscoveryCacheKey({
+  workspacePath = null,
+  notebookPath = null,
+} = {}) {
   if (workspacePath) {
     return `workspace:${normalizePathCase(workspacePath)}`;
   }
@@ -1517,15 +1660,20 @@ function normalizeNotebookOutput(output) {
     return {
       output_type: outputType,
       data:
-        output.data && typeof output.data === "object" && !Array.isArray(output.data)
+        output.data &&
+        typeof output.data === "object" &&
+        !Array.isArray(output.data)
           ? output.data
           : {},
       metadata:
-        output.metadata && typeof output.metadata === "object" && !Array.isArray(output.metadata)
+        output.metadata &&
+        typeof output.metadata === "object" &&
+        !Array.isArray(output.metadata)
           ? output.metadata
           : {},
       execution_count:
-        outputType === "execute_result" && Number.isInteger(output.execution_count)
+        outputType === "execute_result" &&
+        Number.isInteger(output.execution_count)
           ? output.execution_count
           : null,
     };
@@ -1556,7 +1704,11 @@ function appendNotebookOutput(outputs, nextOutput) {
   return outputs;
 }
 
-function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer }) {
+function createNotebookKernelManager({
+  nodePty,
+  nodePtyLoadError,
+  sendToRenderer,
+}) {
   const sessions = new Map();
   const discoveryCache = new Map();
   let refreshCounter = 0;
@@ -1570,8 +1722,12 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
     const diagnostics = [];
     const candidateMap = new Map();
     const context = {
-      workspacePath: options.workspacePath ? path.resolve(options.workspacePath) : null,
-      notebookPath: options.notebookPath ? path.resolve(options.notebookPath) : null,
+      workspacePath: options.workspacePath
+        ? path.resolve(options.workspacePath)
+        : null,
+      notebookPath: options.notebookPath
+        ? path.resolve(options.notebookPath)
+        : null,
     };
 
     locateWorkspaceVenvCandidates(context, candidateMap, diagnostics);
@@ -1658,7 +1814,8 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
 
   const getKernelDiagnostics = (options = {}) => {
     const cacheKey = buildDiscoveryCacheKey(options);
-    return (discoveryCache.get(cacheKey) ?? refreshKernels(options)).diagnostics;
+    return (discoveryCache.get(cacheKey) ?? refreshKernels(options))
+      .diagnostics;
   };
 
   const cleanupPendingExecution = (session, status, message) => {
@@ -1668,7 +1825,8 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
 
     const errorOutput = normalizeNotebookOutput({
       output_type: "error",
-      ename: status === "interrupted" ? "KernelInterrupted" : "KernelTerminated",
+      ename:
+        status === "interrupted" ? "KernelInterrupted" : "KernelTerminated",
       evalue: message,
       traceback: [],
     });
@@ -1711,7 +1869,10 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
     session.status = "idle";
   };
 
-  const disposeSession = (session, { emitExit = false, reason = "Kernel остановлен." } = {}) => {
+  const disposeSession = (
+    session,
+    { emitExit = false, reason = "Kernel остановлен." } = {},
+  ) => {
     if (!session || session.disposed) {
       return;
     }
@@ -1735,8 +1896,7 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
 
     try {
       session.pty?.kill();
-    } catch {
-    }
+    } catch {}
 
     sessions.delete(session.key);
     logKernel("info", "Kernel session освобождена.", {
@@ -1804,8 +1964,13 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
     if (eventType === "execution_started") {
       session.status = "running";
 
-      if (session.pendingExecution && session.pendingExecution.commandId === message.id) {
-        session.pendingExecution.executionCount = Number.isInteger(message.execution_count)
+      if (
+        session.pendingExecution &&
+        session.pendingExecution.commandId === message.id
+      ) {
+        session.pendingExecution.executionCount = Number.isInteger(
+          message.execution_count,
+        )
           ? message.execution_count
           : null;
 
@@ -1826,11 +1991,17 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
     }
 
     if (eventType === "output") {
-      if (session.pendingExecution && session.pendingExecution.commandId === message.id) {
+      if (
+        session.pendingExecution &&
+        session.pendingExecution.commandId === message.id
+      ) {
         const normalizedOutput = normalizeNotebookOutput(message.output);
 
         if (normalizedOutput) {
-          appendNotebookOutput(session.pendingExecution.outputs, normalizedOutput);
+          appendNotebookOutput(
+            session.pendingExecution.outputs,
+            normalizedOutput,
+          );
           sendKernelEvent({
             type: "output",
             notebookPath: session.notebookPath,
@@ -1845,7 +2016,10 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
     if (eventType === "execution_finished") {
       session.status = "idle";
 
-      if (session.pendingExecution && session.pendingExecution.commandId === message.id) {
+      if (
+        session.pendingExecution &&
+        session.pendingExecution.commandId === message.id
+      ) {
         const status =
           message.status === "error"
             ? "error"
@@ -1853,7 +2027,9 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
               ? "interrupted"
               : "ok";
 
-        session.pendingExecution.executionCount = Number.isInteger(message.execution_count)
+        session.pendingExecution.executionCount = Number.isInteger(
+          message.execution_count,
+        )
           ? message.execution_count
           : session.pendingExecution.executionCount;
 
@@ -1864,12 +2040,16 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
           interpreterPath: session.interpreterPath,
         };
 
-        logExecution(status === "ok" ? "info" : "error", "Завершилось выполнение ячейки.", {
-          notebookPath: session.notebookPath,
-          cellId: session.pendingExecution.cellId,
-          status,
-          executionCount: result.executionCount,
-        });
+        logExecution(
+          status === "ok" ? "info" : "error",
+          "Завершилось выполнение ячейки.",
+          {
+            notebookPath: session.notebookPath,
+            cellId: session.pendingExecution.cellId,
+            status,
+            executionCount: result.executionCount,
+          },
+        );
 
         sendKernelEvent({
           type: "execution-finished",
@@ -1934,7 +2114,9 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
             session.firstProtocolAt = Date.now();
           }
 
-          const protocolPayload = sanitizedLine.slice(protocolOffset + PROTOCOL_PREFIX.length);
+          const protocolPayload = sanitizedLine.slice(
+            protocolOffset + PROTOCOL_PREFIX.length,
+          );
           const message = JSON.parse(protocolPayload);
           handleProtocolMessage(session, message);
         } catch (error) {
@@ -1978,7 +2160,8 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
     const key = createSessionKey(notebookPath);
     const readyDeferred = createDeferred();
     const runtimeInterpreterPath =
-      kernelDescriptor.resolvedInterpreterPath || kernelDescriptor.interpreterPath;
+      kernelDescriptor.resolvedInterpreterPath ||
+      kernelDescriptor.interpreterPath;
     const session = {
       key,
       notebookPath: path.resolve(notebookPath),
@@ -2023,7 +2206,9 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
       });
       session.readyResolved = true;
       readyDeferred.reject(
-        new Error("Python kernel не прислал сигнал готовности. Подробности смотрите в консоли."),
+        new Error(
+          "Python kernel не прислал сигнал готовности. Подробности смотрите в консоли.",
+        ),
       );
       disposeSession(session, {
         emitExit: true,
@@ -2047,8 +2232,10 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
     return (
       discoveryResult.kernels.find(
         (kernel) =>
-          normalizePathCase(kernel.interpreterPath) === normalizedInterpreterPath ||
-          normalizePathCase(kernel.resolvedInterpreterPath) === normalizedInterpreterPath,
+          normalizePathCase(kernel.interpreterPath) ===
+            normalizedInterpreterPath ||
+          normalizePathCase(kernel.resolvedInterpreterPath) ===
+            normalizedInterpreterPath,
       ) ?? null
     );
   };
@@ -2068,7 +2255,8 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
 
     if (
       existingSession &&
-      normalizePathCase(existingSession.interpreterPath) === normalizedInterpreterPath &&
+      normalizePathCase(existingSession.interpreterPath) ===
+        normalizedInterpreterPath &&
       !existingSession.disposed
     ) {
       await existingSession.readyDeferred.promise;
@@ -2109,8 +2297,12 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
     );
 
     if (!kernelDescriptor.isLaunchable || hasCriticalDiagnostic) {
-      const message = kernelDescriptor.diagnostics.find((diagnostic) => diagnostic.severity === "error")?.message;
-      throw new Error(message || "Выбранный Python kernel недоступен для запуска.");
+      const message = kernelDescriptor.diagnostics.find(
+        (diagnostic) => diagnostic.severity === "error",
+      )?.message;
+      throw new Error(
+        message || "Выбранный Python kernel недоступен для запуска.",
+      );
     }
 
     const session = spawnKernelSession(notebookPath, kernelDescriptor);
@@ -2196,7 +2388,10 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
         };
       }
 
-      const nextSession = await ensureKernelSession(notebookPath, interpreterPath);
+      const nextSession = await ensureKernelSession(
+        notebookPath,
+        interpreterPath,
+      );
 
       sendKernelEvent({
         type: "kernel-restarted",
@@ -2235,5 +2430,3 @@ function createNotebookKernelManager({ nodePty, nodePtyLoadError, sendToRenderer
 }
 
 export { createNotebookKernelManager };
-
-

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -k -n renderer,electron \"npm run dev:renderer\" \"npm run dev:electron\"",
     "dev:renderer": "vite",
-    "dev:electron": "wait-on http://127.0.0.1:5173 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron ./electron/main.js",
+    "dev:electron": "wait-on http://127.0.0.1:4173 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:4173 electron ./electron/main.js",
     "start": "electron ./electron/main.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
