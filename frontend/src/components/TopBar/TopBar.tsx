@@ -1,29 +1,21 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
-import { FiMoon, FiSun, FiUser } from "react-icons/fi";
+import { FiMoon, FiSun } from "react-icons/fi";
 import { IoIosSquareOutline } from "react-icons/io";
 import { RxCross1 } from "react-icons/rx";
 import { TfiLayoutLineSolid } from "react-icons/tfi";
 import { VscChevronDown, VscEllipsis, VscPlay } from "react-icons/vsc";
 import { requestExplorerAction } from "../../features/workspace/workspaceSlice";
 import { useDesktopActions } from "../../hooks/useDesktopActions";
-import { useRequest } from "../../hooks/useRequest";
 import type { ThemeName } from "../../styles/tokens";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import SearchBar from "../../ui/SearchBar";
+import TopBarAccountControls from "./TopBarAccountControls";
 import TopBarIcon from "./TopBarIcon";
 
 type TopBarProps = {
   theme: ThemeName;
   onToggleTheme: () => void;
-};
-
-type MeResponse = {
-  user: {
-    id: string;
-    email: string;
-  };
 };
 
 type MenuItem = {
@@ -229,7 +221,6 @@ function OverflowPanel({
 }
 
 export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const menuRootRef = useRef<HTMLDivElement | null>(null);
   const overlayRootRef = useRef<HTMLDivElement | null>(null);
@@ -263,18 +254,6 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     toggleTerminal,
     clearTerminal,
   } = useDesktopActions();
-
-  const { data: meData, refetch: refetchMe } = useRequest<MeResponse>({
-    url: "/api/auth/me",
-    auto: true,
-    retry: 0,
-  });
-
-  const { refetch: logoutRequest } = useRequest<{ success: true }>({
-    url: "/api/auth/logout",
-    method: "POST",
-    auto: false,
-  });
 
   const closeMenus = useCallback(() => {
     setOpenMenuId(null);
@@ -591,16 +570,6 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     };
   }, [primaryMenus]);
 
-  const handleLogout = async () => {
-    try {
-      await logoutRequest();
-      await refetchMe();
-      window.location.reload();
-    } catch (error) {
-      console.error("Ошибка выхода из аккаунта", error);
-    }
-  };
-
   const handleMenuAction = useCallback(
     async (item: MenuItem) => {
       closeMenus();
@@ -819,29 +788,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
             {theme === "dark" ? <FiSun className="h-4 w-4" /> : <FiMoon className="h-4 w-4" />}
           </button>
 
-          {meData?.user ? (
-            <div className="flex min-w-0 items-center gap-2 text-sm">
-              <FiUser className="h-4 w-4 shrink-0 text-secondary" />
-              <span className="hidden max-w-40 truncate text-secondary xl:block">
-                {meData.user.email}
-              </span>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="ui-control h-8 shrink-0 px-3 text-sm"
-              >
-                Выйти
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => navigate("/auth")}
-              className="ui-control h-8 px-3 text-sm"
-            >
-              Войти
-            </button>
-          )}
+          <TopBarAccountControls />
 
           <div className="ml-1 flex items-center gap-1 border-l border-default pl-2">
             <TopBarIcon

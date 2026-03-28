@@ -1,19 +1,42 @@
 import express from "express";
 import {
-  getFileContent,
-  getElemsInFolder,
-  saveFileChanges,
-  createFilder,
-  deleteFilder
+  createFile,
+  deleteProjectFile,
+  getProjectFile,
+  getProjectFiles,
+  updateProjectFile,
 } from "../controllers/filesController.js";
+import {
+  createFileBodySchema,
+  fileParamsSchema,
+  projectFilesParamsSchema,
+  updateFileBodySchema,
+} from "../lib/validation.js";
 import { requireAuth } from "../middleware/auth.js";
+import { validateRequest } from "../middleware/validate.js";
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
 
-router.get("/", requireAuth, getElemsInFolder);
-router.get("/content", requireAuth, getFileContent);
-router.post("/save", requireAuth, saveFileChanges);
-router.post("/create", requireAuth, createFilder);
-router.post("/remove", requireAuth, deleteFilder);
+router.use(requireAuth);
+
+router.get("/", validateRequest({ params: projectFilesParamsSchema }), getProjectFiles);
+router.post(
+  "/",
+  validateRequest({
+    params: projectFilesParamsSchema,
+    body: createFileBodySchema,
+  }),
+  createFile,
+);
+router.get("/:id", validateRequest({ params: fileParamsSchema }), getProjectFile);
+router.put(
+  "/:id",
+  validateRequest({
+    params: fileParamsSchema,
+    body: updateFileBodySchema,
+  }),
+  updateProjectFile,
+);
+router.delete("/:id", validateRequest({ params: fileParamsSchema }), deleteProjectFile);
 
 export default router;

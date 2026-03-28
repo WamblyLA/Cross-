@@ -36,3 +36,4 @@ mobile/.env.*
 *.sln
 *.sw?
 __pycache__
+docs

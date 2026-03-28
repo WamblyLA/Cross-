@@ -4,7 +4,10 @@
   "type": "module",
   "main": "dist/app.js",
   "scripts": {
-    "dev": "node --loader ts-node/esm src/app.ts",
+    "dev": "node --loader ../node_modules/ts-node/esm/transpile-only.mjs src/app.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate": "prisma migrate dev",
     "build": "tsc",
     "start": "node dist/app.js"
   },
@@ -15,9 +18,12 @@
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.3.1",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

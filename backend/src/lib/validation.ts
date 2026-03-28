@@ -1,0 +1,185 @@
+import { Buffer } from "node:buffer";
+import { z } from "zod";
+
+export const DEFAULT_SETTINGS = {
+  theme: "dark",
+  fontSize: 14,
+  tabSize: 4,
+} as const;
+
+const idSchema = z.string().uuid("Некорректный UUID");
+const trimmedString = () => z.string().trim();
+const usernameRegex = /^[a-z0-9](?:[a-z0-9._-]{1,30}[a-z0-9])?$/;
+
+const usernameSchema = trimmedString()
+  .toLowerCase()
+  .min(3, "Имя пользователя должно быть не короче 3 символов")
+  .max(32, "Имя пользователя должно быть не длиннее 32 символов")
+  .regex(
+    usernameRegex,
+    "Имя пользователя может содержать только латиницу, цифры, точку, подчёркивание и дефис",
+  );
+
+const emailSchema = trimmedString()
+  .toLowerCase()
+  .email("Некорректный email");
+
+const passwordSchema = z
+  .string()
+  .min(8, "Пароль должен быть не короче 8 символов")
+  .refine(
+    (value) => Buffer.byteLength(value, "utf8") <= 72,
+    "Пароль должен быть не длиннее 72 байт",
+  );
+
+const projectNameSchema = trimmedString()
+  .min(1, "Название проекта обязательно")
+  .max(120, "Название проекта должно быть не длиннее 120 символов");
+
+const fileNameSchema = trimmedString()
+  .min(1, "Имя файла обязательно")
+  .max(255, "Имя файла должно быть не длиннее 255 символов")
+  .refine(
+    (value) => !/[\\/]/.test(value),
+    "Имя файла не должно содержать символы / или \\",
+  );
+
+const themeSchema = z.enum(["dark", "light"], {
+  message: "Поддерживаются только темы dark и light",
+});
+
+export const registerBodySchema = z
+  .object({
+    username: usernameSchema,
+    email: emailSchema,
+    password: passwordSchema,
+    passwordConfirm: z.string().min(1, "Подтвердите пароль"),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.password !== data.passwordConfirm) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["passwordConfirm"],
+        message: "Пароли не совпадают",
+      });
+    }
+  });
+
+export type RegisterBody = z.infer<typeof registerBodySchema>;
+
+export const loginBodySchema = z
+  .object({
+    login: trimmedString()
+      .min(3, "Логин должен быть не короче 3 символов")
+      .max(320, "Логин слишком длинный"),
+    password: z.string().min(1, "Введите пароль"),
+  })
+  .strict()
+  .transform((data) => ({
+    login: data.login.toLowerCase(),
+    password: data.password,
+  }));
+
+export type LoginBody = z.infer<typeof loginBodySchema>;
+
+export const createProjectBodySchema = z
+  .object({
+    name: projectNameSchema,
+  })
+  .strict();
+
+export type CreateProjectBody = z.infer<typeof createProjectBodySchema>;
+
+export const updateProjectBodySchema = z
+  .object({
+    name: projectNameSchema,
+  })
+  .strict();
+
+export type UpdateProjectBody = z.infer<typeof updateProjectBodySchema>;
+
+export const projectParamsSchema = z
+  .object({
+    id: idSchema,
+  })
+  .strict();
+
+export type ProjectParams = z.infer<typeof projectParamsSchema>;
+
+export const projectFilesParamsSchema = z
+  .object({
+    projectId: idSchema,
+  })
+  .strict();
+
+export type ProjectFilesParams = z.infer<typeof projectFilesParamsSchema>;
+
+export const fileParamsSchema = z
+  .object({
+    projectId: idSchema,
+    id: idSchema,
+  })
+  .strict();
+
+export type ProjectFileParams = z.infer<typeof fileParamsSchema>;
+
+export const createFileBodySchema = z
+  .object({
+    name: fileNameSchema,
+    content: z.string().default(""),
+  })
+  .strict();
+
+export type CreateFileBody = z.infer<typeof createFileBodySchema>;
+
+export const updateFileBodySchema = z
+  .object({
+    name: fileNameSchema.optional(),
+    content: z.string().optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.name === undefined && data.content === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["request"],
+        message: "Нужно передать хотя бы name или content",
+      });
+    }
+  });
+
+export type UpdateFileBody = z.infer<typeof updateFileBodySchema>;
+
+export const updateSettingsBodySchema = z
+  .object({
+    theme: themeSchema.optional(),
+    fontSize: z.coerce
+      .number()
+      .int("Размер шрифта должен быть целым числом")
+      .min(10, "Размер шрифта должен быть не меньше 10")
+      .max(32, "Размер шрифта должен быть не больше 32")
+      .optional(),
+    tabSize: z.coerce
+      .number()
+      .int("Размер табуляции должен быть целым числом")
+      .min(2, "Размер табуляции должен быть не меньше 2")
+      .max(8, "Размер табуляции должен быть не больше 8")
+      .optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (
+      data.theme === undefined &&
+      data.fontSize === undefined &&
+      data.tabSize === undefined
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["request"],
+        message: "Нужно передать хотя бы одно поле настроек",
+      });
+    }
+  });
+
+export type UpdateSettingsBody = z.infer<typeof updateSettingsBodySchema>;

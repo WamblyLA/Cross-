@@ -1,27 +1,29 @@
 import { useState, useCallback, useEffect } from "react";
-import axios, { type AxiosRequestConfig } from "axios";
-import { resolveApiUrl } from "../config/runtime";
+import type { AxiosRequestConfig } from "axios";
+import { normalizeApiError, type ApiError } from "../lib/api/errorNormalization";
+import { request } from "../lib/api/request";
 
-const cacheMapa = new Map<string, any>();
+const cacheMap = new Map<string, unknown>();
 
-interface useRequestParams<T> {
+type UseRequestParams<T, TBody = unknown> = {
   url: string;
-  method?: "GET" | "POST" | "PUT" | "DELETE";
-  body?: any;
-  params?: Record<string, string | number>;
-  headers?: Record<string, string>;
+  method?: AxiosRequestConfig<TBody>["method"];
+  body?: TBody;
+  params?: AxiosRequestConfig<TBody>["params"];
+  headers?: AxiosRequestConfig<TBody>["headers"];
   cache?: boolean;
   keyCache?: string;
   retry?: number;
   retryInterval?: number;
   auto?: boolean;
   onSuccess?: (data: T) => void;
-  onError?: (err: any) => void;
+  onError?: (err: ApiError) => void;
   signal?: AbortSignal;
-  dependencies?: any[];
-}
+};
 
-export function useRequest<T>(pars: useRequestParams<T>) {
+type UseRequestOverride<T, TBody = unknown> = Partial<UseRequestParams<T, TBody>>;
+
+export function useRequest<T, TBody = unknown>(pars: UseRequestParams<T, TBody>) {
   const {
     url,
     method = "GET",
@@ -36,31 +38,29 @@ export function useRequest<T>(pars: useRequestParams<T>) {
     onSuccess,
     onError,
     signal,
-    dependencies = [],
   } = pars;
 
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(auto);
-  const [error, setError] = useState<any>(null);
+  const [error, setError] = useState<ApiError | null>(null);
 
   const fetchData = useCallback(
-    async (override?: Partial<useRequestParams<T>>) => {
-      const conf: AxiosRequestConfig = {
-        url: resolveApiUrl(override?.url ?? url),
+    async (override?: UseRequestOverride<T, TBody>) => {
+      const requestOptions = {
+        url: override?.url ?? url,
         method: override?.method ?? method,
         params: { ...params, ...override?.params },
-        data: override?.body ?? body,
+        body: override?.body ?? body,
         headers: { ...headers, ...override?.headers },
         signal: override?.signal ?? signal,
-        withCredentials: true,
       };
 
       const key =
         keyCache ||
-        `${conf.method}:${conf.url}:${JSON.stringify(conf.params)}:${JSON.stringify(conf.data)}`;
+        `${requestOptions.method}:${requestOptions.url}:${JSON.stringify(requestOptions.params)}:${JSON.stringify(requestOptions.body)}`;
 
-      if (cache && cacheMapa.has(key)) {
-        const cached = cacheMapa.get(key);
+      if (cache && cacheMap.has(key)) {
+        const cached = cacheMap.get(key) as T;
         setData(cached);
         setIsLoading(false);
         return cached;
@@ -69,39 +69,40 @@ export function useRequest<T>(pars: useRequestParams<T>) {
       setIsLoading(true);
       setError(null);
 
-      let trys = 0;
-      let lastError: any = null;
+      let attempts = 0;
+      let lastError: ApiError | null = null;
 
-      while (trys <= retry) {
+      while (attempts <= retry) {
         try {
-          const res = await axios(conf);
-          setData(res.data);
+          const response = await request<T, TBody>(requestOptions);
+          setData(response);
 
           if (cache) {
-            cacheMapa.set(key, res.data);
+            cacheMap.set(key, response);
           }
 
-          onSuccess?.(res.data);
+          onSuccess?.(response);
           setIsLoading(false);
-          return res.data;
-        } catch (err) {
-          lastError = err;
-          trys++;
+          return response;
+        } catch (requestError) {
+          const apiError = normalizeApiError(requestError);
+          lastError = apiError;
+          attempts += 1;
 
-          if (trys > retry) {
-            setError(err);
-            onError?.(err);
+          if (attempts > retry) {
+            setError(apiError);
+            onError?.(apiError);
             setIsLoading(false);
-            throw err;
+            throw apiError;
           }
 
-          await new Promise((r) => {
-            setTimeout(r, retryInterval);
+          await new Promise((resolve) => {
+            setTimeout(resolve, retryInterval);
           });
         }
       }
 
-      throw lastError;
+      throw lastError ?? normalizeApiError(new Error("Request failed."));
     },
     [
       url,
@@ -116,7 +117,6 @@ export function useRequest<T>(pars: useRequestParams<T>) {
       onSuccess,
       onError,
       signal,
-      ...dependencies,
     ],
   );
 

@@ -1,136 +1,134 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import { IS_PROD } from "../config.js";
+import { BCRYPT_SALT_ROUNDS } from "../config.js";
+import {
+  clearAuthCookie,
+  createAuthResponse,
+  setAuthCookie,
+  signAuthToken,
+} from "../lib/auth.js";
+import { AppError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
+import type {
+  LoginBody,
+  RegisterBody,
+} from "../lib/validation.js";
 
-function makeToken(userId: string) {
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
-    throw new Error("JWT токен не существует");
-  }
-
-  return jwt.sign({ userId }, secret, { expiresIn: "7d" });
-}
-
-function setAuthCookie(res: Response, token: string) {
-  res.cookie("token", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: IS_PROD,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+function toPublicUser(user: { id: string; username: string; email: string }) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+  };
 }
 
 export async function register(req: Request, res: Response) {
-  try {
-    const { email, password } = req.body;
+  const { username, email, password } = req.body as RegisterBody;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "Нужна и почта, и пароль" });
-    }
+  const existingUsers = await prisma.user.findMany({
+    where: {
+      OR: [{ username }, { email }],
+    },
+    select: {
+      username: true,
+      email: true,
+    },
+  });
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ error: "Нужна и почта, и пароль" });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-      },
-    });
-
-    const token = makeToken(user.id);
-    setAuthCookie(res, token);
-
-    return res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-      },
-    });
-  } catch (err) {
-    console.error("register error", err);
-    return res.status(500).json({ error: "Внутренняя ошибка сервера" });
+  if (existingUsers.some((user) => user.username === username)) {
+    throw new AppError("Имя пользователя уже занято", 409);
   }
+
+  if (existingUsers.some((user) => user.email === email)) {
+    throw new AppError("Email уже зарегистрирован", 409);
+  }
+
+  const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+
+  const user = await prisma.user.create({
+    data: {
+      username,
+      email,
+      passwordHash,
+      settings: {
+        create: {},
+      },
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+    },
+  });
+
+  const token = signAuthToken(user.id);
+  setAuthCookie(res, token);
+
+  res.status(201).json(createAuthResponse(toPublicUser(user), token));
 }
 
 export async function login(req: Request, res: Response) {
-  try {
-    const { email, password } = req.body;
+  const { login, password } = req.body as LoginBody;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: "Нужна и почта, и пароль" });
-    }
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [{ email: login }, { username: login }],
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      passwordHash: true,
+    },
+  });
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+  if (!user) {
+    throw new AppError("Неверный логин или пароль", 401);
+  }
 
-    if (!user) {
-      return res.status(401).json({ error: "Неправильная почта или пароль" });
-    }
+  const passwordMatches = await bcrypt.compare(password, user.passwordHash);
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!passwordMatches) {
+    throw new AppError("Неверный логин или пароль", 401);
+  }
 
-    if (!ok) {
-      return res.status(401).json({ error: "Неправильная почта или пароль" });
-    }
+  const token = signAuthToken(user.id);
+  setAuthCookie(res, token);
 
-    const token = makeToken(user.id);
-    setAuthCookie(res, token);
-
-    return res.json({
-      user: {
+  res.json(
+    createAuthResponse(
+      {
         id: user.id,
+        username: user.username,
         email: user.email,
       },
-    });
-  } catch (err) {
-    console.error("login error", err);
-    return res.status(500).json({ error: "Внутренняя ошибка сервера" });
-  }
+      token,
+    ),
+  );
 }
 
 export async function me(req: Request, res: Response) {
-  try {
-    if (!req.userId) {
-      return res.status(401).json({ error: "Не авторизован" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: req.userId },
-      select: {
-        id: true,
-        email: true,
-      },
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "Такой пользователь не найден" });
-    }
-
-    return res.json({ user });
-  } catch (err) {
-    console.error("me error", err);
-    return res.status(500).json({ error: "Внутренняя ошибка сервера" });
+  if (!req.userId) {
+    throw new AppError("Требуется авторизация", 401);
   }
+
+  const user = await prisma.user.findUnique({
+    where: { id: req.userId },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+    },
+  });
+
+  if (!user) {
+    throw new AppError("Пользователь не найден", 404);
+  }
+
+  res.json({ user });
 }
 
 export async function logout(_: Request, res: Response) {
-  res.clearCookie("token", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: IS_PROD,
-  });
-
-  return res.json({ success: true });
+  clearAuthCookie(res);
+  res.json({ success: true });
 }

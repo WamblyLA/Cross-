@@ -1,40 +1,44 @@
+import { z } from "zod";
+
 const DEFAULT_PORT = 3000;
 const DEFAULT_RENDERER_ORIGIN = "http://127.0.0.1:4173";
 
-function parsePort(value: string | undefined) {
-  const port = Number.parseInt(value ?? `${DEFAULT_PORT}`, 10);
+const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  PORT: z.coerce.number().int().min(1).max(65535).default(DEFAULT_PORT),
+  CORS_ORIGIN: z.string().default(DEFAULT_RENDERER_ORIGIN),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL обязателен"),
+  JWT_SECRET: z.string().min(1, "JWT_SECRET обязателен"),
+  JWT_EXPIRES_IN: z.string().default("7d"),
+  JSON_BODY_LIMIT: z.string().default("1mb"),
+});
 
-  if (Number.isNaN(port) || port <= 0) {
-    return DEFAULT_PORT;
-  }
+const parsedEnv = envSchema.safeParse(process.env);
 
-  return port;
+if (!parsedEnv.success) {
+  console.error("Некорректная конфигурация окружения:", parsedEnv.error.flatten().fieldErrors);
+  throw new Error("Не удалось прочитать переменные окружения");
 }
 
-function parseOrigins(value: string | undefined) {
-  const source = value ?? DEFAULT_RENDERER_ORIGIN;
-
-  return source
+function parseOrigins(value: string) {
+  return value
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
 }
 
-function toWsUrl(url: string) {
-  if (url.startsWith("https://")) {
-    return url.replace("https://", "wss://");
-  }
+const env = parsedEnv.data;
 
-  if (url.startsWith("http://")) {
-    return url.replace("http://", "ws://");
-  }
-
-  return url;
-}
-
-export const NODE_ENV = process.env.NODE_ENV ?? "development";
+export const NODE_ENV = env.NODE_ENV;
 export const IS_PROD = NODE_ENV === "production";
-export const PORT = parsePort(process.env.PORT);
-export const CORS_ORIGINS = parseOrigins(process.env.CORS_ORIGIN);
+export const PORT = env.PORT;
+export const DATABASE_URL = env.DATABASE_URL;
+export const JWT_SECRET = env.JWT_SECRET;
+export const JWT_EXPIRES_IN = env.JWT_EXPIRES_IN;
+export const JSON_BODY_LIMIT = env.JSON_BODY_LIMIT;
+export const CORS_ORIGINS = parseOrigins(env.CORS_ORIGIN);
 export const API_URL = `http://127.0.0.1:${PORT}`;
-export const WS_URL = toWsUrl(API_URL);
+export const COOKIE_NAME = "token";
+export const BCRYPT_SALT_ROUNDS = 12;
+export const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+export const AUTH_RATE_LIMIT_MAX = 10;

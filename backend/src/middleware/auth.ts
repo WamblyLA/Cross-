@@ -1,43 +1,31 @@
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import type { NextFunction, Request, Response } from "express";
+import { COOKIE_NAME } from "../config.js";
+import { verifyAuthToken } from "../lib/auth.js";
+import { AppError } from "../lib/errors.js";
 
-type JwtPayload = {
-  userId: string;
-};
-
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-    }
+function extractBearerToken(headerValue: string | undefined) {
+  if (!headerValue || !headerValue.startsWith("Bearer ")) {
+    return null;
   }
+
+  const token = headerValue.slice(7).trim();
+
+  return token || null;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
-    return res.status(500).json({ error: "JWT токен не существует" });
-  }
-
-  const cookieToken = req.cookies?.token;
-  const authHeader = req.headers.authorization;
-  const bearerToken =
-    authHeader && authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
-
-  const token = cookieToken || bearerToken;
+export function requireAuth(req: Request, _: Response, next: NextFunction) {
+  const token = req.cookies?.[COOKIE_NAME] ?? extractBearerToken(req.headers.authorization);
 
   if (!token) {
-    return res.status(401).json({ error: "Не авторизован" });
+    next(new AppError("Требуется авторизация", 401));
+    return;
   }
 
   try {
-    const payload = jwt.verify(token, secret) as JwtPayload;
-    req.userId = payload.userId;
+    const payload = verifyAuthToken(token);
+    req.userId = payload.sub;
     next();
   } catch {
-    return res.status(401).json({ error: "Неверный токен" });
+    next(new AppError("Неверный или просроченный токен", 401));
   }
 }
