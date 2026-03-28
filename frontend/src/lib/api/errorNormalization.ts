@@ -65,14 +65,14 @@ export function normalizeApiError(error: unknown): ApiError {
     const isTimeoutError = error.code === "ECONNABORTED";
     const isNetworkError = !error.response;
 
-    let message = "Request failed.";
+    let message = "Не удалось выполнить запрос.";
 
     if (typeof errorPayload?.message === "string") {
       message = errorPayload.message;
     } else if (isTimeoutError) {
-      message = "The request timed out.";
+      message = "Сервер не ответил вовремя.";
     } else if (isNetworkError) {
-      message = "Unable to reach the server.";
+      message = "Не удалось подключиться к серверу.";
     } else if (typeof error.message === "string" && error.message.trim()) {
       message = error.message;
     }
@@ -92,7 +92,7 @@ export function normalizeApiError(error: unknown): ApiError {
     });
   }
 
-  return createApiError("Unexpected error.", {
+  return createApiError("Произошла непредвиденная ошибка.", {
     originalError: error,
   });
 }

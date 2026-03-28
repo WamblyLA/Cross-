@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { closeFilesByPrefix, openFile, renameFilePath } from "../../../features/files/filesSlice";
+import {
+  closeLocalFilesByPrefix,
+  openLocalFile,
+  renameFilePath,
+} from "../../../features/files/filesSlice";
 import {
   clearExplorerIntent,
   selectNode,
@@ -329,12 +333,12 @@ export default function FileTree() {
       try {
         const content = await window.electronAPI.readFile(node.path);
 
-        dispatch(
-          openFile({
-            path: node.path,
-            content: content ?? "",
-          }),
-        );
+          dispatch(
+            openLocalFile({
+              path: node.path,
+              content: content ?? "",
+            }),
+          );
         dispatch(
           selectNode({
             path: node.path,
@@ -468,7 +472,7 @@ export default function FileTree() {
 
         if (draft.nodeType === "file") {
           dispatch(
-            openFile({
+            openLocalFile({
               path: result.path,
               content: "",
             }),
@@ -534,7 +538,7 @@ export default function FileTree() {
       setExpandedPaths(nextExpandedPaths);
       setDeleteTarget(null);
       setDraft(null);
-      dispatch(closeFilesByPrefix(deleteTarget.path));
+      dispatch(closeLocalFilesByPrefix(deleteTarget.path));
       dispatch(
         selectNode({
           path: nextSelectedPath ?? null,

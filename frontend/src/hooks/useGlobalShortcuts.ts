@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { requestExplorerAction } from "../features/workspace/workspaceSlice";
+import { useWorkspaceActions } from "./useWorkspaceActions";
 import { useDesktopActions } from "./useDesktopActions";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 
@@ -21,8 +22,10 @@ function isIgnoredTarget(target: EventTarget | null) {
 
 export function useGlobalShortcuts() {
   const dispatch = useAppDispatch();
+  const source = useAppSelector((state) => state.workspace.source);
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
-  const { openFolder, saveActiveFile, runActivePythonFile, toggleTerminal } = useDesktopActions();
+  const { toggleTerminal } = useDesktopActions();
+  const { openFolder, saveActiveFile, runActivePythonFile } = useWorkspaceActions();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -46,7 +49,7 @@ export function useGlobalShortcuts() {
       }
 
       if (hasPrimaryModifier && !event.altKey && !event.shiftKey && key === "n") {
-        if (!rootPath) {
+        if (source === "local" && !rootPath) {
           return;
         }
 
@@ -56,7 +59,7 @@ export function useGlobalShortcuts() {
       }
 
       if (hasPrimaryModifier && !event.altKey && event.shiftKey && key === "n") {
-        if (!rootPath) {
+        if (source !== "local" || !rootPath) {
           return;
         }
 
@@ -82,5 +85,5 @@ export function useGlobalShortcuts() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [dispatch, openFolder, rootPath, runActivePythonFile, saveActiveFile, toggleTerminal]);
+  }, [dispatch, openFolder, rootPath, runActivePythonFile, saveActiveFile, source, toggleTerminal]);
 }

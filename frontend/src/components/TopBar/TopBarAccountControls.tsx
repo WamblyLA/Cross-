@@ -30,7 +30,7 @@ export default function TopBarAccountControls() {
           onClick={() => navigate("/")}
           className={navButtonClassName(location.pathname === "/")}
         >
-          Workspace
+          IDE
         </button>
 
         <button
@@ -62,7 +62,7 @@ export default function TopBarAccountControls() {
         onClick={() => navigate("/")}
         className={navButtonClassName(location.pathname === "/")}
       >
-        Workspace
+        IDE
       </button>
 
       <button

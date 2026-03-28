@@ -5,8 +5,14 @@ import { IoIosSquareOutline } from "react-icons/io";
 import { RxCross1 } from "react-icons/rx";
 import { TfiLayoutLineSolid } from "react-icons/tfi";
 import { VscChevronDown, VscEllipsis, VscPlay } from "react-icons/vsc";
+import { selectIsAuthenticated } from "../../features/auth/authSelectors";
+import {
+  selectCloudActiveProjectId,
+  selectCloudSelectedItemType,
+} from "../../features/cloud/cloudSelectors";
 import { requestExplorerAction } from "../../features/workspace/workspaceSlice";
 import { useDesktopActions } from "../../hooks/useDesktopActions";
+import { useWorkspaceActions } from "../../hooks/useWorkspaceActions";
 import type { ThemeName } from "../../styles/tokens";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import SearchBar from "../../ui/SearchBar";
@@ -240,35 +246,42 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
   ]);
   const [overflowSubmenu, setOverflowSubmenu] = useState<OverflowSubmenuState | null>(null);
 
+  const source = useAppSelector((state) => state.workspace.source);
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
   const selectedPath = useAppSelector((state) => state.workspace.selectedPath);
+  const selectedCloudItemType = useAppSelector(selectCloudSelectedItemType);
+  const activeCloudProjectId = useAppSelector(selectCloudActiveProjectId);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const isTerminalVisible = useAppSelector((state) => state.runner.isVisible);
   const isTerminalReady = useAppSelector((state) => state.runner.isReady);
   const isRunning = useAppSelector((state) => state.runner.isRunning);
-  const {
-    activeFile,
-    openFolder,
-    saveActiveFile,
-    runActivePythonFile,
-    openTerminal,
-    toggleTerminal,
-    clearTerminal,
-  } = useDesktopActions();
+  const { openTerminal, toggleTerminal, clearTerminal } = useDesktopActions();
+  const { activeFile, openFolder, saveActiveFile, runActivePythonFile } = useWorkspaceActions();
 
   const closeMenus = useCallback(() => {
     setOpenMenuId(null);
     setOverflowSubmenu(null);
   }, []);
 
-  const canEditSelectedNode = Boolean(selectedPath && selectedPath !== rootPath);
-  const hasActivePythonFile = activeFile?.extension?.toLowerCase() === "py";
-  const canRunActivePython = Boolean(activeFile && hasActivePythonFile && !isRunning);
+  const canEditSelectedNode =
+    source === "cloud"
+      ? selectedCloudItemType === "project" || selectedCloudItemType === "file"
+      : Boolean(selectedPath && selectedPath !== rootPath);
+  const canCreateFile =
+    source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
+  const canCreateFolder = source === "local" && Boolean(rootPath);
+  const canRefreshExplorer = source === "cloud" ? isAuthenticated : Boolean(rootPath);
+  const canCollapseExplorer =
+    source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
+  const hasActivePythonFile =
+    activeFile?.kind === "local" && activeFile.extension?.toLowerCase() === "py";
+  const canRunActivePython = Boolean(hasActivePythonFile && !isRunning);
 
   const primaryMenus = useMemo<MenuConfig[]>(
     () => [
       {
         id: "file",
-        label: "File",
+        label: "Файл",
         sections: [
           {
             id: "file-main",
@@ -281,16 +294,16 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
               },
               {
                 id: "new-file",
-                label: "Новый файл",
+                label: source === "cloud" ? "Новый облачный файл" : "Новый файл",
                 shortcut: "Ctrl+N",
-                disabled: !rootPath,
+                disabled: !canCreateFile,
                 onSelect: () => dispatch(requestExplorerAction("create-file")),
               },
               {
                 id: "new-folder",
-                label: "Новая папка",
+                label: source === "cloud" ? "Новая папка недоступна" : "Новая папка",
                 shortcut: "Ctrl+Shift+N",
-                disabled: !rootPath,
+                disabled: !canCreateFolder,
                 onSelect: () => dispatch(requestExplorerAction("create-folder")),
               },
               {
@@ -306,7 +319,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       },
       {
         id: "edit",
-        label: "Edit",
+        label: "Правка",
         sections: [
           {
             id: "edit-main",
@@ -329,7 +342,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       },
       {
         id: "view",
-        label: "View",
+        label: "Вид",
         sections: [
           {
             id: "view-main",
@@ -342,14 +355,17 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
               },
               {
                 id: "refresh-tree",
-                label: "Обновить проводник",
-                disabled: !rootPath,
+                label: source === "cloud" ? "Обновить облачные проекты" : "Обновить проводник",
+                disabled: !canRefreshExplorer,
                 onSelect: () => dispatch(requestExplorerAction("refresh")),
               },
               {
                 id: "collapse-tree",
-                label: "Свернуть все в проводнике",
-                disabled: !rootPath,
+                label:
+                  source === "cloud"
+                    ? "Свернуть активный проект"
+                    : "Свернуть все в проводнике",
+                disabled: !canCollapseExplorer,
                 onSelect: () => dispatch(requestExplorerAction("collapse-all")),
               },
               {
@@ -363,7 +379,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       },
       {
         id: "run",
-        label: "Run",
+        label: "Запуск",
         sections: [
           {
             id: "run-main",
@@ -387,7 +403,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       },
       {
         id: "terminal",
-        label: "Terminal",
+        label: "Терминал",
         sections: [
           {
             id: "terminal-main",
@@ -411,7 +427,11 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     ],
     [
       activeFile,
+      canCollapseExplorer,
+      canCreateFile,
+      canCreateFolder,
       canEditSelectedNode,
+      canRefreshExplorer,
       canRunActivePython,
       clearTerminal,
       dispatch,
@@ -421,9 +441,9 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       onToggleTheme,
       openFolder,
       openTerminal,
-      rootPath,
       runActivePythonFile,
       saveActiveFile,
+      source,
       toggleTerminal,
     ],
   );
@@ -432,7 +452,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     return (
       primaryMenus.find((menu) => menu.id === "run") ?? {
         id: "run",
-        label: "Run",
+        label: "Запуск",
         sections: [],
       }
     );
@@ -760,7 +780,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
               title="Запустить текущий Python-файл"
             >
               <VscPlay className="h-4 w-4" />
-              <span>Run</span>
+              <span>Запуск</span>
             </button>
 
             <button
@@ -782,8 +802,8 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
             type="button"
             onClick={onToggleTheme}
             className="ui-control flex h-8 w-8 items-center justify-center"
-            title={theme === "dark" ? "Включить светлую тему" : "Включить темную тему"}
-            aria-label={theme === "dark" ? "Включить светлую тему" : "Включить темную тему"}
+            title={theme === "dark" ? "Включить светлую тему" : "Включить тёмную тему"}
+            aria-label={theme === "dark" ? "Включить светлую тему" : "Включить тёмную тему"}
           >
             {theme === "dark" ? <FiSun className="h-4 w-4" /> : <FiMoon className="h-4 w-4" />}
           </button>

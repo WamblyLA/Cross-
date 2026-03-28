@@ -1,4 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import type { WorkspaceSource } from "../cloud/cloudTypes";
 import type { FsNodeType } from "../../utils/path";
 
 export type ExplorerActionType =
@@ -15,6 +16,7 @@ type ExplorerIntent = {
 };
 
 type WorkspaceState = {
+  source: WorkspaceSource;
   rootPath: string | null;
   selectedPath: string | null;
   selectedType: FsNodeType | null;
@@ -23,6 +25,7 @@ type WorkspaceState = {
 };
 
 const initialState: WorkspaceState = {
+  source: "local",
   rootPath: null,
   selectedPath: null,
   selectedType: null,
@@ -34,7 +37,12 @@ const workspaceSlice = createSlice({
   name: "workspace",
   initialState,
   reducers: {
+    setWorkspaceSource(state, action: PayloadAction<WorkspaceSource>) {
+      state.source = action.payload;
+      state.explorerIntent = null;
+    },
     setRootPath(state, action: PayloadAction<string | null>) {
+      state.source = "local";
       state.rootPath = action.payload;
       state.selectedPath = action.payload;
       state.selectedType = action.payload ? "folder" : null;
@@ -76,6 +84,7 @@ const workspaceSlice = createSlice({
 });
 
 export const {
+  setWorkspaceSource,
   setRootPath,
   selectNode,
   setSearchQuery,

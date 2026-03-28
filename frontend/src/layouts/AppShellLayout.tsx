@@ -1,13 +1,16 @@
 import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import TopBar from "../components/TopBar/TopBar";
+import { selectIsAuthenticated } from "../features/auth/authSelectors";
+import { fetchProjects } from "../features/cloud/cloudThunks";
+import { selectCloudProjectsStatus } from "../features/cloud/cloudSelectors";
 import {
   terminalClosed,
   terminalRunFinished,
   terminalRunStarted,
 } from "../features/runner/runnerSlice";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
-import { useAppDispatch } from "../store/hooks";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import type { ThemeName } from "../styles/tokens";
 
 type AppShellLayoutProps = {
@@ -17,6 +20,8 @@ type AppShellLayoutProps = {
 
 export default function AppShellLayout({ theme, onToggleTheme }: AppShellLayoutProps) {
   const dispatch = useAppDispatch();
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const cloudProjectsStatus = useAppSelector(selectCloudProjectsStatus);
 
   useGlobalShortcuts();
 
@@ -50,6 +55,12 @@ export default function AppShellLayout({ theme, onToggleTheme }: AppShellLayoutP
       unsubscribeStatus();
     };
   }, [dispatch]);
+
+  useEffect(() => {
+    if (isAuthenticated && cloudProjectsStatus === "idle") {
+      void dispatch(fetchProjects());
+    }
+  }, [cloudProjectsStatus, dispatch, isAuthenticated]);
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-app text-primary">

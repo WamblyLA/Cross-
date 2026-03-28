@@ -2,14 +2,15 @@ import { Editor } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { useCallback, useEffect, useRef } from "react";
 import { RxCross1 } from "react-icons/rx";
+import { selectIsAuthenticated } from "../../features/auth/authSelectors";
+import { selectCloudActiveProject } from "../../features/cloud/cloudSelectors";
+import { closeFile, markFileDirty, setActiveFile, updateFileContent } from "../../features/files/filesSlice";
 import {
-  closeFile,
-  markFileDirty,
-  markFileSaved,
-  setActiveFile,
-  updateFileContent,
-} from "../../features/files/filesSlice";
-import { useDesktopActions } from "../../hooks/useDesktopActions";
+  selectActiveFile,
+  selectActiveTabId,
+  selectOpenedFiles,
+} from "../../features/files/filesSelectors";
+import { useWorkspaceActions } from "../../hooks/useWorkspaceActions";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { registerMonacoThemes } from "../../styles/monacoTheme";
 import { getMonacoThemeName, type ThemeName } from "../../styles/tokens";
@@ -73,18 +74,28 @@ function EmptyEditorState({
 
 export default function WorkWindow({ theme }: WorkWindowProps) {
   const dispatch = useAppDispatch();
+  const source = useAppSelector((state) => state.workspace.source);
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
-  const { openedFiles, activeFilePath } = useAppSelector((state) => state.files);
-  const activeFile = openedFiles.find((file) => file.path === activeFilePath) ?? null;
-  const { saveActiveFile } = useDesktopActions();
-  const isNotebookFile = activeFile?.extension?.toLowerCase() === "ipynb";
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const activeCloudProject = useAppSelector(selectCloudActiveProject);
+  const openedFiles = useAppSelector(selectOpenedFiles);
+  const activeTabId = useAppSelector(selectActiveTabId);
+  const activeFile = useAppSelector(selectActiveFile);
+  const { saveActiveFile } = useWorkspaceActions();
+
+  const isNotebookFile =
+    activeFile?.kind === "local" && activeFile.extension?.toLowerCase() === "ipynb";
   const isMarkdownFile = activeFile?.extension?.toLowerCase() === "md";
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const notebookPathsRef = useRef<string[]>([]);
 
   const handleSave = useCallback(async () => {
-    await saveActiveFile();
+    const result = await saveActiveFile();
+
+    if (!result.ok && result.message) {
+      console.error(result.message);
+    }
   }, [saveActiveFile]);
 
   useEffect(() => {
@@ -122,7 +133,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
 
       dispatch(
         updateFileContent({
-          path: activeFile.path,
+          tabId: activeFile.tabId,
           content: value,
         }),
       );
@@ -138,7 +149,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
 
       dispatch(
         updateFileContent({
-          path: activeFile.path,
+          tabId: activeFile.tabId,
           content: nextContent,
         }),
       );
@@ -151,7 +162,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
       return;
     }
 
-    dispatch(markFileDirty(activeFile.path));
+    dispatch(markFileDirty(activeFile.tabId));
   }, [activeFile, dispatch]);
 
   const handleSaveActiveFileContent = useCallback(
@@ -160,26 +171,27 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         return;
       }
 
-      const contentToSave = nextContent ?? activeFile.content;
-
       if (nextContent !== undefined) {
         dispatch(
           updateFileContent({
-            path: activeFile.path,
-            content: contentToSave,
+            tabId: activeFile.tabId,
+            content: nextContent,
           }),
         );
       }
 
-      await window.electronAPI.writeFile(activeFile.path, contentToSave);
-      dispatch(markFileSaved(activeFile.path));
+      const result = await saveActiveFile();
+
+      if (!result.ok) {
+        throw new Error(result.message ?? "Не удалось сохранить файл.");
+      }
     },
-    [activeFile, dispatch],
+    [activeFile, dispatch, saveActiveFile],
   );
 
   useEffect(() => {
     const currentNotebookPaths = openedFiles
-      .filter((file) => file.extension?.toLowerCase() === "ipynb")
+      .filter((file) => file.kind === "local" && file.extension?.toLowerCase() === "ipynb")
       .map((file) => file.path);
     const previousNotebookPaths = notebookPathsRef.current;
     const removedNotebookPaths = previousNotebookPaths.filter(
@@ -193,15 +205,50 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
     });
   }, [openedFiles]);
 
-  if (!rootPath) {
-    return (
-      <div className="min-h-0 flex-1 bg-editor">
-        <EmptyEditorState
-          title="Откройте локальную папку"
-          description="Откройте проект через меню File или сочетанием Ctrl+O. После этого появятся проводник, редактор, кнопка Run и встроенный терминал."
-        />
-      </div>
-    );
+  if (!activeFile) {
+    if (source === "cloud") {
+      if (!isAuthenticated) {
+        return (
+          <div className="min-h-0 flex-1 bg-editor">
+            <EmptyEditorState
+              title="Облако доступно после входа"
+              description="Войдите в аккаунт, чтобы открывать облачные проекты, редактировать файлы и сохранять изменения через backend."
+            />
+          </div>
+        );
+      }
+
+      if (!activeCloudProject) {
+        return (
+          <div className="min-h-0 flex-1 bg-editor">
+            <EmptyEditorState
+              title="Выберите облачный проект"
+              description="Откройте проект в облачном проводнике слева или создайте новый. После этого список файлов появится прямо в IDE."
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-0 flex-1 bg-editor">
+          <EmptyEditorState
+            title="Выберите файл облачного проекта"
+            description={`Проект "${activeCloudProject.name}" уже открыт. Выберите файл в облачном проводнике или создайте новый файл внутри проекта.`}
+          />
+        </div>
+      );
+    }
+
+    if (!rootPath) {
+      return (
+        <div className="min-h-0 flex-1 bg-editor">
+          <EmptyEditorState
+            title="Откройте локальную папку"
+            description="Откройте проект через меню File или сочетанием Ctrl+O. После этого появятся проводник, редактор, кнопка Run и встроенный терминал."
+          />
+        </div>
+      );
+    }
   }
 
   return (
@@ -210,23 +257,28 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         {openedFiles.length > 0 ? (
           openedFiles.map((file) => (
             <div
-              key={file.path}
+              key={file.tabId}
               role="button"
               tabIndex={0}
-              onClick={() => dispatch(setActiveFile(file.path))}
+              onClick={() => dispatch(setActiveFile(file.tabId))}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  dispatch(setActiveFile(file.path));
+                  dispatch(setActiveFile(file.tabId));
                 }
               }}
               className={`ui-tab flex items-center gap-2 px-3 py-2 ${
-                activeFilePath === file.path ? "ui-tab-active" : ""
+                activeTabId === file.tabId ? "ui-tab-active" : ""
               }`}
             >
               <span className="flex items-center gap-2 whitespace-nowrap">
                 <span>{file.name}</span>
-                {file.isDirty ? <span className="text-[11px] text-emerald-400">●</span> : null}
+                {file.kind === "cloud" ? (
+                  <span className="rounded-full border border-default px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-muted">
+                    Облако
+                  </span>
+                ) : null}
+                {file.isDirty ? <span className="h-2 w-2 rounded-full bg-emerald-400" /> : null}
               </span>
 
               <button
@@ -234,7 +286,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
                 className="ui-control h-5 w-5 shrink-0"
                 onClick={(event) => {
                   event.stopPropagation();
-                  dispatch(closeFile(file.path));
+                  dispatch(closeFile(file.tabId));
                 }}
                 title="Закрыть файл"
               >
@@ -249,7 +301,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
 
       <div className="min-h-0 flex-1 border-t border-default">
         {activeFile ? (
-          isNotebookFile ? (
+          isNotebookFile && rootPath ? (
             <NotebookEditor
               filePath={activeFile.path}
               content={activeFile.content}
@@ -263,7 +315,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
             />
           ) : isMarkdownFile ? (
             <MarkdownEditor
-              filePath={activeFile.path}
+              filePath={activeFile.editorPath}
               content={activeFile.content}
               isDirty={activeFile.isDirty}
               theme={theme}
@@ -274,7 +326,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
             />
           ) : (
             <Editor
-              path={activeFile.path}
+              path={activeFile.editorPath}
               height="100%"
               language={extToLang(activeFile.extension)}
               value={activeFile.content}
@@ -299,7 +351,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         ) : (
           <EmptyEditorState
             title="Выберите файл в проводнике"
-            description="Откройте папку через File или Ctrl+O, затем выберите файл в левой панели. Для запуска Python используйте Run или F5, а терминал открывается по Ctrl+J."
+            description="Откройте файл в боковой панели. Локальные и облачные вкладки могут сосуществовать в одном workspace, а Ctrl+S сохранит активный файл в правильное хранилище."
           />
         )}
       </div>
