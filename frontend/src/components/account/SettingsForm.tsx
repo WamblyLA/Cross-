@@ -211,7 +211,7 @@ export default function SettingsForm() {
 
         <div className="flex flex-wrap items-center gap-3">
           <PrimaryButton type="submit" disabled={settingsPending} className="h-11 justify-center">
-            {settingsPending ? "Saving..." : "Save settings"}
+            {settingsPending ? "Сохраняем..." : "Сохранить"}
           </PrimaryButton>
 
           <button
