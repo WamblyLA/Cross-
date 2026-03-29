@@ -22,6 +22,24 @@ export type CloudProjectTree = {
   files: CloudFileSummary[];
 };
 
+export type CloudRunSnapshotFolder = CloudFolderSummary & {
+  relativePath: string;
+};
+
+export type CloudRunSnapshotFile = Pick<
+  File,
+  "id" | "projectId" | "folderId" | "name" | "content" | "createdAt" | "updatedAt"
+> & {
+  relativePath: string;
+};
+
+export type CloudProjectRunSnapshot = {
+  projectId: string;
+  projectName: string;
+  folders: CloudRunSnapshotFolder[];
+  files: CloudRunSnapshotFile[];
+};
+
 function sortByName<T extends { name: string }>(items: T[]) {
   return [...items].sort((left, right) => left.name.localeCompare(right.name, "ru"));
 }
@@ -212,6 +230,88 @@ export async function getOwnedProjectTree(
   ]);
 
   return buildProjectTree(projectId, folders, files);
+}
+
+function joinRelativePath(parentPath: string | null, name: string) {
+  return parentPath ? `${parentPath}/${name}` : name;
+}
+
+export async function getOwnedProjectRunSnapshot(
+  projectId: string,
+  userId: string,
+): Promise<CloudProjectRunSnapshot> {
+  const project = await ensureOwnedProject(projectId, userId);
+
+  const [folders, files] = await Promise.all([
+    prisma.folder.findMany({
+      where: { projectId },
+      select: {
+        id: true,
+        projectId: true,
+        parentId: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ name: "asc" }],
+    }),
+    prisma.file.findMany({
+      where: { projectId },
+      select: {
+        id: true,
+        projectId: true,
+        folderId: true,
+        name: true,
+        content: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ name: "asc" }],
+    }),
+  ]);
+
+  const folderById = new Map(folders.map((folder) => [folder.id, folder]));
+  const folderPathCache = new Map<string, string>();
+
+  const resolveFolderPath = (folderId: string): string => {
+    const cachedPath = folderPathCache.get(folderId);
+
+    if (cachedPath) {
+      return cachedPath;
+    }
+
+    const folder = folderById.get(folderId);
+
+    if (!folder) {
+      throw new AppError("Папка проекта не найдена при подготовке snapshot", 500);
+    }
+
+    const relativePath = joinRelativePath(
+      folder.parentId ? resolveFolderPath(folder.parentId) : null,
+      folder.name,
+    );
+
+    folderPathCache.set(folderId, relativePath);
+
+    return relativePath;
+  };
+
+  const snapshotFolders = folders.map((folder) => ({
+    ...folder,
+    relativePath: resolveFolderPath(folder.id),
+  }));
+
+  const snapshotFiles = files.map((file) => ({
+    ...file,
+    relativePath: joinRelativePath(file.folderId ? resolveFolderPath(file.folderId) : null, file.name),
+  }));
+
+  return {
+    projectId: project.id,
+    projectName: project.name,
+    folders: snapshotFolders,
+    files: snapshotFiles,
+  };
 }
 
 export async function collectFolderDescendants(projectId: string, folderId: string) {

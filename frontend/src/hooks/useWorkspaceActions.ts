@@ -33,7 +33,7 @@ import { selectActiveFile, selectOpenedFiles } from "../features/files/filesSele
 import { setRootPath, setWorkspaceSource } from "../features/workspace/workspaceSlice";
 import { normalizeApiError } from "../lib/api/errorNormalization";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { useDesktopActions } from "./useDesktopActions";
+import { useRunActions } from "./useRunActions";
 
 export function useWorkspaceActions() {
   const dispatch = useAppDispatch();
@@ -41,7 +41,7 @@ export function useWorkspaceActions() {
   const openedFiles = useAppSelector(selectOpenedFiles);
   const projects = useAppSelector(selectCloudProjects);
   const activeProjectId = useAppSelector(selectCloudActiveProjectId);
-  const { openTerminal, printTerminalMessage } = useDesktopActions();
+  const { runSelectedConfiguration } = useRunActions();
 
   const openFolder = useCallback(async () => {
     try {
@@ -98,6 +98,8 @@ export function useWorkspaceActions() {
   }, [activeFile, dispatch]);
 
   const runActivePythonFile = useCallback(async () => {
+    return runSelectedConfiguration();
+    /*
     await openTerminal();
 
     if (!activeFile) {
@@ -136,7 +138,8 @@ export function useWorkspaceActions() {
       await printTerminalMessage(message);
       return { ok: false };
     }
-  }, [activeFile, openTerminal, printTerminalMessage, saveActiveFile]);
+    */
+  }, [runSelectedConfiguration]);
 
   const refreshCloudProjects = useCallback(async () => {
     await dispatch(fetchProjects()).unwrap();

@@ -19,22 +19,169 @@ declare global {
     text: string;
   };
 
-  type TerminalStatusEvent =
+  type TerminalStatusEvent = {
+    type: "closed";
+    terminalId: string;
+  };
+
+  type RunWorkspaceDescriptor =
     | {
-        type: "closed";
-        terminalId: string;
+        scope: "local";
+        rootPath: string;
+        activeFileExtension?: string | null;
       }
     | {
-        type: "run-started";
-        terminalId: string;
-        filePath: string;
-        interpreter: string;
-      }
-    | {
-        type: "run-finished";
-        terminalId: string;
-        exitCode: number;
+        scope: "cloud";
+        projectId: string;
+        projectName: string;
+        activeFileExtension?: string | null;
       };
+
+  type RunConfigurationKind = "python-file" | "python-project" | "cpp-file";
+  type RunConfigurationSource = "builtin" | "user";
+  type RunConfigurationWorkingDirectoryMode = "file-dir" | "project-root";
+
+  type RunConfiguration = {
+    id: string;
+    source: RunConfigurationSource;
+    kind: RunConfigurationKind;
+    language: "python" | "cpp";
+    mode: "file" | "project";
+    name: string;
+    workingDirectoryMode: RunConfigurationWorkingDirectoryMode;
+    interpreterPath?: string;
+    compilerPath?: string;
+    argumentsText: string;
+    environmentText: string;
+    compilerArgumentsText: string;
+    entrypoint: string;
+    isEditable: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+  };
+
+  type RunConfigurationListResult = {
+    workspaceKey: string;
+    selectedConfigId: string | null;
+    configurations: RunConfiguration[];
+  };
+
+  type RunSessionStatus =
+    | "preparing"
+    | "materializing"
+    | "building"
+    | "running"
+    | "finished"
+    | "failed"
+    | "interrupted"
+    | "cancelled";
+
+  type RunSession = {
+    id: string;
+    configurationId: string;
+    configurationName: string;
+    configurationKind: RunConfigurationKind;
+    workspaceKey: string;
+    workspaceLabel: string;
+    status: RunSessionStatus;
+    stage: string;
+    statusText: string;
+    startedAt: string;
+    finishedAt: string | null;
+    exitCode: number | null;
+    errorMessage: string | null;
+    targetPath: string | null;
+    workingDirectory: string | null;
+    runtimeLabel: string | null;
+    supportsInput: boolean;
+    isBusy: boolean;
+    canRerun: boolean;
+  };
+
+  type RunStreamKind = "stdout" | "stderr" | "system";
+
+  type RunDataEvent = {
+    sessionId: string;
+    text: string;
+    stream: RunStreamKind;
+    stage: string;
+  };
+
+  type RunPythonInterpreterDescriptor = {
+    id: string;
+    path: string;
+    label: string;
+    kind: string;
+    isRecommended: boolean;
+  };
+
+  type RunCppToolchainDescriptor = {
+    id: string;
+    kind: string;
+    label: string;
+    path: string | null;
+    setupScriptPath: string | null;
+    isRecommended: boolean;
+  };
+
+  type RunLaunchActiveFile =
+    | {
+        kind: "local";
+        path: string;
+        name: string;
+        extension: string | null;
+      }
+    | {
+        kind: "cloud";
+        projectId: string;
+        fileId: string;
+        name: string;
+        extension: string | null;
+      };
+
+  type CloudFolderSummary = {
+    id: string;
+    projectId: string;
+    parentId: string | null;
+    name: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+
+  type CloudFileSummary = {
+    id: string;
+    projectId: string;
+    folderId: string | null;
+    name: string;
+    createdAt: string;
+    updatedAt: string;
+  };
+
+  type CloudFile = CloudFileSummary & {
+    content: string;
+  };
+
+  type CloudRunSnapshotFolder = CloudFolderSummary & {
+    relativePath: string;
+  };
+
+  type CloudRunSnapshotFile = CloudFile & {
+    relativePath: string;
+  };
+
+  type CloudProjectRunSnapshot = {
+    projectId: string;
+    projectName: string;
+    folders: CloudRunSnapshotFolder[];
+    files: CloudRunSnapshotFile[];
+  };
+
+  type RunLaunchRequest = {
+    workspace: RunWorkspaceDescriptor;
+    configurationId: string;
+    activeFile: RunLaunchActiveFile | null;
+    cloudSnapshot: CloudProjectRunSnapshot | null;
+  };
 
   type NotebookKernelKind = "venv" | "conda" | "system";
   type NotebookKernelManagerName =
@@ -206,10 +353,7 @@ declare global {
       closeTerminalSession: (terminalId: string) => Promise<{
         success: true;
       }>;
-      writeToTerminal: (data: string, terminalId?: string | null) => Promise<{
-        success: true;
-        terminal: TerminalMeta;
-      }>;
+      writeToTerminal: (data: string, terminalId?: string | null) => Promise<unknown>;
       resizeTerminal: (cols: number, rows: number, terminalId?: string | null) => Promise<{
         success: true;
       }>;
@@ -229,6 +373,53 @@ declare global {
         terminal?: TerminalMeta;
         reason?: string;
       }>;
+
+      listRunConfigurations: (
+        workspaceDescriptor: RunWorkspaceDescriptor,
+      ) => Promise<RunConfigurationListResult>;
+      createRunConfiguration: (
+        workspaceDescriptor: RunWorkspaceDescriptor,
+        configurationInput: Partial<RunConfiguration>,
+      ) => Promise<RunConfigurationListResult>;
+      updateRunConfiguration: (
+        workspaceDescriptor: RunWorkspaceDescriptor,
+        configurationInput: Partial<RunConfiguration> & { id: string },
+      ) => Promise<RunConfigurationListResult>;
+      deleteRunConfiguration: (
+        workspaceDescriptor: RunWorkspaceDescriptor,
+        configurationId: string,
+      ) => Promise<RunConfigurationListResult>;
+      selectRunConfiguration: (
+        workspaceDescriptor: RunWorkspaceDescriptor,
+        configurationId: string,
+      ) => Promise<RunConfigurationListResult>;
+      listRunPythonInterpreters: (options?: {
+        workspaceRootPath?: string | null;
+      }) => Promise<{
+        interpreters: RunPythonInterpreterDescriptor[];
+      }>;
+      listRunCppToolchains: () => Promise<{
+        toolchains: RunCppToolchainDescriptor[];
+      }>;
+      startRunSession: (launchRequest: RunLaunchRequest) => Promise<{
+        session: RunSession | null;
+      }>;
+      stopRunSession: () => Promise<{
+        session: RunSession | null;
+      }>;
+      rerunRunSession: () => Promise<{
+        session: RunSession | null;
+      }>;
+      writeToRunSession: (sessionId: string, data: string) => Promise<{
+        success: boolean;
+      }>;
+      resizeRunSession: (sessionId: string, cols: number, rows: number) => Promise<{
+        success: boolean;
+      }>;
+      getCurrentRunSession: () => Promise<{
+        session: RunSession | null;
+      }>;
+
       listNotebookKernels: (options?: {
         workspacePath?: string | null;
         notebookPath?: string | null;
@@ -266,6 +457,8 @@ declare global {
       ) => () => void;
       onTerminalData: (callback: (payload: TerminalDataEvent) => void) => () => void;
       onTerminalStatus: (callback: (payload: TerminalStatusEvent) => void) => () => void;
+      onRunData: (callback: (payload: RunDataEvent) => void) => () => void;
+      onRunSession: (callback: (payload: RunSession) => void) => () => void;
       onNotebookKernelEvent: (callback: (payload: NotebookKernelEvent) => void) => () => void;
     };
   }

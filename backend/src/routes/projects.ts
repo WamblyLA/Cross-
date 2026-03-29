@@ -3,6 +3,7 @@ import {
   createProject,
   deleteProject,
   getProject,
+  getProjectRunSnapshot,
   getProjects,
   getProjectTree,
   updateProject,
@@ -23,6 +24,11 @@ router.get("/", getProjects);
 router.post("/", validateRequest({ body: createProjectBodySchema }), createProject);
 router.get("/:id", validateRequest({ params: projectParamsSchema }), getProject);
 router.get("/:id/tree", validateRequest({ params: projectParamsSchema }), getProjectTree);
+router.get(
+  "/:id/run-snapshot",
+  validateRequest({ params: projectParamsSchema }),
+  getProjectRunSnapshot,
+);
 router.put(
   "/:id",
   validateRequest({
