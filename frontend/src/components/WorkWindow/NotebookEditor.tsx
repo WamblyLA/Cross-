@@ -8,6 +8,21 @@ type NotebookEditorProps = {
   isDirty: boolean;
   theme: ThemeName;
   beforeMount: (monaco: typeof Monaco) => void;
+  runtimeContext:
+    | {
+        kind: "local";
+        runtimeId: string;
+        notebookPath: string;
+        workspaceRootPath?: string | null;
+      }
+    | {
+        kind: "cloud";
+        runtimeId: string;
+        editorPath: string;
+        projectId: string;
+        fileId: string;
+        name: string;
+      };
   onCommitContent: (nextContent: string) => void;
   onMarkDirty: () => void;
   onSaveContent: (nextContent: string) => Promise<void>;

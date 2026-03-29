@@ -15,6 +15,10 @@ type CellEditorProps = {
   minHeight: number;
   tabSize: number;
   readOnly?: boolean;
+  focusToken?: number;
+  onRunRequest?: () => void;
+  onRunAndAdvanceRequest?: () => void;
+  onFocusRequest?: () => void;
 };
 
 export default function CellEditor({
@@ -29,17 +33,39 @@ export default function CellEditor({
   minHeight,
   tabSize,
   readOnly = false,
+  focusToken = 0,
+  onRunRequest,
+  onRunAndAdvanceRequest,
+  onFocusRequest,
 }: CellEditorProps) {
   const [height, setHeight] = useState(minHeight);
   const disposablesRef = useRef<Monaco.IDisposable[]>([]);
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const onSaveRequestRef = useRef(onSaveRequest);
+  const onRunRequestRef = useRef(onRunRequest);
+  const onRunAndAdvanceRequestRef = useRef(onRunAndAdvanceRequest);
+  const onFocusRequestRef = useRef(onFocusRequest);
 
   useEffect(() => {
     onSaveRequestRef.current = onSaveRequest;
   }, [onSaveRequest]);
 
+  useEffect(() => {
+    onRunRequestRef.current = onRunRequest;
+  }, [onRunRequest]);
+
+  useEffect(() => {
+    onRunAndAdvanceRequestRef.current = onRunAndAdvanceRequest;
+  }, [onRunAndAdvanceRequest]);
+
+  useEffect(() => {
+    onFocusRequestRef.current = onFocusRequest;
+  }, [onFocusRequest]);
+
   const handleMount = useCallback(
     (editor: Monaco.editor.IStandaloneCodeEditor, monacoInstance: typeof Monaco) => {
+      editorRef.current = editor;
+
       const syncHeight = () => {
         setHeight(Math.max(minHeight, Math.min(editor.getContentHeight() + 4, 720)));
       };
@@ -48,11 +74,30 @@ export default function CellEditor({
 
       disposablesRef.current = [
         editor.onDidContentSizeChange(syncHeight),
+        editor.onDidFocusEditorWidget(() => {
+          onFocusRequestRef.current?.();
+        }),
         editor.addAction({
           id: `${editorPath}-save`,
           label: "Сохранить файл",
           keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS],
           run: async () => onSaveRequestRef.current(),
+        }),
+        editor.addAction({
+          id: `${editorPath}-run`,
+          label: "Выполнить ячейку",
+          keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter],
+          run: () => {
+            onRunRequestRef.current?.();
+          },
+        }),
+        editor.addAction({
+          id: `${editorPath}-run-and-advance`,
+          label: "Выполнить и перейти к следующей ячейке",
+          keybindings: [monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.Enter],
+          run: () => {
+            onRunAndAdvanceRequestRef.current?.();
+          },
         }),
       ];
     },
@@ -61,11 +106,21 @@ export default function CellEditor({
 
   useEffect(() => {
     return () => {
+      editorRef.current = null;
+
       for (const disposable of disposablesRef.current) {
         disposable.dispose();
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!focusToken) {
+      return;
+    }
+
+    editorRef.current?.focus();
+  }, [focusToken]);
 
   return (
     <Editor

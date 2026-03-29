@@ -1,6 +1,5 @@
 import type { ThemeName } from "../../../styles/tokens";
-import HtmlOutputFrame from "../HtmlOutputFrame";
-import MarkdownRenderer from "../markdown/MarkdownRenderer";
+import NotebookMimeRendererHost from "./output/NotebookMimeRendererHost";
 import type { NotebookOutput } from "./types";
 
 type OutputRendererProps = {
@@ -9,105 +8,6 @@ type OutputRendererProps = {
   filePath: string;
   theme: ThemeName;
 };
-
-function coerceText(value: unknown) {
-  if (Array.isArray(value)) {
-    return value.map((part) => `${part ?? ""}`).join("");
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value == null) {
-    return "";
-  }
-
-  if (typeof value === "object") {
-    return JSON.stringify(value, null, 2);
-  }
-
-  return `${value}`;
-}
-
-function renderRichOutput(
-  output: Extract<NotebookOutput, { output_type: "display_data" | "execute_result" }>,
-  filePath: string,
-  theme: ThemeName,
-) {
-  const data = output.data ?? {};
-  const html = coerceText(data["text/html"]);
-
-  if (html) {
-    return <HtmlOutputFrame html={html} filePath={filePath} theme={theme} minHeight={140} />;
-  }
-
-  const svg = coerceText(data["image/svg+xml"]);
-
-  if (svg) {
-    return (
-      <img
-        src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`}
-        alt="Сохранённый вывод ячейки"
-        className="max-w-full rounded-[12px] border border-default"
-      />
-    );
-  }
-
-  const png = coerceText(data["image/png"]);
-
-  if (png) {
-    return (
-      <img
-        src={`data:image/png;base64,${png}`}
-        alt="Сохранённый вывод ячейки"
-        className="max-w-full rounded-[12px] border border-default"
-      />
-    );
-  }
-
-  const jpeg = coerceText(data["image/jpeg"]);
-
-  if (jpeg) {
-    return (
-      <img
-        src={`data:image/jpeg;base64,${jpeg}`}
-        alt="Сохранённый вывод ячейки"
-        className="max-w-full rounded-[12px] border border-default"
-      />
-    );
-  }
-
-  const markdown = coerceText(data["text/markdown"]);
-
-  if (markdown) {
-    return (
-      <MarkdownRenderer
-        source={markdown}
-        filePath={filePath}
-        className="rounded-[14px] border border-default bg-input px-4 py-4"
-      />
-    );
-  }
-
-  const jsonValue = data["application/json"];
-
-  if (jsonValue != null) {
-    return (
-      <pre className="overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
-        {typeof jsonValue === "string" ? jsonValue : JSON.stringify(jsonValue, null, 2)}
-      </pre>
-    );
-  }
-
-  const plainText = coerceText(data["text/plain"]);
-
-  return (
-    <pre className="overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
-      {plainText}
-    </pre>
-  );
-}
 
 export default function OutputRenderer({
   outputs,
@@ -158,7 +58,7 @@ export default function OutputRenderer({
 
         return (
           <div key={`${output.output_type}-${index}`} className="overflow-hidden">
-            {renderRichOutput(output, filePath, theme)}
+            <NotebookMimeRendererHost output={output} filePath={filePath} theme={theme} />
           </div>
         );
       })}
@@ -166,7 +66,7 @@ export default function OutputRenderer({
       {hasUnsupportedOutputs ? (
         <div className="rounded-[14px] border border-dashed border-default px-4 py-3 text-xs leading-6 text-secondary">
           В этом ноутбуке есть сохранённые выводы, которые этот просмотрщик пока не умеет
-          отображать. Они будут сохранены при повторном сохранении файла.
+          отображать
         </div>
       ) : null}
     </div>

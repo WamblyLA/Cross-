@@ -1,5 +1,5 @@
 import type * as Monaco from "monaco-editor";
-import { VscAdd, VscChevronDown, VscChevronUp, VscTrash } from "react-icons/vsc";
+import { VscChevronDown, VscChevronUp, VscPlay, VscTrash } from "react-icons/vsc";
 import { type ThemeName } from "../../../styles/tokens";
 import CellEditor from "./CellEditor";
 import OutputRenderer from "./OutputRenderer";
@@ -12,12 +12,44 @@ type CodeCellViewProps = {
   filePath: string;
   theme: ThemeName;
   beforeMount: (monaco: typeof Monaco) => void;
+  executionState: {
+    isRunning: boolean;
+    lastStatus: NotebookExecutionStatus | null;
+  };
+  canExecute: boolean;
+  isSelected: boolean;
+  focusToken: number;
+  onSelect: (localId: string) => void;
+  onRunCell: (localId: string) => void;
+  onRunCellAndAdvance: (localId: string) => void;
   onChangeSource: (localId: string, source: string) => void;
   onMove: (localId: string, direction: -1 | 1) => void;
   onDelete: (localId: string) => void;
-  onAddBelow: (cellType: "code" | "markdown", afterIndex: number) => void;
   onSaveRequest: () => Promise<void>;
 };
+
+function renderStatusText(
+  cell: NotebookCellModel,
+  executionState: CodeCellViewProps["executionState"],
+) {
+  if (executionState.isRunning) {
+    return "Ячейка выполняется...";
+  }
+
+  if (executionState.lastStatus === "error") {
+    return "Последний запуск завершился с ошибкой";
+  }
+
+  if (executionState.lastStatus === "interrupted") {
+    return "Последний запуск был прерван";
+  }
+
+  if (cell.executionCount != null) {
+    return `Счётчик выполнения: ${cell.executionCount}`;
+  }
+
+  return "Ядро ещё не запускало эту ячейку.";
+}
 
 export default function CodeCellView({
   cell,
@@ -26,25 +58,46 @@ export default function CodeCellView({
   filePath,
   theme,
   beforeMount,
+  executionState,
+  canExecute,
+  isSelected,
+  focusToken,
+  onSelect,
+  onRunCell,
+  onRunCellAndAdvance,
   onChangeSource,
   onMove,
   onDelete,
-  onAddBelow,
   onSaveRequest,
 }: CodeCellViewProps) {
   return (
-    <section className="overflow-hidden rounded-[18px] border border-default bg-panel shadow-sm">
+    <section
+      className={`overflow-hidden rounded-[18px] border bg-panel shadow-sm transition-colors ${
+        isSelected ? "border-[color:var(--accent)] ring-1 ring-[color:var(--accent)]/30" : "border-default"
+      }`}
+      onMouseDown={() => onSelect(cell.localId)}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-default px-4 py-3">
         <div className="min-w-0">
-          <div className="text-sm text-primary">Ячейка кода {index + 1}</div>
-          <div className="text-xs text-muted">
-            {cell.executionCount != null
-              ? `Сохранённый счётчик выполнения: ${cell.executionCount}`
-              : "Только редактирование. Выполнение не входит в эту задачу."}
-          </div>
+          <div className="text-sm text-primary">{`Ячейка кода ${index + 1}`}</div>
+          <div className="text-xs text-muted">{renderStatusText(cell, executionState)}</div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="ui-control h-8 px-3"
+            onClick={() => {
+              onSelect(cell.localId);
+              onRunCell(cell.localId);
+            }}
+            disabled={!canExecute || executionState.isRunning}
+            title="Run Cell"
+          >
+            <VscPlay className="h-4 w-4" />
+            <span>Run Cell</span>
+          </button>
+
           <button
             type="button"
             className="ui-control h-8 w-8"
@@ -83,6 +136,10 @@ export default function CodeCellView({
           beforeMount={beforeMount}
           onChange={(nextValue) => onChangeSource(cell.localId, nextValue)}
           onSaveRequest={onSaveRequest}
+          onRunRequest={() => onRunCell(cell.localId)}
+          onRunAndAdvanceRequest={() => onRunCellAndAdvance(cell.localId)}
+          onFocusRequest={() => onSelect(cell.localId)}
+          focusToken={focusToken}
           lineNumbers="on"
           minHeight={160}
           tabSize={4}
@@ -95,26 +152,6 @@ export default function CodeCellView({
             filePath={filePath}
             theme={theme}
           />
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="ui-control h-8 px-3"
-            onClick={() => onAddBelow("code", index)}
-          >
-            <VscAdd className="h-4 w-4" />
-            <span>Добавить ячейку кода ниже</span>
-          </button>
-
-          <button
-            type="button"
-            className="ui-control h-8 px-3"
-            onClick={() => onAddBelow("markdown", index)}
-          >
-            <VscAdd className="h-4 w-4" />
-            <span>Добавить Markdown-ячейку ниже</span>
-          </button>
         </div>
       </div>
     </section>

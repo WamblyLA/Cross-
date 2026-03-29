@@ -92,6 +92,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
   const isMarkdownFile = activeFile?.extension?.toLowerCase() === "md";
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const previousNotebookTabIdsRef = useRef<Set<string>>(new Set());
 
   const handleSave = useCallback(async () => {
     const result = await saveActiveFile();
@@ -119,6 +120,26 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
       disposable.dispose();
     };
   }, [handleSave]);
+
+  useEffect(() => {
+    const currentNotebookTabIds = new Set(
+      openedFiles
+        .filter((file) => file.extension?.toLowerCase() === "ipynb")
+        .map((file) => file.tabId),
+    );
+
+    for (const previousTabId of previousNotebookTabIdsRef.current) {
+      if (currentNotebookTabIds.has(previousTabId)) {
+        continue;
+      }
+
+      void window.electronAPI.shutdownNotebookSession(previousTabId).catch(() => {
+        // TODO
+      });
+    }
+
+    previousNotebookTabIdsRef.current = currentNotebookTabIds;
+  }, [openedFiles]);
 
   const beforeMount = useCallback((monacoInstance: typeof monaco) => {
     registerMonacoThemes(monacoInstance);
@@ -199,7 +220,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
           <div className="min-h-0 flex-1 bg-editor">
             <EmptyEditorState
               title="Облако доступно после входа"
-              description="Войдите в аккаунт, чтобы открывать облачные проекты, редактировать файлы и сохранять изменения через backend."
+              description="Войдите в аккаунт, чтобы открывать облачные проекты, редактировать файлы и сохранять изменения"
             />
           </div>
         );
@@ -210,7 +231,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
           <div className="min-h-0 flex-1 bg-editor">
             <EmptyEditorState
               title="Выберите облачный проект"
-              description="Откройте проект в облачном проводнике слева или создайте новый. После этого список файлов появится прямо в IDE."
+              description="Откройте проект в облачном проводнике слева или создайте новый. После этого список файлов появится"
             />
           </div>
         );
@@ -231,7 +252,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         <div className="min-h-0 flex-1 bg-editor">
           <EmptyEditorState
             title="Откройте локальную папку"
-            description="Откройте проект через меню File или сочетанием Ctrl+O. После этого появятся проводник, редактор, кнопка Run и встроенный терминал."
+            description="Откройте проект через меню File или сочетанием Ctrl+O"
           />
         </div>
       );
@@ -295,6 +316,23 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
               isDirty={activeFile.isDirty}
               theme={theme}
               beforeMount={beforeMount}
+              runtimeContext={
+                activeFile.kind === "local"
+                  ? {
+                      kind: "local" as const,
+                      runtimeId: activeFile.tabId,
+                      notebookPath: activeFile.path,
+                      workspaceRootPath: rootPath,
+                    }
+                  : {
+                      kind: "cloud" as const,
+                      runtimeId: activeFile.tabId,
+                      editorPath: activeFile.editorPath,
+                      projectId: activeFile.projectId,
+                      fileId: activeFile.fileId,
+                      name: activeFile.name,
+                    }
+              }
               onCommitContent={handleCommitActiveFileContent}
               onMarkDirty={handleMarkActiveFileDirty}
               onSaveContent={handleSaveActiveFileContent}
@@ -337,7 +375,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         ) : (
           <EmptyEditorState
             title="Выберите файл в проводнике"
-            description="Откройте файл в боковой панели. Локальные и облачные вкладки могут сосуществовать в одном workspace, а Ctrl+S сохранит активный файл в правильное хранилище."
+            description="Откройте файл в боковой панели"
           />
         )}
       </div>

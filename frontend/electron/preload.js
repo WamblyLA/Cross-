@@ -52,13 +52,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getCurrentRunSession: () => ipcRenderer.invoke("run:get-current-session"),
   listNotebookKernels: (options) => ipcRenderer.invoke("notebook:list-kernels", options),
   refreshNotebookKernels: (options) => ipcRenderer.invoke("notebook:refresh-kernels", options),
-  getNotebookKernelDiagnostics: (options) =>
-    ipcRenderer.invoke("notebook:get-kernel-diagnostics", options),
+  startNotebookSession: (payload) => ipcRenderer.invoke("notebook:start-session", payload),
   executeNotebookCell: (payload) => ipcRenderer.invoke("notebook:execute-cell", payload),
-  interruptNotebookKernel: (notebookPath) =>
-    ipcRenderer.invoke("notebook:interrupt-kernel", notebookPath),
-  restartNotebookKernel: (payload) => ipcRenderer.invoke("notebook:restart-kernel", payload),
-  releaseNotebookKernel: (notebookPath) => ipcRenderer.invoke("notebook:release-kernel", notebookPath),
+  interruptNotebookKernel: (runtimeId) =>
+    ipcRenderer.invoke("notebook:interrupt-kernel", runtimeId),
+  restartNotebookKernel: (runtimeId) => ipcRenderer.invoke("notebook:restart-kernel", runtimeId),
+  shutdownNotebookSession: (runtimeId) =>
+    ipcRenderer.invoke("notebook:shutdown-session", runtimeId),
   onFolderChanged: (callback) => {
     const listener = (_, payload) => callback(payload);
     ipcRenderer.on("folder:changed", listener);

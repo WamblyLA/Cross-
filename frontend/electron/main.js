@@ -6,7 +6,7 @@ import { createRequire } from "module";
 import path from "path";
 import { fileURLToPath } from "url";
 import { startFolderWatcher } from "./folderWatcher.js";
-import { createNotebookKernelManager } from "./notebookKernel.js";
+import { registerNotebookKernelIpc } from "./notebook/ipc/registerNotebookKernelIpc.js";
 import { createRunSubsystem } from "./run/index.js";
 
 const require = createRequire(import.meta.url);
@@ -37,9 +37,9 @@ let terminalSize = {
   cols: DEFAULT_TERMINAL_COLS,
   rows: DEFAULT_TERMINAL_ROWS,
 };
-const notebookKernelManager = createNotebookKernelManager({
-  nodePty,
-  nodePtyLoadError,
+const notebookKernelIpc = registerNotebookKernelIpc({
+  app,
+  ipcMain,
   sendToRenderer,
 });
 const runSubsystem = createRunSubsystem({
@@ -327,7 +327,7 @@ function getShellCandidate() {
 
 function buildNodePtyUnavailableError() {
   const baseMessage =
-    "node-pty не удалось загрузить для Electron. Выполните npm run rebuild:native -w ./frontend. Для Windows также нужны Visual Studio Build Tools.";
+    "node-pty не удалось загрузить для Electron. Выполните npm run rebuild:native -w ./frontend";
   const details = nodePtyLoadError instanceof Error ? nodePtyLoadError.message : null;
 
   return new Error(details ? `${baseMessage} Подробности: ${details}` : baseMessage);
@@ -1019,39 +1019,11 @@ app.whenReady().then(() => {
       session: runSubsystem.getCurrentSession(),
     };
   });
-
-  ipcMain.handle("notebook:list-kernels", async (_, options) => {
-    return notebookKernelManager.listKernels(options ?? {});
-  });
-
-  ipcMain.handle("notebook:refresh-kernels", async (_, options) => {
-    return notebookKernelManager.refreshKernels(options ?? {});
-  });
-
-  ipcMain.handle("notebook:get-kernel-diagnostics", async (_, options) => {
-    return notebookKernelManager.getKernelDiagnostics(options ?? {});
-  });
-
-  ipcMain.handle("notebook:execute-cell", async (_, payload) => {
-    return notebookKernelManager.executeCell(payload);
-  });
-
-  ipcMain.handle("notebook:interrupt-kernel", async (_, notebookPath) => {
-    return notebookKernelManager.interruptKernel(notebookPath);
-  });
-
-  ipcMain.handle("notebook:restart-kernel", async (_, payload) => {
-    return notebookKernelManager.restartKernel(payload);
-  });
-
-  ipcMain.handle("notebook:release-kernel", async (_, notebookPath) => {
-    return notebookKernelManager.releaseKernel(notebookPath);
-  });
 });
 
 app.on("before-quit", async () => {
   await closeFolderWatcher();
-  notebookKernelManager.disposeAll();
+  await notebookKernelIpc.dispose();
   runSubsystem.dispose();
 
   for (const terminalId of [...terminalOrder]) {

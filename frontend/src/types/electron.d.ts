@@ -183,23 +183,6 @@ declare global {
     cloudSnapshot: CloudProjectRunSnapshot | null;
   };
 
-  type NotebookKernelKind = "venv" | "conda" | "system";
-  type NotebookKernelManagerName =
-    | "workspace-venv"
-    | "conda"
-    | "pyenv"
-    | "poetry"
-    | "pipenv"
-    | "launcher"
-    | "path"
-    | "registry"
-    | "known-install"
-    | "selected";
-  type NotebookKernelLocationKind =
-    | "workspace-local"
-    | "user-local"
-    | "global-path"
-    | "system";
   type NotebookKernelDiagnosticSeverity = "info" | "warn" | "error";
 
   type NotebookKernelDiscoveryDiagnostic = {
@@ -208,28 +191,23 @@ declare global {
     message: string;
     details?: string | null;
     interpreterPath?: string | null;
-    manager?: NotebookKernelManagerName | null;
-    phase?: string | null;
-    cwd?: string | null;
-    durationMs?: number | null;
-    lastOutputLine?: string | null;
   };
 
   type NotebookKernelDescriptor = {
     id: string;
-    interpreterPath: string;
-    resolvedInterpreterPath: string;
+    name: string;
     displayName: string;
-    version: string | null;
-    kind: NotebookKernelKind;
-    source: string;
-    manager: NotebookKernelManagerName;
-    locationKind: NotebookKernelLocationKind;
-    envName: string;
+    primaryLabel: string;
+    secondaryLabel: string | null;
+    language: string | null;
+    executablePath: string | null;
+    interpreterPath: string | null;
+    interpreterVersion: string | null;
+    environmentLabel: string | null;
+    resourceDir: string | null;
+    interruptMode: string | null;
+    kind: "python" | "kernel";
     isRecommended: boolean;
-    isWorkspaceLocal: boolean;
-    diagnostics: NotebookKernelDiscoveryDiagnostic[];
-    isLaunchable: boolean;
   };
 
   type NotebookKernelListResult = {
@@ -262,48 +240,94 @@ declare global {
   type NotebookOutput = NotebookStreamOutput | NotebookErrorOutput | NotebookRichOutput;
 
   type NotebookExecutionStatus = "ok" | "error" | "interrupted";
+  type NotebookSessionStatus =
+    | "unbound"
+    | "starting"
+    | "idle"
+    | "busy"
+    | "interrupting"
+    | "restarting"
+    | "failed"
+    | "dead"
+    | "disconnected";
+
+  type LocalNotebookExecutionContext = {
+    kind: "local";
+    runtimeId: string;
+    notebookPath: string;
+    workspaceRootPath?: string | null;
+  };
+
+  type CloudNotebookExecutionContext = {
+    kind: "cloud";
+    runtimeId: string;
+    editorPath: string;
+    projectId: string;
+    fileId: string;
+    name: string;
+    cloudSnapshot: CloudProjectRunSnapshot;
+  };
+
+  type NotebookExecutionContext =
+    | LocalNotebookExecutionContext
+    | CloudNotebookExecutionContext;
+
+  type NotebookSessionInfo = {
+    runtimeId: string;
+    kernelId: string;
+    kernelDisplayName: string | null;
+    status: NotebookSessionStatus;
+    detail: string | null;
+    languageInfoName: string | null;
+  };
 
   type NotebookExecutionResult = {
     status: NotebookExecutionStatus;
     executionCount: number | null;
     outputs: NotebookOutput[];
-    interpreterPath: string;
+  };
+
+  type NotebookDisplayUpdateTarget = {
+    cellId: string;
+    outputIndex: number;
   };
 
   type NotebookKernelEvent =
     | {
-        type: "kernel-ready";
-        notebookPath: string;
-        interpreterPath: string;
-        displayName: string;
-        version: string | null;
+        type: "session-status";
+        runtimeId: string;
+        status: NotebookSessionStatus;
+        detail?: string | null;
+        kernelId?: string | null;
+        kernelDisplayName?: string | null;
       }
     | {
-        type: "kernel-restarted";
-        notebookPath: string;
-        interpreterPath: string;
-      }
-    | {
-        type: "kernel-exited";
-        notebookPath: string;
-        interpreterPath: string;
-        reason: string;
+        type: "session-error";
+        runtimeId: string;
+        message: string;
       }
     | {
         type: "execution-started";
-        notebookPath: string;
+        runtimeId: string;
         cellId: string;
         executionCount: number | null;
       }
     | {
         type: "output";
-        notebookPath: string;
+        runtimeId: string;
         cellId: string;
         output: NotebookOutput;
       }
     | {
+        type: "display-update";
+        runtimeId: string;
+        displayId: string;
+        targets: NotebookDisplayUpdateTarget[];
+        output: Extract<NotebookOutput, { output_type: "display_data" | "execute_result" }>;
+      }
+    | {
         type: "execution-finished";
-        notebookPath: string;
+        runtimeId: string;
         cellId: string;
         status: NotebookExecutionStatus;
         executionCount: number | null;
@@ -424,34 +448,29 @@ declare global {
       }>;
 
       listNotebookKernels: (options?: {
-        workspacePath?: string | null;
-        notebookPath?: string | null;
+        workspaceRootPath?: string | null;
       }) => Promise<NotebookKernelListResult>;
       refreshNotebookKernels: (options?: {
-        workspacePath?: string | null;
-        notebookPath?: string | null;
+        workspaceRootPath?: string | null;
       }) => Promise<NotebookKernelListResult>;
-      getNotebookKernelDiagnostics: (options?: {
-        workspacePath?: string | null;
-        notebookPath?: string | null;
-      }) => Promise<NotebookKernelDiscoveryDiagnostic[]>;
+      startNotebookSession: (payload: {
+        runtimeContext: NotebookExecutionContext;
+        kernelId: string;
+      }) => Promise<{
+        session: NotebookSessionInfo;
+      }>;
       executeNotebookCell: (payload: {
-        notebookPath: string;
-        interpreterPath: string;
+        runtimeId: string;
         cellId: string;
         source: string;
       }) => Promise<NotebookExecutionResult>;
-      interruptNotebookKernel: (notebookPath: string) => Promise<{
+      interruptNotebookKernel: (runtimeId: string) => Promise<{
         success: true;
       }>;
-      restartNotebookKernel: (payload: {
-        notebookPath: string;
-        interpreterPath: string;
-      }) => Promise<{
-        success: true;
-        kernel: NotebookKernelDescriptor | null;
+      restartNotebookKernel: (runtimeId: string) => Promise<{
+        session: NotebookSessionInfo;
       }>;
-      releaseNotebookKernel: (notebookPath: string) => Promise<{
+      shutdownNotebookSession: (runtimeId: string) => Promise<{
         success: true;
       }>;
 

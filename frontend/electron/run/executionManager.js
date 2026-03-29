@@ -264,7 +264,7 @@ export function createExecutionManager({
       try {
         await terminateProcessTree(pid, { force: false });
       } catch {
-        // The force kill timer below will finish the stop sequence if needed.
+        // DONE
       }
 
       session.forceKillTimer = setTimeout(() => {

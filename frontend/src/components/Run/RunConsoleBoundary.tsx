@@ -9,8 +9,7 @@ type RunConsoleErrorBoundaryInnerState = {
   hasError: boolean;
 };
 
-const RECOVERY_TEXT =
-  "\u041a\u043e\u043d\u0441\u043e\u043b\u044c \u0437\u0430\u043f\u0443\u0441\u043a\u0430 \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0435\u0442\u0441\u044f...";
+const RECOVERY_TEXT = "Консоль запуска перезапускается...";
 
 class RunConsoleErrorBoundaryInner extends Component<
   RunConsoleErrorBoundaryInnerProps,
