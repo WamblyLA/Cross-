@@ -4,11 +4,13 @@ import {
   deleteProjectFile,
   getProjectFile,
   getProjectFiles,
+  moveProjectFile,
   updateProjectFile,
 } from "../controllers/filesController.js";
 import {
   createFileBodySchema,
   fileParamsSchema,
+  moveFileBodySchema,
   projectFilesParamsSchema,
   updateFileBodySchema,
 } from "../lib/validation.js";
@@ -29,6 +31,14 @@ router.post(
   createFile,
 );
 router.get("/:id", validateRequest({ params: fileParamsSchema }), getProjectFile);
+router.post(
+  "/:id/move",
+  validateRequest({
+    params: fileParamsSchema,
+    body: moveFileBodySchema,
+  }),
+  moveProjectFile,
+);
 router.put(
   "/:id",
   validateRequest({

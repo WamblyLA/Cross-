@@ -5,6 +5,7 @@ import type { FsNodeType } from "../../utils/path";
 export type ExplorerActionType =
   | "create-file"
   | "create-folder"
+  | "create-project"
   | "rename"
   | "delete"
   | "refresh"
@@ -20,6 +21,7 @@ type WorkspaceState = {
   rootPath: string | null;
   selectedPath: string | null;
   selectedType: FsNodeType | null;
+  selectionCount: number;
   searchQuery: string;
   explorerIntent: ExplorerIntent | null;
 };
@@ -29,6 +31,7 @@ const initialState: WorkspaceState = {
   rootPath: null,
   selectedPath: null,
   selectedType: null,
+  selectionCount: 0,
   searchQuery: "",
   explorerIntent: null,
 };
@@ -44,8 +47,9 @@ const workspaceSlice = createSlice({
     setRootPath(state, action: PayloadAction<string | null>) {
       state.source = "local";
       state.rootPath = action.payload;
-      state.selectedPath = action.payload;
-      state.selectedType = action.payload ? "folder" : null;
+      state.selectedPath = null;
+      state.selectedType = null;
+      state.selectionCount = 0;
       state.searchQuery = "";
       state.explorerIntent = null;
     },
@@ -58,6 +62,19 @@ const workspaceSlice = createSlice({
     ) {
       state.selectedPath = action.payload.path;
       state.selectedType = action.payload.nodeType;
+      state.selectionCount = action.payload.path ? 1 : 0;
+    },
+    setExplorerSelectionSummary(
+      state,
+      action: PayloadAction<{
+        path: string | null;
+        nodeType: FsNodeType | null;
+        count: number;
+      }>,
+    ) {
+      state.selectedPath = action.payload.path;
+      state.selectedType = action.payload.nodeType;
+      state.selectionCount = action.payload.count;
     },
     setSearchQuery(state, action: PayloadAction<string>) {
       state.searchQuery = action.payload;
@@ -87,10 +104,10 @@ export const {
   setWorkspaceSource,
   setRootPath,
   selectNode,
+  setExplorerSelectionSummary,
   setSearchQuery,
   requestExplorerAction,
   clearExplorerIntent,
-} =
-  workspaceSlice.actions;
+} = workspaceSlice.actions;
 
 export default workspaceSlice.reducer;

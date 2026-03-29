@@ -13,6 +13,7 @@ import { prisma } from "./lib/prisma.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import authRouter from "./routes/auth.js";
 import filesRouter from "./routes/files.js";
+import foldersRouter from "./routes/folders.js";
 import meRouter from "./routes/me.js";
 import projectsRouter from "./routes/projects.js";
 
@@ -39,6 +40,7 @@ app.get("/api/health", (_, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/me", meRouter);
 app.use("/api/projects/:projectId/files", filesRouter);
+app.use("/api/projects/:projectId/folders", foldersRouter);
 app.use("/api/projects", projectsRouter);
 
 app.use(notFoundHandler);

@@ -160,6 +160,123 @@ async function withWorkspaceWatcherPaused(targetPath, operation) {
   }
 }
 
+async function withWorkspaceWatcherPausedForPaths(targetPaths, operation) {
+  const normalizedPaths = targetPaths.filter(Boolean);
+  const shouldPauseWatcher =
+    watchedRootPath !== null &&
+    normalizedPaths.some((targetPath) => isPathInsideRoot(targetPath, watchedRootPath));
+
+  if (!shouldPauseWatcher) {
+    return operation();
+  }
+
+  const rootPath = watchedRootPath;
+
+  await closeFolderWatcher();
+
+  try {
+    return await operation();
+  } finally {
+    await restartFolderWatcher(rootPath);
+  }
+}
+
+function splitNameParts(entryName) {
+  const parsed = path.parse(entryName);
+
+  if (!parsed.ext) {
+    return {
+      stem: entryName,
+      ext: "",
+    };
+  }
+
+  return {
+    stem: parsed.name,
+    ext: parsed.ext,
+  };
+}
+
+async function resolveAvailableTargetPath(targetDirectory, entryName) {
+  const { stem, ext } = splitNameParts(entryName);
+  let suffixIndex = 0;
+
+  while (true) {
+    const suffix =
+      suffixIndex === 0 ? " copy" : ` copy ${suffixIndex + 1}`;
+    const candidateName = `${stem}${suffix}${ext}`;
+    const candidatePath = path.join(targetDirectory, candidateName);
+
+    if (!fsSync.existsSync(candidatePath)) {
+      return candidatePath;
+    }
+
+    suffixIndex += 1;
+  }
+}
+
+async function resolvePasteTargetPath(sourcePath, targetDirectory) {
+  const initialCandidate = path.join(targetDirectory, path.basename(sourcePath));
+
+  if (!fsSync.existsSync(initialCandidate)) {
+    return initialCandidate;
+  }
+
+  return resolveAvailableTargetPath(targetDirectory, path.basename(sourcePath));
+}
+
+async function copyFileSystemEntry(sourcePath, targetDirectory) {
+  const targetPath = await resolvePasteTargetPath(sourcePath, targetDirectory);
+  const sourceStat = await fs.stat(sourcePath);
+
+  if (sourceStat.isDirectory()) {
+    await fs.cp(sourcePath, targetPath, {
+      recursive: true,
+      force: false,
+      errorOnExist: true,
+    });
+  } else {
+    await fs.copyFile(sourcePath, targetPath, fsSync.constants.COPYFILE_EXCL);
+  }
+
+  return targetPath;
+}
+
+async function removeFileSystemEntry(targetPath) {
+  const stat = await fs.stat(targetPath);
+
+  if (stat.isDirectory()) {
+    await fs.rm(targetPath, { recursive: true, force: true });
+  } else {
+    await fs.unlink(targetPath);
+  }
+}
+
+async function moveFileSystemEntry(sourcePath, targetDirectory) {
+  if (isSamePath(path.dirname(sourcePath), targetDirectory)) {
+    return sourcePath;
+  }
+
+  const targetPath = await resolvePasteTargetPath(sourcePath, targetDirectory);
+
+  try {
+    await fs.rename(sourcePath, targetPath);
+    return targetPath;
+  } catch (error) {
+    if (!(error instanceof Error) || !`${error.message}`.toLowerCase().includes("cross-device")) {
+      const code = error && typeof error === "object" ? error.code : null;
+
+      if (code !== "EXDEV") {
+        throw error;
+      }
+    }
+
+    const copiedPath = await copyFileSystemEntry(sourcePath, targetDirectory);
+    await removeFileSystemEntry(sourcePath);
+    return copiedPath;
+  }
+}
+
 function getInitialTerminalCwd() {
   if (watchedRootPath && fsSync.existsSync(watchedRootPath)) {
     return watchedRootPath;
@@ -1068,16 +1185,72 @@ app.whenReady().then(() => {
 
   ipcMain.handle("file:remove", async (_, targetPath) => {
     await withWorkspaceWatcherPaused(targetPath, async () => {
-      const stat = await fs.stat(targetPath);
-
-      if (stat.isDirectory()) {
-        await fs.rm(targetPath, { recursive: true, force: true });
-      } else {
-        await fs.unlink(targetPath);
-      }
+      await removeFileSystemEntry(targetPath);
     });
 
     return { success: true };
+  });
+
+  ipcMain.handle("file:copy-many", async (_, sourcePaths, targetDirectory) => {
+    if (!Array.isArray(sourcePaths) || sourcePaths.length === 0) {
+      return { success: true, paths: [] };
+    }
+
+    if (!targetDirectory || !fsSync.existsSync(targetDirectory)) {
+      throw new Error("Целевая папка для вставки не найдена.");
+    }
+
+    const createdPaths = await withWorkspaceWatcherPausedForPaths(
+      [...sourcePaths, targetDirectory],
+      async () => {
+        const results = [];
+
+        for (const sourcePath of sourcePaths) {
+          const resolvedSourcePath = path.resolve(sourcePath);
+
+          if (isPathInsideRoot(targetDirectory, resolvedSourcePath)) {
+            throw new Error("Нельзя вставить папку в саму себя или во вложенную папку.");
+          }
+
+          results.push(await copyFileSystemEntry(resolvedSourcePath, targetDirectory));
+        }
+
+        return results;
+      },
+    );
+
+    return { success: true, paths: createdPaths };
+  });
+
+  ipcMain.handle("file:move-many", async (_, sourcePaths, targetDirectory) => {
+    if (!Array.isArray(sourcePaths) || sourcePaths.length === 0) {
+      return { success: true, paths: [] };
+    }
+
+    if (!targetDirectory || !fsSync.existsSync(targetDirectory)) {
+      throw new Error("Целевая папка для вставки не найдена.");
+    }
+
+    const movedPaths = await withWorkspaceWatcherPausedForPaths(
+      [...sourcePaths, targetDirectory],
+      async () => {
+        const results = [];
+
+        for (const sourcePath of sourcePaths) {
+          const resolvedSourcePath = path.resolve(sourcePath);
+
+          if (isPathInsideRoot(targetDirectory, resolvedSourcePath)) {
+            throw new Error("Нельзя переместить папку в саму себя или во вложенную папку.");
+          }
+
+          results.push(await moveFileSystemEntry(resolvedSourcePath, targetDirectory));
+        }
+
+        return results;
+      },
+    );
+
+    return { success: true, paths: movedPaths };
   });
 
   ipcMain.handle("terminal:create", async () => {

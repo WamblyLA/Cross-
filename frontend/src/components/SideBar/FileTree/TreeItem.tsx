@@ -1,9 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type DragEvent, type MouseEvent } from "react";
 import { CiFileOn } from "react-icons/ci";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import { IoMdFolder, IoMdFolderOpen } from "react-icons/io";
 import { RiArrowDropDownLine, RiArrowDropRightLine } from "react-icons/ri";
-import { VscNewFile, VscNewFolder } from "react-icons/vsc";
 import type { FsNodeType } from "../../../utils/path";
 
 export type WorkspaceTreeNode = {
@@ -60,7 +58,11 @@ export function InlineNameInput({
       <div className="ui-tree-item flex items-center gap-2 border border-default bg-active px-2 py-1.5">
         <span className="w-4 shrink-0" />
         <span className="w-4 shrink-0 text-secondary">
-          {nodeType === "folder" ? <IoMdFolder className="h-4 w-4" /> : <CiFileOn className="h-4 w-4" />}
+          {nodeType === "folder" ? (
+            <IoMdFolder className="h-4 w-4" />
+          ) : (
+            <CiFileOn className="h-4 w-4" />
+          )}
         </span>
         <input
           ref={inputRef}
@@ -91,50 +93,72 @@ type TreeItemProps = {
   node: WorkspaceTreeNode;
   depth: number;
   expandedPaths: Set<string>;
-  selectedPath: string | null;
+  selectedPaths: Set<string>;
+  focusedPath: string | null;
   draft: TreeDraft | null;
   loadingPath: string | null;
+  onSelect: (node: WorkspaceTreeNode, event: MouseEvent<HTMLDivElement>) => void;
+  onDoubleClick: (node: WorkspaceTreeNode) => void;
   onToggleFolder: (node: WorkspaceTreeNode) => void;
-  onOpenFile: (node: WorkspaceTreeNode) => void;
-  onRequestCreate: (parentPath: string, nodeType: FsNodeType) => void;
-  onRequestRename: (node: WorkspaceTreeNode) => void;
-  onRequestDelete: (node: WorkspaceTreeNode) => void;
+  onContextMenu: (node: WorkspaceTreeNode, event: MouseEvent<HTMLDivElement>) => void;
   onDraftChange: (value: string) => void;
   onDraftSubmit: () => void;
   onDraftCancel: () => void;
+  dragDisabled?: boolean;
+  draggedPaths?: Set<string>;
+  dropTargetPath?: string | null;
+  invalidDropTargetPath?: string | null;
+  onDragStart?: (node: WorkspaceTreeNode, event: DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: () => void;
+  onDragOver?: (node: WorkspaceTreeNode, event: DragEvent<HTMLDivElement>) => void;
+  onDragLeave?: (node: WorkspaceTreeNode, event: DragEvent<HTMLDivElement>) => void;
+  onDrop?: (node: WorkspaceTreeNode, event: DragEvent<HTMLDivElement>) => void;
 };
 
 export default function TreeItem({
   node,
   depth,
   expandedPaths,
-  selectedPath,
+  selectedPaths,
+  focusedPath,
   draft,
   loadingPath,
+  onSelect,
+  onDoubleClick,
   onToggleFolder,
-  onOpenFile,
-  onRequestCreate,
-  onRequestRename,
-  onRequestDelete,
+  onContextMenu,
   onDraftChange,
   onDraftSubmit,
   onDraftCancel,
+  dragDisabled = false,
+  draggedPaths,
+  dropTargetPath = null,
+  invalidDropTargetPath = null,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragLeave,
+  onDrop,
 }: TreeItemProps) {
   const isExpanded = expandedPaths.has(node.path);
-  const isSelected = selectedPath === node.path;
+  const isSelected = selectedPaths.has(node.path);
+  const isFocused = focusedPath === node.path;
   const isRenaming = draft?.mode === "rename" && draft.targetPath === node.path;
   const showCreateInside = draft?.mode === "create" && draft.parentPath === node.path && isExpanded;
+  const isDragging = draggedPaths?.has(node.path) ?? false;
+  const isDropTarget = node.type === "folder" && dropTargetPath === node.path;
+  const isInvalidDropTarget = node.type === "folder" && invalidDropTargetPath === node.path;
 
   return (
     <div className="select-none">
       <div
-        className={`group flex items-center gap-2 px-2 py-1.5 text-left ${
-          isSelected ? "ui-tree-item border border-default bg-active text-primary" : "ui-tree-item"
-        }`}
+        data-tree-node="true"
+        className="px-2 py-1.5"
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        onContextMenu={(event) => onContextMenu(node, event)}
       >
         {isRenaming ? (
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="ui-tree-item flex min-w-0 items-center gap-2 border border-default bg-active px-2 py-1.5">
             <span className="flex w-4 shrink-0 justify-center text-secondary">
               {node.type === "folder" ? (
                 isExpanded ? (
@@ -144,7 +168,6 @@ export default function TreeItem({
                 )
               ) : null}
             </span>
-
             <span className="flex w-4 shrink-0 justify-center text-secondary">
               {node.type === "folder" ? (
                 isExpanded ? (
@@ -156,7 +179,6 @@ export default function TreeItem({
                 <CiFileOn className="h-4 w-4" />
               )}
             </span>
-
             <input
               type="text"
               value={draft.value}
@@ -178,19 +200,41 @@ export default function TreeItem({
             />
           </div>
         ) : (
-          <button
-            type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 text-left"
-            onClick={() => {
-              if (node.type === "folder") {
-                onToggleFolder(node);
-                return;
-              }
-
-              onOpenFile(node);
-            }}
+          <div
+            role="treeitem"
+            aria-selected={isSelected}
+            className={`ui-tree-item flex min-w-0 items-center gap-2 px-2 py-1.5 text-left ${
+              isSelected ? "border border-default bg-active text-primary" : "text-secondary"
+            } ${isFocused ? "ring-1 ring-default" : ""} ${isDragging ? "opacity-60" : ""} ${
+              isDropTarget ? "ring-1 ring-default bg-hover" : ""
+            }`}
+            style={
+              isInvalidDropTarget
+                ? { boxShadow: "inset 0 0 0 1px var(--error)" }
+                : undefined
+            }
+            title={node.name}
+            onMouseDown={(event) => onSelect(node, event)}
+            onDoubleClick={() => onDoubleClick(node)}
+            draggable={!dragDisabled}
+            onDragStart={(event) => onDragStart?.(node, event)}
+            onDragEnd={onDragEnd}
+            onDragOver={(event) => onDragOver?.(node, event)}
+            onDragLeave={(event) => onDragLeave?.(node, event)}
+            onDrop={(event) => onDrop?.(node, event)}
           >
-            <span className="flex w-4 shrink-0 justify-center text-secondary">
+            <button
+              type="button"
+              className="flex w-4 shrink-0 justify-center text-secondary"
+              onClick={(event) => {
+                event.stopPropagation();
+
+                if (node.type === "folder") {
+                  onToggleFolder(node);
+                }
+              }}
+              tabIndex={-1}
+            >
               {node.type === "folder" ? (
                 isExpanded ? (
                   <RiArrowDropDownLine className="h-4 w-4" />
@@ -198,7 +242,7 @@ export default function TreeItem({
                   <RiArrowDropRightLine className="h-4 w-4" />
                 )
               ) : null}
-            </span>
+            </button>
 
             <span className="flex w-4 shrink-0 justify-center text-secondary">
               {node.type === "folder" ? (
@@ -213,67 +257,8 @@ export default function TreeItem({
             </span>
 
             <span className="block min-w-0 flex-1 truncate text-sm">{node.name}</span>
-          </button>
-        )}
-
-        {!isRenaming ? (
-          <div
-            className={`ml-auto flex items-center gap-1 transition-opacity ${
-              isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-            }`}
-          >
-            {node.type === "folder" ? (
-              <>
-                <button
-                  type="button"
-                  className="ui-control h-6 w-6"
-                  title="Новый файл"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onRequestCreate(node.path, "file");
-                  }}
-                >
-                  <VscNewFile className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  className="ui-control h-6 w-6"
-                  title="Новая папка"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onRequestCreate(node.path, "folder");
-                  }}
-                >
-                  <VscNewFolder className="h-3.5 w-3.5" />
-                </button>
-              </>
-            ) : null}
-
-            <button
-              type="button"
-              className="ui-control h-6 w-6"
-              title="Переименовать"
-              onClick={(event) => {
-                event.stopPropagation();
-                onRequestRename(node);
-              }}
-            >
-              <FiEdit2 className="h-3.5 w-3.5" />
-            </button>
-
-            <button
-              type="button"
-              className="ui-control h-6 w-6"
-              title="Удалить"
-              onClick={(event) => {
-                event.stopPropagation();
-                onRequestDelete(node);
-              }}
-            >
-              <FiTrash2 className="h-3.5 w-3.5" />
-            </button>
           </div>
-        ) : null}
+        )}
       </div>
 
       {node.type === "folder" && isExpanded ? (
@@ -305,17 +290,26 @@ export default function TreeItem({
               node={child}
               depth={depth + 1}
               expandedPaths={expandedPaths}
-              selectedPath={selectedPath}
+              selectedPaths={selectedPaths}
+              focusedPath={focusedPath}
               draft={draft}
               loadingPath={loadingPath}
+              onSelect={onSelect}
+              onDoubleClick={onDoubleClick}
               onToggleFolder={onToggleFolder}
-              onOpenFile={onOpenFile}
-              onRequestCreate={onRequestCreate}
-              onRequestRename={onRequestRename}
-              onRequestDelete={onRequestDelete}
+              onContextMenu={onContextMenu}
               onDraftChange={onDraftChange}
               onDraftSubmit={onDraftSubmit}
               onDraftCancel={onDraftCancel}
+              dragDisabled={dragDisabled}
+              draggedPaths={draggedPaths}
+              dropTargetPath={dropTargetPath}
+              invalidDropTargetPath={invalidDropTargetPath}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
             />
           ))}
         </div>

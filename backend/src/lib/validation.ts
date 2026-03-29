@@ -124,10 +124,20 @@ export const fileParamsSchema = z
 
 export type ProjectFileParams = z.infer<typeof fileParamsSchema>;
 
+export const folderParamsSchema = z
+  .object({
+    projectId: idSchema,
+    id: idSchema,
+  })
+  .strict();
+
+export type ProjectFolderParams = z.infer<typeof folderParamsSchema>;
+
 export const createFileBodySchema = z
   .object({
     name: fileNameSchema,
     content: z.string().default(""),
+    folderId: idSchema.nullable().optional(),
   })
   .strict();
 
@@ -150,6 +160,41 @@ export const updateFileBodySchema = z
   });
 
 export type UpdateFileBody = z.infer<typeof updateFileBodySchema>;
+
+export const moveFileBodySchema = z
+  .object({
+    targetProjectId: idSchema,
+    targetFolderId: idSchema.nullable(),
+  })
+  .strict();
+
+export type MoveFileBody = z.infer<typeof moveFileBodySchema>;
+
+export const createFolderBodySchema = z
+  .object({
+    name: fileNameSchema,
+    parentId: idSchema.nullable().optional(),
+  })
+  .strict();
+
+export type CreateFolderBody = z.infer<typeof createFolderBodySchema>;
+
+export const updateFolderBodySchema = z
+  .object({
+    name: fileNameSchema,
+  })
+  .strict();
+
+export type UpdateFolderBody = z.infer<typeof updateFolderBodySchema>;
+
+export const moveFolderBodySchema = z
+  .object({
+    targetProjectId: idSchema,
+    targetParentId: idSchema.nullable(),
+  })
+  .strict();
+
+export type MoveFolderBody = z.infer<typeof moveFolderBodySchema>;
 
 export const updateSettingsBodySchema = z
   .object({

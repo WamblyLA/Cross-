@@ -1,46 +1,20 @@
 import type { Request, Response } from "express";
 import { AppError } from "../lib/errors.js";
+import {
+  assertFolderInProject,
+  ensureOwnedProject,
+  findSiblingFile,
+  getOwnedFileOrThrow,
+  moveOwnedFile,
+} from "../lib/cloudExplorer.js";
 import { prisma } from "../lib/prisma.js";
 import type {
   CreateFileBody,
+  MoveFileBody,
   ProjectFileParams,
   ProjectFilesParams,
   UpdateFileBody,
 } from "../lib/validation.js";
-
-async function ensureOwnedProject(projectId: string, userId: string) {
-  const project = await prisma.project.findFirst({
-    where: {
-      id: projectId,
-      ownerId: userId,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!project) {
-    throw new AppError("Проект не найден", 404);
-  }
-}
-
-async function getOwnedFileOrThrow(userId: string, projectId: string, fileId: string) {
-  const file = await prisma.file.findFirst({
-    where: {
-      id: fileId,
-      projectId,
-      project: {
-        ownerId: userId,
-      },
-    },
-  });
-
-  if (!file) {
-    throw new AppError("Файл не найден", 404);
-  }
-
-  return file;
-}
 
 export async function getProjectFiles(req: Request, res: Response) {
   const { projectId } = req.params as ProjectFilesParams;
@@ -58,6 +32,7 @@ export async function getProjectFiles(req: Request, res: Response) {
     select: {
       id: true,
       projectId: true,
+      folderId: true,
       name: true,
       createdAt: true,
       updatedAt: true,
@@ -69,7 +44,7 @@ export async function getProjectFiles(req: Request, res: Response) {
 
 export async function createFile(req: Request, res: Response) {
   const { projectId } = req.params as ProjectFilesParams;
-  const { name, content } = req.body as CreateFileBody;
+  const { name, content, folderId } = req.body as CreateFileBody;
   const userId = req.userId;
 
   if (!userId) {
@@ -77,18 +52,9 @@ export async function createFile(req: Request, res: Response) {
   }
 
   await ensureOwnedProject(projectId, userId);
+  await assertFolderInProject(userId, projectId, folderId ?? null);
 
-  const existingFile = await prisma.file.findUnique({
-    where: {
-      projectId_name: {
-        projectId,
-        name,
-      },
-    },
-    select: {
-      id: true,
-    },
-  });
+  const existingFile = await findSiblingFile(projectId, folderId ?? null, name);
 
   if (existingFile) {
     throw new AppError("Файл с таким именем уже существует", 409);
@@ -97,6 +63,7 @@ export async function createFile(req: Request, res: Response) {
   const file = await prisma.file.create({
     data: {
       projectId,
+      folderId: folderId ?? null,
       name,
       content,
     },
@@ -130,19 +97,9 @@ export async function updateProjectFile(req: Request, res: Response) {
   const file = await getOwnedFileOrThrow(userId, projectId, id);
 
   if (name && name !== file.name) {
-    const duplicate = await prisma.file.findUnique({
-      where: {
-        projectId_name: {
-          projectId,
-          name,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
+    const duplicate = await findSiblingFile(projectId, file.folderId ?? null, name);
 
-    if (duplicate) {
+    if (duplicate && duplicate.id !== file.id) {
       throw new AppError("Файл с таким именем уже существует", 409);
     }
   }
@@ -173,4 +130,18 @@ export async function deleteProjectFile(req: Request, res: Response) {
   });
 
   res.status(204).send();
+}
+
+export async function moveProjectFile(req: Request, res: Response) {
+  const { projectId, id } = req.params as ProjectFileParams;
+  const { targetProjectId, targetFolderId } = req.body as MoveFileBody;
+  const userId = req.userId;
+
+  if (!userId) {
+    throw new AppError("Требуется авторизация", 401);
+  }
+
+  const result = await moveOwnedFile(userId, projectId, id, targetProjectId, targetFolderId ?? null);
+
+  res.json(result);
 }

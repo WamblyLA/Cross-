@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef } from "react";
 import { RxCross1 } from "react-icons/rx";
 import { selectIsAuthenticated } from "../../features/auth/authSelectors";
 import { selectCloudActiveProject } from "../../features/cloud/cloudSelectors";
-import { closeFile, markFileDirty, setActiveFile, updateFileContent } from "../../features/files/filesSlice";
+import {
+  closeFile,
+  markFileDirty,
+  setActiveFile,
+  updateFileContent,
+} from "../../features/files/filesSlice";
 import {
   selectActiveFile,
   selectActiveTabId,
@@ -16,6 +21,7 @@ import { registerMonacoThemes } from "../../styles/monacoTheme";
 import { getMonacoThemeName, type ThemeName } from "../../styles/tokens";
 import MarkdownEditor from "./MarkdownEditor";
 import NotebookEditor from "./NotebookEditor";
+import type { LocalOpenedFile } from "../../features/files/fileTypes";
 
 type WorkWindowProps = {
   theme: ThemeName;
@@ -64,7 +70,9 @@ function EmptyEditorState({
   return (
     <div className="flex h-full items-center justify-center px-6">
       <div className="max-w-lg rounded-2xl border border-default bg-panel px-6 py-8 text-center shadow-sm">
-        <div className="text-xs uppercase tracking-[0.22em] text-muted">Cross++ IDE</div>
+        <div className="text-xs uppercase tracking-[0.22em] text-muted">
+          Cross++ IDE
+        </div>
         <h2 className="mt-3 text-xl text-primary">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-secondary">{description}</p>
       </div>
@@ -84,7 +92,8 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
   const { saveActiveFile } = useWorkspaceActions();
 
   const isNotebookFile =
-    activeFile?.kind === "local" && activeFile.extension?.toLowerCase() === "ipynb";
+    activeFile?.kind === "local" &&
+    activeFile.extension?.toLowerCase() === "ipynb";
   const isMarkdownFile = activeFile?.extension?.toLowerCase() === "md";
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -191,7 +200,10 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
 
   useEffect(() => {
     const currentNotebookPaths = openedFiles
-      .filter((file) => file.kind === "local" && file.extension?.toLowerCase() === "ipynb")
+      .filter(
+        (file): file is LocalOpenedFile =>
+          file.kind === "local" && file.extension?.toLowerCase() === "ipynb",
+      )
       .map((file) => file.path);
     const previousNotebookPaths = notebookPathsRef.current;
     const removedNotebookPaths = previousNotebookPaths.filter(
@@ -278,7 +290,9 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
                     Облако
                   </span>
                 ) : null}
-                {file.isDirty ? <span className="h-2 w-2 rounded-full bg-emerald-400" /> : null}
+                {file.isDirty ? (
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                ) : null}
               </span>
 
               <button
@@ -295,7 +309,9 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
             </div>
           ))
         ) : (
-          <div className="px-3 py-2 text-sm text-muted">Файлы пока не открыты</div>
+          <div className="px-3 py-2 text-sm text-muted">
+            Файлы пока не открыты
+          </div>
         )}
       </div>
 

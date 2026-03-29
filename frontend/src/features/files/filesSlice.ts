@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { logout, restoreSession } from "../auth/authThunks";
-import { buildCloudEditorPath } from "../cloud/cloudTypes";
+import { buildCloudEditorPath, buildCloudTabId } from "../cloud/cloudTypes";
 import {
   buildCloudOpenedFile,
   buildLocalOpenedFile,
@@ -174,6 +174,60 @@ const filesSlice = createSlice({
         };
       });
     },
+    retargetCloudFiles(
+      state,
+      action: PayloadAction<{
+        items: {
+          sourceProjectId: string;
+          targetProjectId: string;
+          fileId: string;
+          name: string;
+        }[];
+      }>,
+    ) {
+      if (action.payload.items.length === 0) {
+        return;
+      }
+
+      const moves = new Map(
+        action.payload.items.map((item) => [`${item.sourceProjectId}:${item.fileId}`, item]),
+      );
+      const activeCloudFile =
+        state.activeTabId === null
+          ? null
+          : state.openedFiles.find(
+              (file) => file.kind === "cloud" && file.tabId === state.activeTabId,
+            ) ?? null;
+
+      state.openedFiles = state.openedFiles.map((file) => {
+        if (file.kind !== "cloud") {
+          return file;
+        }
+
+        const move = moves.get(`${file.projectId}:${file.fileId}`);
+
+        if (!move) {
+          return file;
+        }
+
+        return {
+          ...file,
+          tabId: buildCloudTabId(move.targetProjectId, file.fileId),
+          editorPath: buildCloudEditorPath(move.targetProjectId, file.fileId, move.name),
+          projectId: move.targetProjectId,
+          name: move.name,
+          extension: getExtension(move.name),
+        };
+      });
+
+      if (activeCloudFile?.kind === "cloud") {
+        const activeMove = moves.get(`${activeCloudFile.projectId}:${activeCloudFile.fileId}`);
+
+        if (activeMove) {
+          state.activeTabId = buildCloudTabId(activeMove.targetProjectId, activeCloudFile.fileId);
+        }
+      }
+    },
     closeFile(state, action: PayloadAction<string>) {
       closeByPredicate(state, (file) => file.tabId === action.payload);
     },
@@ -202,6 +256,22 @@ const filesSlice = createSlice({
           file.kind === "cloud" &&
           file.projectId === action.payload.projectId &&
           file.fileId === action.payload.fileId,
+      );
+    },
+    closeCloudFiles(
+      state,
+      action: PayloadAction<{
+        projectId: string;
+        fileIds: string[];
+      }>,
+    ) {
+      const fileIds = new Set(action.payload.fileIds);
+      closeByPredicate(
+        state,
+        (file) =>
+          file.kind === "cloud" &&
+          file.projectId === action.payload.projectId &&
+          fileIds.has(file.fileId),
       );
     },
     clearLocalFiles(state) {
@@ -235,10 +305,12 @@ export const {
   markFileSaved,
   renameFilePath,
   renameCloudFileMetadata,
+  retargetCloudFiles,
   closeFile,
   closeLocalFilesByPrefix,
   closeCloudFilesByProject,
   closeCloudFile,
+  closeCloudFiles,
   clearLocalFiles,
   clearCloudFiles,
   clearFiles,

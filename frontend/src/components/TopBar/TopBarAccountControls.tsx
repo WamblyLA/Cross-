@@ -1,88 +1,106 @@
+import { useMemo, useRef, useState } from "react";
 import { FiUser } from "react-icons/fi";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-
-function navButtonClassName(isActive: boolean) {
-  return `ui-control h-8 shrink-0 px-3 text-sm ${
-    isActive ? "border border-default bg-active text-primary" : ""
-  }`;
-}
+import FloatingMenu, { type MenuSection } from "../../ui/FloatingMenu";
 
 export default function TopBarAccountControls() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const { displayName, isAuthenticated, authPending, logout } = useAuth();
+  const resolvedDisplayName = displayName ?? "Профиль";
 
-  const handleLogout = async () => {
-    try {
-      await logout().unwrap();
-      navigate("/", { replace: true });
-    } catch (error) {
-      console.error("Не удалось выполнить выход.", error);
-    }
-  };
+  const menuSections = useMemo<MenuSection[]>(
+    () => [
+      {
+        id: "account-meta",
+        title: isAuthenticated ? "Аккаунт" : "Гость",
+        items: [
+          {
+            id: "account-label",
+            label: isAuthenticated ? resolvedDisplayName : "Вход не выполнен",
+            disabled: true,
+            onSelect: () => undefined,
+          },
+        ],
+      },
+      {
+        id: "account-actions",
+        items: isAuthenticated
+          ? [
+              {
+                id: "account-profile",
+                label: "Профиль",
+                onSelect: () => navigate("/account"),
+              },
+              {
+                id: "account-logout",
+                label: authPending ? "Выходим..." : "Выйти",
+                disabled: authPending,
+                onSelect: async () => {
+                  try {
+                    await logout().unwrap();
+                    navigate("/", { replace: true });
+                  } catch (error) {
+                    console.error("Не удалось выполнить выход.", error);
+                  }
+                },
+              },
+            ]
+          : [
+              {
+                id: "account-login",
+                label: "Войти",
+                onSelect: () => navigate("/auth/login"),
+              },
+              {
+                id: "account-register",
+                label: "Создать аккаунт",
+                onSelect: () => navigate("/auth/register"),
+              },
+            ],
+      },
+    ],
+    [authPending, isAuthenticated, logout, navigate, resolvedDisplayName],
+  );
 
-  if (!isAuthenticated) {
-    return (
-      <div className="flex min-w-0 items-center gap-2 text-sm">
-        <button
-          type="button"
-          onClick={() => navigate("/")}
-          className={navButtonClassName(location.pathname === "/")}
-        >
-          IDE
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate("/auth/login")}
-          className={navButtonClassName(location.pathname === "/auth/login")}
-        >
-          Войти
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate("/auth/register")}
-          className={navButtonClassName(location.pathname === "/auth/register")}
-        >
-          Создать аккаунт
-        </button>
-      </div>
-    );
-  }
+  const anchorRect = triggerRef.current?.getBoundingClientRect() ?? null;
 
   return (
-    <div className="flex min-w-0 items-center gap-2 text-sm">
-      <FiUser className="h-4 w-4 shrink-0 text-secondary" />
-      <span className="hidden max-w-40 truncate text-secondary xl:block">{displayName}</span>
-
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => navigate("/")}
-        className={navButtonClassName(location.pathname === "/")}
+        className={`ui-control relative flex h-8 w-8 items-center justify-center ${
+          isOpen ? "border border-default bg-active text-primary" : ""
+        }`}
+        aria-label={isAuthenticated ? `Аккаунт: ${resolvedDisplayName}` : "Аккаунт"}
+        title={isAuthenticated ? resolvedDisplayName : "Аккаунт"}
+        onClick={() => setIsOpen((currentValue) => !currentValue)}
       >
-        IDE
+        <FiUser className="h-4 w-4" />
+        <span
+          className="absolute bottom-1 right-1 h-2 w-2 rounded-full border"
+          style={{
+            backgroundColor: isAuthenticated ? "var(--success)" : "var(--text-muted)",
+            borderColor: "var(--bg-panel)",
+          }}
+        />
       </button>
 
-      <button
-        type="button"
-        onClick={() => navigate("/account")}
-        className={navButtonClassName(location.pathname === "/account")}
-      >
-        Аккаунт
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          void handleLogout();
-        }}
-        disabled={authPending}
-        className="ui-control h-8 shrink-0 px-3 text-sm"
-      >
-        {authPending ? "Выходим..." : "Выйти"}
-      </button>
+      {isOpen && anchorRect ? (
+        <FloatingMenu
+          sections={menuSections}
+          position={{
+            type: "anchor",
+            rect: anchorRect,
+            align: "right",
+          }}
+          width={232}
+          onClose={() => setIsOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

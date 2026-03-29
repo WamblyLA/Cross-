@@ -1,5 +1,11 @@
 import { request } from "../../lib/api/request";
-import type { CloudFile, CloudFileSummary, CloudProject } from "./cloudTypes";
+import type {
+  CloudFile,
+  CloudFileSummary,
+  CloudFolderSummary,
+  CloudProject,
+  CloudProjectTree,
+} from "./cloudTypes";
 
 type ProjectsResponse = {
   projects: CloudProject[];
@@ -9,12 +15,38 @@ type ProjectResponse = {
   project: CloudProject;
 };
 
+type ProjectTreeResponse = {
+  tree: CloudProjectTree;
+};
+
 type FilesResponse = {
   files: CloudFileSummary[];
 };
 
 type FileResponse = {
   file: CloudFile;
+};
+
+type FolderResponse = {
+  folder: CloudFolderSummary;
+};
+
+type DeleteFolderResponse = {
+  folderId: string;
+  deletedFileIds: string[];
+};
+
+type MoveFileResponse = {
+  file: CloudFile;
+  sourceProjectId: string;
+  targetProjectId: string;
+};
+
+type MoveFolderResponse = {
+  folder: CloudFolderSummary;
+  sourceProjectId: string;
+  targetProjectId: string;
+  movedFiles: CloudFileSummary[];
 };
 
 export function listProjects() {
@@ -34,6 +66,12 @@ export function createProject(payload: { name: string }) {
 export function getProject(projectId: string) {
   return request<ProjectResponse>({
     url: `/api/projects/${projectId}`,
+  });
+}
+
+export function getProjectTree(projectId: string) {
+  return request<ProjectTreeResponse>({
+    url: `/api/projects/${projectId}/tree`,
   });
 }
 
@@ -63,9 +101,10 @@ export function createProjectFile(
   payload: {
     name: string;
     content?: string;
+    folderId?: string | null;
   },
 ) {
-  return request<FileResponse, { name: string; content?: string }>({
+  return request<FileResponse, { name: string; content?: string; folderId?: string | null }>({
     url: `/api/projects/${projectId}/files`,
     method: "POST",
     body: payload,
@@ -97,5 +136,64 @@ export function deleteProjectFile(projectId: string, fileId: string) {
   return request<void>({
     url: `/api/projects/${projectId}/files/${fileId}`,
     method: "DELETE",
+  });
+}
+
+export function moveProjectFile(
+  projectId: string,
+  fileId: string,
+  payload: {
+    targetProjectId: string;
+    targetFolderId: string | null;
+  },
+) {
+  return request<MoveFileResponse, { targetProjectId: string; targetFolderId: string | null }>({
+    url: `/api/projects/${projectId}/files/${fileId}/move`,
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function createProjectFolder(
+  projectId: string,
+  payload: {
+    name: string;
+    parentId?: string | null;
+  },
+) {
+  return request<FolderResponse, { name: string; parentId?: string | null }>({
+    url: `/api/projects/${projectId}/folders`,
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function updateProjectFolder(projectId: string, folderId: string, payload: { name: string }) {
+  return request<FolderResponse, { name: string }>({
+    url: `/api/projects/${projectId}/folders/${folderId}`,
+    method: "PUT",
+    body: payload,
+  });
+}
+
+export function deleteProjectFolder(projectId: string, folderId: string) {
+  return request<DeleteFolderResponse>({
+    url: `/api/projects/${projectId}/folders/${folderId}`,
+    method: "DELETE",
+  });
+}
+
+export function moveProjectFolder(
+  projectId: string,
+  folderId: string,
+  payload: {
+    targetProjectId: string;
+    targetParentId: string | null;
+  },
+) {
+  return request<MoveFolderResponse, { targetProjectId: string; targetParentId: string | null }>({
+    url: `/api/projects/${projectId}/folders/${folderId}/move`,
+    method: "POST",
+    body: payload,
   });
 }

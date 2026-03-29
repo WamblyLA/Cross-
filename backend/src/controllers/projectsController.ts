@@ -1,26 +1,12 @@
 import type { Request, Response } from "express";
 import { AppError } from "../lib/errors.js";
+import { ensureOwnedProject, getOwnedProjectTree } from "../lib/cloudExplorer.js";
 import { prisma } from "../lib/prisma.js";
 import type {
   CreateProjectBody,
   ProjectParams,
   UpdateProjectBody,
 } from "../lib/validation.js";
-
-async function getOwnedProjectOrThrow(projectId: string, userId: string) {
-  const project = await prisma.project.findFirst({
-    where: {
-      id: projectId,
-      ownerId: userId,
-    },
-  });
-
-  if (!project) {
-    throw new AppError("Проект не найден", 404);
-  }
-
-  return project;
-}
 
 export async function getProjects(req: Request, res: Response) {
   const userId = req.userId;
@@ -63,9 +49,22 @@ export async function getProject(req: Request, res: Response) {
     throw new AppError("Требуется авторизация", 401);
   }
 
-  const project = await getOwnedProjectOrThrow(id, userId);
+  const project = await ensureOwnedProject(id, userId);
 
   res.json({ project });
+}
+
+export async function getProjectTree(req: Request, res: Response) {
+  const { id } = req.params as ProjectParams;
+  const userId = req.userId;
+
+  if (!userId) {
+    throw new AppError("Требуется авторизация", 401);
+  }
+
+  const tree = await getOwnedProjectTree(id, userId);
+
+  res.json({ tree });
 }
 
 export async function updateProject(req: Request, res: Response) {
@@ -77,7 +76,7 @@ export async function updateProject(req: Request, res: Response) {
     throw new AppError("Требуется авторизация", 401);
   }
 
-  const project = await getOwnedProjectOrThrow(id, userId);
+  const project = await ensureOwnedProject(id, userId);
 
   const updatedProject = await prisma.project.update({
     where: { id: project.id },
@@ -95,7 +94,7 @@ export async function deleteProject(req: Request, res: Response) {
     throw new AppError("Требуется авторизация", 401);
   }
 
-  const project = await getOwnedProjectOrThrow(id, userId);
+  const project = await ensureOwnedProject(id, userId);
 
   await prisma.project.delete({
     where: { id: project.id },

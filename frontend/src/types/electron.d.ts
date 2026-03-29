@@ -186,6 +186,14 @@ declare global {
         newName: string,
       ) => Promise<{ success: true; path: string }>;
       removeFileSystemItem: (targetPath: string) => Promise<{ success: true }>;
+      copyFileSystemItems: (
+        sourcePaths: string[],
+        targetDirectory: string,
+      ) => Promise<{ success: true; paths: string[] }>;
+      moveFileSystemItems: (
+        sourcePaths: string[],
+        targetDirectory: string,
+      ) => Promise<{ success: true; paths: string[] }>;
 
       ensureTerminalSession: (
         terminalId?: string | null,

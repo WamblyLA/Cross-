@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   renameFileSystemItem: (targetPath, newName) =>
     ipcRenderer.invoke("file:rename", targetPath, newName),
   removeFileSystemItem: (targetPath) => ipcRenderer.invoke("file:remove", targetPath),
+  copyFileSystemItems: (sourcePaths, targetDirectory) =>
+    ipcRenderer.invoke("file:copy-many", sourcePaths, targetDirectory),
+  moveFileSystemItems: (sourcePaths, targetDirectory) =>
+    ipcRenderer.invoke("file:move-many", sourcePaths, targetDirectory),
   ensureTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:ensure", terminalId),
   writeToTerminal: (data, terminalId) => ipcRenderer.invoke("terminal:write", terminalId ?? null, data),
   resizeTerminal: (cols, rows, terminalId) =>

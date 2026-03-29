@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FiMoon, FiSun } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 import { IoIosSquareOutline } from "react-icons/io";
+import { IoSearchOutline } from "react-icons/io5";
 import { RxCross1 } from "react-icons/rx";
 import { TfiLayoutLineSolid } from "react-icons/tfi";
-import { VscChevronDown, VscEllipsis, VscPlay } from "react-icons/vsc";
+import { VscChevronDown, VscChromeClose, VscEllipsis } from "react-icons/vsc";
 import { selectIsAuthenticated } from "../../features/auth/authSelectors";
 import {
   selectCloudActiveProjectId,
+  selectCloudSelectedItemCount,
   selectCloudSelectedItemType,
 } from "../../features/cloud/cloudSelectors";
-import { requestExplorerAction } from "../../features/workspace/workspaceSlice";
+import {
+  requestExplorerAction,
+  setWorkspaceSource,
+} from "../../features/workspace/workspaceSlice";
 import { useDesktopActions } from "../../hooks/useDesktopActions";
 import { useWorkspaceActions } from "../../hooks/useWorkspaceActions";
 import type { ThemeName } from "../../styles/tokens";
@@ -78,7 +83,6 @@ function getAnchoredPanelStyle(
   const maxLeft = Math.max(VIEWPORT_GAP, viewportWidth - width - VIEWPORT_GAP);
   const preferredLeft = align === "right" ? anchorRect.right - width : anchorRect.left;
   const left = clamp(preferredLeft, VIEWPORT_GAP, maxLeft);
-
   const belowTop = anchorRect.bottom + OVERLAY_OFFSET;
   const maxTop = Math.max(VIEWPORT_GAP, viewportHeight - height - VIEWPORT_GAP);
   const top =
@@ -228,6 +232,7 @@ function OverflowPanel({
 
 export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const menuRootRef = useRef<HTMLDivElement | null>(null);
   const overlayRootRef = useRef<HTMLDivElement | null>(null);
   const menuViewportRef = useRef<HTMLDivElement | null>(null);
@@ -235,47 +240,86 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const overflowMeasureRef = useRef<HTMLButtonElement | null>(null);
   const overflowTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const runDropdownRef = useRef<HTMLButtonElement | null>(null);
+  const searchOverlayRef = useRef<HTMLDivElement | null>(null);
+  const searchTriggerRef = useRef<HTMLButtonElement | null>(null);
+
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [visibleMenuIds, setVisibleMenuIds] = useState<string[]>([
     "file",
     "edit",
     "view",
     "run",
-    "terminal",
+    "settings",
   ]);
   const [overflowSubmenu, setOverflowSubmenu] = useState<OverflowSubmenuState | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const source = useAppSelector((state) => state.workspace.source);
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
   const selectedPath = useAppSelector((state) => state.workspace.selectedPath);
+  const selectionCount = useAppSelector((state) => state.workspace.selectionCount);
+  const activeSearchQuery = useAppSelector((state) => state.workspace.searchQuery);
   const selectedCloudItemType = useAppSelector(selectCloudSelectedItemType);
+  const selectedCloudItemCount = useAppSelector(selectCloudSelectedItemCount);
   const activeCloudProjectId = useAppSelector(selectCloudActiveProjectId);
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const isTerminalVisible = useAppSelector((state) => state.runner.isVisible);
   const isTerminalReady = useAppSelector((state) => state.runner.isReady);
   const isRunning = useAppSelector((state) => state.runner.isRunning);
   const { openTerminal, toggleTerminal, clearTerminal } = useDesktopActions();
-  const { activeFile, openFolder, saveActiveFile, runActivePythonFile } = useWorkspaceActions();
+  const {
+    activeFile,
+    openFolder,
+    saveActiveFile,
+    runActivePythonFile,
+  } = useWorkspaceActions();
 
   const closeMenus = useCallback(() => {
     setOpenMenuId(null);
     setOverflowSubmenu(null);
   }, []);
 
-  const canEditSelectedNode =
+  const closeSearch = useCallback(() => {
+    setIsSearchOpen(false);
+  }, []);
+
+  const openSearch = useCallback(() => {
+    closeMenus();
+    setIsSearchOpen(true);
+  }, [closeMenus]);
+
+  const canRenameSelectedNode =
     source === "cloud"
-      ? selectedCloudItemType === "project" || selectedCloudItemType === "file"
-      : Boolean(selectedPath && selectedPath !== rootPath);
+      ? selectedCloudItemCount === 1 &&
+        (selectedCloudItemType === "project" ||
+          selectedCloudItemType === "folder" ||
+          selectedCloudItemType === "file")
+      : selectionCount === 1 && Boolean(selectedPath && selectedPath !== rootPath);
+  const canDeleteSelectedNode =
+    source === "cloud"
+      ? selectedCloudItemCount > 0 &&
+        (selectedCloudItemType === "project" ||
+          selectedCloudItemType === "folder" ||
+          selectedCloudItemType === "file")
+      : selectionCount > 0 && Boolean(selectedPath && selectedPath !== rootPath);
   const canCreateFile =
     source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
-  const canCreateFolder = source === "local" && Boolean(rootPath);
+  const canCreateFolder =
+    source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
+  const canCreateProject = isAuthenticated;
   const canRefreshExplorer = source === "cloud" ? isAuthenticated : Boolean(rootPath);
   const canCollapseExplorer =
     source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
   const hasActivePythonFile =
     activeFile?.kind === "local" && activeFile.extension?.toLowerCase() === "py";
   const canRunActivePython = Boolean(hasActivePythonFile && !isRunning);
+
+  const handleOpenCloudProjectDraft = useCallback(() => {
+    dispatch(setWorkspaceSource("cloud"));
+    dispatch(requestExplorerAction("create-project"));
+  }, [dispatch]);
+
+  const settingsLabel = theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему";
 
   const primaryMenus = useMemo<MenuConfig[]>(
     () => [
@@ -291,6 +335,12 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
                 label: "Открыть папку",
                 shortcut: "Ctrl+O",
                 onSelect: openFolder,
+              },
+              {
+                id: "new-project",
+                label: "Новый проект в облаке",
+                disabled: !canCreateProject,
+                onSelect: handleOpenCloudProjectDraft,
               },
               {
                 id: "new-file",
@@ -327,13 +377,13 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
               {
                 id: "rename-node",
                 label: "Переименовать",
-                disabled: !canEditSelectedNode,
+                disabled: !canRenameSelectedNode,
                 onSelect: () => dispatch(requestExplorerAction("rename")),
               },
               {
                 id: "delete-node",
                 label: "Удалить",
-                disabled: !canEditSelectedNode,
+                disabled: !canDeleteSelectedNode,
                 onSelect: () => dispatch(requestExplorerAction("delete")),
               },
             ],
@@ -347,6 +397,11 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
           {
             id: "view-main",
             items: [
+              {
+                id: "open-search",
+                label: activeSearchQuery ? "Открыть поиск и фильтр" : "Открыть поиск",
+                onSelect: openSearch,
+              },
               {
                 id: "toggle-terminal",
                 label: isTerminalVisible ? "Скрыть терминал" : "Показать терминал",
@@ -364,14 +419,9 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
                 label:
                   source === "cloud"
                     ? "Свернуть активный проект"
-                    : "Свернуть все в проводнике",
+                    : "Свернуть всё в проводнике",
                 disabled: !canCollapseExplorer,
                 onSelect: () => dispatch(requestExplorerAction("collapse-all")),
-              },
-              {
-                id: "toggle-theme",
-                label: "Переключить тему",
-                onSelect: onToggleTheme,
               },
             ],
           },
@@ -392,29 +442,6 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
                 onSelect: runActivePythonFile,
               },
               {
-                id: "debug-python",
-                label: "Отладка",
-                disabled: true,
-                onSelect: () => undefined,
-              },
-            ],
-          },
-        ],
-      },
-      {
-        id: "terminal",
-        label: "Терминал",
-        sections: [
-          {
-            id: "terminal-main",
-            items: [
-              {
-                id: "show-terminal",
-                label: isTerminalVisible ? "Скрыть терминал" : "Открыть терминал",
-                shortcut: "Ctrl+J",
-                onSelect: () => (isTerminalVisible ? toggleTerminal() : openTerminal()),
-              },
-              {
                 id: "clear-terminal",
                 label: "Очистить терминал",
                 disabled: !isTerminalReady,
@@ -424,39 +451,51 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
           },
         ],
       },
+      {
+        id: "settings",
+        label: "Настройки",
+        sections: [
+          {
+            id: "settings-main",
+            items: [
+              {
+                id: "toggle-theme",
+                label: settingsLabel,
+                onSelect: onToggleTheme,
+              },
+            ],
+          },
+        ],
+      },
     ],
     [
       activeFile,
+      activeSearchQuery,
       canCollapseExplorer,
       canCreateFile,
       canCreateFolder,
-      canEditSelectedNode,
+      canCreateProject,
+        canDeleteSelectedNode,
+        canRenameSelectedNode,
       canRefreshExplorer,
       canRunActivePython,
       clearTerminal,
       dispatch,
+      handleOpenCloudProjectDraft,
       isRunning,
       isTerminalReady,
       isTerminalVisible,
       onToggleTheme,
       openFolder,
+      openSearch,
       openTerminal,
       runActivePythonFile,
       saveActiveFile,
+      settingsLabel,
       source,
       toggleTerminal,
     ],
   );
-
-  const runMenu = useMemo<MenuConfig>(() => {
-    return (
-      primaryMenus.find((menu) => menu.id === "run") ?? {
-        id: "run",
-        label: "Запуск",
-        sections: [],
-      }
-    );
-  }, [primaryMenus]);
 
   const visibleMenus = useMemo(
     () => primaryMenus.filter((menu) => visibleMenuIds.includes(menu.id)),
@@ -479,9 +518,31 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       closeMenus();
     };
 
+    window.addEventListener("mousedown", handlePointerDown);
+
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [closeMenus]);
+
+  useEffect(() => {
+    if (!isSearchOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (searchOverlayRef.current?.contains(target)) {
+        return;
+      }
+
+      closeSearch();
+    };
+
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        closeMenus();
+        closeSearch();
       }
     };
 
@@ -492,7 +553,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       window.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [closeMenus]);
+  }, [closeSearch, isSearchOpen]);
 
   useEffect(() => {
     if (openMenuId === "overflow" && hiddenMenus.length === 0) {
@@ -500,7 +561,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       return;
     }
 
-    if (!openMenuId || openMenuId === "overflow" || openMenuId === "run-control") {
+    if (!openMenuId || openMenuId === "overflow") {
       return;
     }
 
@@ -598,12 +659,8 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     [closeMenus],
   );
 
-  const handleRunClick = async () => {
-    closeMenus();
-    await runActivePythonFile();
-  };
-
   const openTopLevelMenu = (menuId: string) => {
+    closeSearch();
     setOpenMenuId((currentMenuId) => (currentMenuId === menuId ? null : menuId));
     setOverflowSubmenu(null);
   };
@@ -645,12 +702,8 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       );
     }
 
-    const anchorRef =
-      openMenuId === "run-control" ? runDropdownRef.current : triggerRefs.current[openMenuId];
-    const menuConfig =
-      openMenuId === "run-control"
-        ? runMenu
-        : primaryMenus.find((menu) => menu.id === openMenuId) ?? null;
+    const anchorRef = triggerRefs.current[openMenuId];
+    const menuConfig = primaryMenus.find((menu) => menu.id === openMenuId) ?? null;
 
     if (!anchorRef || !menuConfig) {
       return null;
@@ -661,7 +714,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       anchorRect,
       MENU_PANEL_WIDTH,
       estimatePanelHeight(menuConfig.sections),
-      openMenuId === "run-control" ? "right" : "left",
+      "left",
     );
 
     return createPortal(
@@ -673,6 +726,53 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
             void handleMenuAction(item);
           }}
         />
+      </div>,
+      document.body,
+    );
+  };
+
+  const renderSearchOverlay = () => {
+    if (!isSearchOpen || typeof document === "undefined") {
+      return null;
+    }
+
+    const triggerRect = searchTriggerRef.current?.getBoundingClientRect();
+
+    if (!triggerRect) {
+      return null;
+    }
+
+    const panelWidth = Math.min(360, Math.max(280, window.innerWidth - 220));
+    const panelStyle = getAnchoredPanelStyle(triggerRect, panelWidth, 44, "right");
+
+    return createPortal(
+      <div className="pointer-events-none fixed inset-0 z-[130]">
+        <div
+          ref={searchOverlayRef}
+          className="pointer-events-auto fixed"
+          style={{
+            left: panelStyle.left,
+            top: panelStyle.top,
+            width: panelStyle.width,
+          }}
+        >
+          <SearchBar
+            autoFocus
+            className="w-full shadow-[var(--shadow-panel)]"
+            onEscape={closeSearch}
+            trailing={
+              <button
+                type="button"
+                className="ui-control -mr-1 h-7 w-7 shrink-0"
+                aria-label="Закрыть поиск"
+                title="Закрыть поиск"
+                onClick={closeSearch}
+              >
+                <VscChromeClose className="h-4 w-4" />
+              </button>
+            }
+          />
+        </div>
       </div>,
       document.body,
     );
@@ -708,9 +808,17 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
         </button>
       </div>
 
-      <div className="flex h-full items-center gap-3">
+      <div className="flex h-full items-center justify-between gap-3">
         <div ref={menuRootRef} className="flex min-w-0 flex-1 items-center gap-3 overflow-visible">
-          <img src="/logo.svg" alt="Cross++" className="h-6 w-auto shrink-0" />
+          <button
+            type="button"
+            className="flex shrink-0 items-center"
+            onClick={() => navigate("/")}
+            aria-label="Перейти в IDE"
+            title="Cross++"
+          >
+            <img src="/logo.svg" alt="Cross++" className="h-6 w-auto shrink-0" />
+          </button>
 
           <div ref={menuViewportRef} className="min-w-0 flex-1 overflow-visible">
             <div className="flex items-center gap-1 overflow-visible">
@@ -726,7 +834,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
                   }`}
                   onClick={() => openTopLevelMenu(menu.id)}
                   onMouseEnter={() => {
-                    if (openMenuId && openMenuId !== "run-control") {
+                    if (openMenuId) {
                       setOpenMenuId(menu.id);
                     }
                   }}
@@ -749,7 +857,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
                   }`}
                   onClick={() => openTopLevelMenu("overflow")}
                   onMouseEnter={() => {
-                    if (openMenuId && openMenuId !== "run-control") {
+                    if (openMenuId) {
                       setOpenMenuId("overflow");
                     }
                   }}
@@ -764,48 +872,25 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
           </div>
         </div>
 
-        <div className="min-w-[150px] max-w-[280px] flex-[0_1_240px]">
-          <SearchBar />
-        </div>
-
         <div className="flex shrink-0 items-center gap-2">
-          <div className="flex h-8 items-stretch overflow-hidden rounded-[10px] border border-default bg-panel">
-            <button
-              type="button"
-              className="flex items-center gap-1 px-3 text-sm text-primary transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:text-muted"
-              onClick={() => {
-                void handleRunClick();
-              }}
-              disabled={!canRunActivePython}
-              title="Запустить текущий Python-файл"
-            >
-              <VscPlay className="h-4 w-4" />
-              <span>Запуск</span>
-            </button>
-
-            <button
-              ref={runDropdownRef}
-              type="button"
-              className={`border-l border-default px-2 text-primary transition-colors hover:bg-hover ${
-                openMenuId === "run-control" ? "bg-active" : ""
-              }`}
-              onClick={() => openTopLevelMenu("run-control")}
-              aria-haspopup="menu"
-              aria-expanded={openMenuId === "run-control"}
-              title="Параметры запуска"
-            >
-              <VscChevronDown className="h-4 w-4" />
-            </button>
-          </div>
-
           <button
+            ref={searchTriggerRef}
             type="button"
-            onClick={onToggleTheme}
-            className="ui-control flex h-8 w-8 items-center justify-center"
-            title={theme === "dark" ? "Включить светлую тему" : "Включить тёмную тему"}
-            aria-label={theme === "dark" ? "Включить светлую тему" : "Включить тёмную тему"}
+            className={`ui-control flex h-8 w-8 items-center justify-center ${
+              isSearchOpen || activeSearchQuery ? "border border-default bg-active text-primary" : ""
+            }`}
+            onClick={() => {
+              if (isSearchOpen) {
+                closeSearch();
+                return;
+              }
+
+              openSearch();
+            }}
+            aria-label="Открыть поиск"
+            title={activeSearchQuery ? `Поиск: ${activeSearchQuery}` : "Открыть поиск"}
           >
-            {theme === "dark" ? <FiSun className="h-4 w-4" /> : <FiMoon className="h-4 w-4" />}
+            <IoSearchOutline className="h-4 w-4" />
           </button>
 
           <TopBarAccountControls />
@@ -825,6 +910,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       </div>
 
       {renderOverlay()}
+      {renderSearchOverlay()}
     </div>
   );
 }

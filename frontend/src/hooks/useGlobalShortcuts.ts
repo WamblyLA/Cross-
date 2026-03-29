@@ -59,7 +59,7 @@ export function useGlobalShortcuts() {
       }
 
       if (hasPrimaryModifier && !event.altKey && event.shiftKey && key === "n") {
-        if (source !== "local" || !rootPath) {
+        if (source === "local" && !rootPath) {
           return;
         }
 

@@ -4,6 +4,7 @@ import {
   deleteProject,
   getProject,
   getProjects,
+  getProjectTree,
   updateProject,
 } from "../controllers/projectsController.js";
 import {
@@ -21,6 +22,7 @@ router.use(requireAuth);
 router.get("/", getProjects);
 router.post("/", validateRequest({ body: createProjectBodySchema }), createProject);
 router.get("/:id", validateRequest({ params: projectParamsSchema }), getProject);
+router.get("/:id/tree", validateRequest({ params: projectParamsSchema }), getProjectTree);
 router.put(
   "/:id",
   validateRequest({

@@ -2,13 +2,18 @@ import { useCallback } from "react";
 import {
   createCloudProject as createCloudProjectThunk,
   createCloudProjectFile as createCloudProjectFileThunk,
+  createCloudProjectFolder as createCloudProjectFolderThunk,
   deleteCloudProject,
   deleteCloudProjectFile,
+  deleteCloudProjectFolder as deleteCloudProjectFolderThunk,
   fetchProjectFile,
-  fetchProjectFiles,
   fetchProjects,
+  fetchProjectTree,
+  moveCloudProjectFile as moveCloudProjectFileThunk,
+  moveCloudProjectFolder as moveCloudProjectFolderThunk,
   renameCloudProject as renameCloudProjectThunk,
   renameCloudProjectFile as renameCloudProjectFileThunk,
+  renameCloudProjectFolder as renameCloudProjectFolderThunk,
   saveCloudProjectFile,
 } from "../features/cloud/cloudThunks";
 import { selectCloudActiveProjectId, selectCloudProjects } from "../features/cloud/cloudSelectors";
@@ -16,10 +21,12 @@ import { selectCloudItem, setActiveProjectId } from "../features/cloud/cloudSlic
 import {
   clearLocalFiles,
   closeCloudFile,
+  closeCloudFiles,
   closeCloudFilesByProject,
   markFileSaved,
   openCloudFile,
   renameCloudFileMetadata,
+  retargetCloudFiles,
   setActiveFile,
 } from "../features/files/filesSlice";
 import { selectActiveFile, selectOpenedFiles } from "../features/files/filesSelectors";
@@ -135,7 +142,7 @@ export function useWorkspaceActions() {
     await dispatch(fetchProjects()).unwrap();
 
     if (activeProjectId) {
-      await dispatch(fetchProjectFiles({ projectId: activeProjectId })).unwrap();
+      await dispatch(fetchProjectTree({ projectId: activeProjectId })).unwrap();
     }
   }, [activeProjectId, dispatch]);
 
@@ -146,12 +153,13 @@ export function useWorkspaceActions() {
       dispatch(
         selectCloudItem({
           projectId,
+          folderId: null,
           fileId: null,
           itemType: "project",
         }),
       );
 
-      return dispatch(fetchProjectFiles({ projectId })).unwrap();
+      return dispatch(fetchProjectTree({ projectId })).unwrap();
     },
     [dispatch],
   );
@@ -167,6 +175,7 @@ export function useWorkspaceActions() {
       dispatch(
         selectCloudItem({
           projectId,
+          folderId: null,
           fileId,
           itemType: "file",
         }),
@@ -201,6 +210,7 @@ export function useWorkspaceActions() {
       dispatch(
         selectCloudItem({
           projectId: response.project.id,
+          folderId: null,
           fileId: null,
           itemType: "project",
         }),
@@ -227,20 +237,24 @@ export function useWorkspaceActions() {
   );
 
   const createCloudFile = useCallback(
-    async (projectId: string, name: string, content = "") => {
+    async (projectId: string, name: string, content = "", folderId?: string | null) => {
       const response = await dispatch(
         createCloudProjectFileThunk({
           projectId,
           name,
           content,
+          folderId,
         }),
       ).unwrap();
+
+      await dispatch(fetchProjectTree({ projectId })).unwrap();
 
       dispatch(setWorkspaceSource("cloud"));
       dispatch(setActiveProjectId(projectId));
       dispatch(
         selectCloudItem({
           projectId,
+          folderId: response.file.folderId ?? null,
           fileId: response.file.id,
           itemType: "file",
         }),
@@ -269,6 +283,8 @@ export function useWorkspaceActions() {
         }),
       ).unwrap();
 
+      await dispatch(fetchProjectTree({ projectId })).unwrap();
+
       dispatch(
         renameCloudFileMetadata({
           projectId,
@@ -285,7 +301,189 @@ export function useWorkspaceActions() {
   const deleteCloudWorkspaceFile = useCallback(
     async (projectId: string, fileId: string) => {
       await dispatch(deleteCloudProjectFile({ projectId, fileId })).unwrap();
+      await dispatch(fetchProjectTree({ projectId })).unwrap();
       dispatch(closeCloudFile({ projectId, fileId }));
+    },
+    [dispatch],
+  );
+
+  const createCloudFolder = useCallback(
+    async (projectId: string, name: string, parentId?: string | null) => {
+      const response = await dispatch(
+        createCloudProjectFolderThunk({
+          projectId,
+          name,
+          parentId,
+        }),
+      ).unwrap();
+
+      await dispatch(fetchProjectTree({ projectId })).unwrap();
+      dispatch(setWorkspaceSource("cloud"));
+      dispatch(setActiveProjectId(projectId));
+      dispatch(
+        selectCloudItem({
+          projectId,
+          folderId: response.folder.id,
+          fileId: null,
+          itemType: "folder",
+        }),
+      );
+
+      return response.folder;
+    },
+    [dispatch],
+  );
+
+  const renameCloudFolder = useCallback(
+    async (projectId: string, folderId: string, name: string) => {
+      const response = await dispatch(
+        renameCloudProjectFolderThunk({
+          projectId,
+          folderId,
+          name,
+        }),
+      ).unwrap();
+
+      await dispatch(fetchProjectTree({ projectId })).unwrap();
+
+      return response.folder;
+    },
+    [dispatch],
+  );
+
+  const deleteCloudFolder = useCallback(
+    async (projectId: string, folderId: string) => {
+      const response = await dispatch(
+        deleteCloudProjectFolderThunk({
+          projectId,
+          folderId,
+        }),
+      ).unwrap();
+
+      await dispatch(fetchProjectTree({ projectId })).unwrap();
+
+      if (response.deletedFileIds.length > 0) {
+        dispatch(
+          closeCloudFiles({
+            projectId,
+            fileIds: response.deletedFileIds,
+          }),
+        );
+      }
+
+      return response;
+    },
+    [dispatch],
+  );
+
+  const moveCloudFile = useCallback(
+    async (
+      projectId: string,
+      fileId: string,
+      targetProjectId: string,
+      targetFolderId: string | null,
+    ) => {
+      const response = await dispatch(
+        moveCloudProjectFileThunk({
+          projectId,
+          fileId,
+          targetProjectId,
+          targetFolderId,
+        }),
+      ).unwrap();
+
+      const refreshRequests =
+        projectId === targetProjectId
+          ? [dispatch(fetchProjectTree({ projectId }))]
+          : [
+              dispatch(fetchProjectTree({ projectId })),
+              dispatch(fetchProjectTree({ projectId: targetProjectId })),
+            ];
+
+      await Promise.all(refreshRequests.map((request) => request.unwrap()));
+
+      if (projectId !== targetProjectId) {
+        dispatch(
+          retargetCloudFiles({
+            items: [
+              {
+                sourceProjectId: projectId,
+                targetProjectId,
+                fileId: response.file.id,
+                name: response.file.name,
+              },
+            ],
+          }),
+        );
+      }
+
+      dispatch(setWorkspaceSource("cloud"));
+      dispatch(setActiveProjectId(targetProjectId));
+      dispatch(
+        selectCloudItem({
+          projectId: targetProjectId,
+          folderId: response.file.folderId ?? null,
+          fileId: response.file.id,
+          itemType: "file",
+        }),
+      );
+
+      return response;
+    },
+    [dispatch],
+  );
+
+  const moveCloudFolder = useCallback(
+    async (
+      projectId: string,
+      folderId: string,
+      targetProjectId: string,
+      targetParentId: string | null,
+    ) => {
+      const response = await dispatch(
+        moveCloudProjectFolderThunk({
+          projectId,
+          folderId,
+          targetProjectId,
+          targetParentId,
+        }),
+      ).unwrap();
+
+      const refreshRequests =
+        projectId === targetProjectId
+          ? [dispatch(fetchProjectTree({ projectId }))]
+          : [
+              dispatch(fetchProjectTree({ projectId })),
+              dispatch(fetchProjectTree({ projectId: targetProjectId })),
+            ];
+
+      await Promise.all(refreshRequests.map((request) => request.unwrap()));
+
+      if (projectId !== targetProjectId && response.movedFiles.length > 0) {
+        dispatch(
+          retargetCloudFiles({
+            items: response.movedFiles.map((file) => ({
+              sourceProjectId: projectId,
+              targetProjectId,
+              fileId: file.id,
+              name: file.name,
+            })),
+          }),
+        );
+      }
+
+      dispatch(setWorkspaceSource("cloud"));
+      dispatch(setActiveProjectId(targetProjectId));
+      dispatch(
+        selectCloudItem({
+          projectId: targetProjectId,
+          folderId: response.folder.id,
+          fileId: null,
+          itemType: "folder",
+        }),
+      );
+
+      return response;
     },
     [dispatch],
   );
@@ -307,5 +505,10 @@ export function useWorkspaceActions() {
     createCloudFile,
     renameCloudFile,
     deleteCloudFile: deleteCloudWorkspaceFile,
+    createCloudFolder,
+    renameCloudFolder,
+    deleteCloudFolder,
+    moveCloudFile,
+    moveCloudFolder,
   };
 }
