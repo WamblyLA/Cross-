@@ -7,7 +7,14 @@ import { fetchProjects } from "../features/cloud/cloudThunks";
 import { showBottomPanel } from "../features/panel/panelSlice";
 import { appendRunConsoleChunk } from "../features/run/runConsoleStore";
 import { runSessionChanged } from "../features/run/runSlice";
-import { terminalSessionClosed } from "../features/terminal/terminalSlice";
+import {
+  appendTerminalConsoleChunk,
+  clearTerminalConsoleSession,
+} from "../features/terminal/terminalConsoleStore";
+import {
+  terminalSessionClosed,
+  terminalSessionsLoaded,
+} from "../features/terminal/terminalSlice";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import type { ThemeName } from "../styles/tokens";
@@ -29,8 +36,12 @@ export default function AppShellLayout({ theme, onToggleTheme }: AppShellLayoutP
   useGlobalShortcuts();
 
   useEffect(() => {
+    const unsubscribeTerminalData = window.electronAPI.onTerminalData((payload) => {
+      appendTerminalConsoleChunk(payload);
+    });
     const unsubscribeTerminalStatus = window.electronAPI.onTerminalStatus((payload) => {
       if (payload.type === "closed") {
+        clearTerminalConsoleSession(payload.terminalId);
         dispatch(terminalSessionClosed({ terminalId: payload.terminalId }));
       }
     });
@@ -44,6 +55,18 @@ export default function AppShellLayout({ theme, onToggleTheme }: AppShellLayoutP
         dispatch(showBottomPanel("run"));
       }
     });
+
+    void window.electronAPI
+      .listTerminalSessions()
+      .then((result) => {
+        dispatch(
+          terminalSessionsLoaded({
+            terminals: result.terminals,
+            activeTerminalId: result.activeTerminalId,
+          }),
+        );
+      })
+      .catch(() => undefined);
 
     void window.electronAPI
       .getCurrentRunSession()
@@ -61,6 +84,7 @@ export default function AppShellLayout({ theme, onToggleTheme }: AppShellLayoutP
       .catch(() => undefined);
 
     return () => {
+      unsubscribeTerminalData();
       unsubscribeTerminalStatus();
       unsubscribeRunData();
       unsubscribeRunSession();

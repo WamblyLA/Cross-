@@ -26,8 +26,6 @@ const __dirname = path.dirname(__filename);
 const CLEAR_TERMINAL_SEQUENCE = "\u001b[2J\u001b[3J\u001b[H";
 const DEFAULT_TERMINAL_COLS = 120;
 const DEFAULT_TERMINAL_ROWS = 30;
-const pythonCommand = "";
-const resolvedFilePath = "";
 
 let mainWindow = null;
 let currentWatcher = null;
@@ -35,8 +33,6 @@ let watchedRootPath = null;
 let terminalSessions = new Map();
 let terminalOrder = [];
 let defaultShellTerminalId = null;
-let ideRunTerminalId = null;
-let activeIdeRunTerminalId = null;
 let terminalSize = {
   cols: DEFAULT_TERMINAL_COLS,
   rows: DEFAULT_TERMINAL_ROWS,
@@ -386,88 +382,12 @@ function resolveExecutablePath(command) {
   return null;
 }
 
-function isPythonLauncherPath(commandPath) {
-  if (!commandPath) {
-    return false;
-  }
-
-  const normalizedPath = path.normalize(commandPath).toLowerCase();
-  return normalizedPath.endsWith(`${path.sep}launcher${path.sep}py.exe`) || path.basename(normalizedPath) === "py.exe";
-}
-
-function selectExistingPythonPath(candidates) {
-  for (const candidate of candidates) {
-    if (!candidate) {
-      continue;
-    }
-
-    const resolvedCandidate = path.resolve(candidate);
-
-    if (fsSync.existsSync(resolvedCandidate) && !isPythonLauncherPath(resolvedCandidate)) {
-      return resolvedCandidate;
-    }
-  }
-
-  return null;
-}
-
-function extractPythonExecutableFromText(text) {
-  if (!text) {
-    return null;
-  }
-
-  return text.match(/[A-Za-z]:\\[^\r\n]*?python(?:w)?\.exe/gi)?.[0] ?? null;
-}
-
-function resolvePythonRuntimeFromLauncher(candidate) {
-  const launcherListResult = spawnSync(candidate.command, ["-0p"], {
-    encoding: "utf-8",
-    windowsHide: true,
-  });
-
-  const combinedOutput = `${launcherListResult.stdout ?? ""}\n${launcherListResult.stderr ?? ""}`;
-  const extractedPaths = combinedOutput
-    .split(/\r?\n/)
-    .map((line) => extractPythonExecutableFromText(line))
-    .filter(Boolean);
-
-  const preferredPath =
-    combinedOutput
-      .split(/\r?\n/)
-      .find((line) => line.includes("*"))
-      ?.match(/[A-Za-z]:\\[^\r\n]*?python(?:w)?\.exe/i)?.[0] ?? null;
-
-  return selectExistingPythonPath([preferredPath, ...extractedPaths]);
-}
-
-function resolveWindowsPythonFromKnownLocations() {
-  if (process.platform !== "win32") {
-    return null;
-  }
-
-  const basePath = process.env.LOCALAPPDATA
-    ? path.join(process.env.LOCALAPPDATA, "Programs", "Python")
-    : null;
-
-  if (!basePath || !fsSync.existsSync(basePath)) {
-    return null;
-  }
-
-  const installationCandidates = fsSync
-    .readdirSync(basePath, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && /^python/i.test(entry.name))
-    .map((entry) => path.join(basePath, entry.name, "python.exe"))
-    .sort((left, right) => right.localeCompare(left));
-
-  return selectExistingPythonPath(installationCandidates);
-}
-
 function buildTerminalMeta(session) {
   return {
     id: session.id,
     title: session.title,
     shellLabel: session.label,
-    kind: session.mode,
+    kind: "shell",
   };
 }
 
@@ -623,33 +543,6 @@ function handleTerminalChunk(session, chunk) {
   emitTerminalChunk(session.id, chunk);
 }
 
-function quoteForPowerShell(value) {
-  return `'${`${value}`.replace(/'/g, "''")}'`;
-}
-
-function quoteForCmd(value) {
-  return `"${`${value}`.replace(/"/g, '""')}"`;
-}
-
-function quoteForPosixShell(value) {
-  return `'${`${value}`.replace(/'/g, `'\\''`)}'`;
-}
-
-function buildPythonRunCommand({ shellType, cwd, filePath, commandName }) {
-  switch (shellType) {
-    case "powershell":
-      return [
-        `Set-Location -LiteralPath ${quoteForPowerShell(cwd)}`,
-        `${commandName} ${quoteForPowerShell(filePath)}`,
-      ].join("\r");
-    case "cmd":
-      return `cd /d ${quoteForCmd(cwd)}\r${commandName} ${quoteForCmd(filePath)}`;
-    case "posix":
-    default:
-      return `cd ${quoteForPosixShell(cwd)} && ${commandName} ${quoteForPosixShell(filePath)}`;
-  }
-}
-
 function createPtySession({
   terminalId = createTerminalId("terminal"),
   mode,
@@ -676,8 +569,6 @@ function createPtySession({
       pty: null,
       spawnId: null,
       disposed: false,
-      isRunning: false,
-      activeRun: null,
     };
 
   if (existingSession?.pty) {
@@ -754,44 +645,39 @@ function createShellSession() {
   return buildTerminalMeta(session);
 }
 
-function ensureIdeRunTerminalSession() {
-  const existingRunSession = ideRunTerminalId ? getTerminalSession(ideRunTerminalId) : null;
+function listShellSessions() {
+  return terminalOrder
+    .map((terminalId) => terminalSessions.get(terminalId) ?? null)
+    .filter((session) => session?.mode === "shell")
+    .map((session) => buildTerminalMeta(session));
+}
 
-  if (existingRunSession?.pty) {
-    return existingRunSession;
+function getActiveShellTerminalId() {
+  const activeSession = getTerminalSession(defaultShellTerminalId);
+
+  if (activeSession?.mode === "shell") {
+    return activeSession.id;
   }
 
-  const candidate = getShellCandidate();
-  const terminalId = existingRunSession?.id ?? createTerminalId("run");
+  return listShellSessions()[0]?.id ?? null;
+}
 
-  try {
-    return createPtySession({
-      terminalId,
-      mode: "python-run",
-      title: "Python",
-      command: candidate.command,
-      args: candidate.args,
-      cwd: getInitialTerminalCwd(),
-      label: candidate.label,
-      shellType: candidate.shellType,
-    });
-  } catch (error) {
-    ideRunTerminalId = existingRunSession?.id ?? null;
-    activeIdeRunTerminalId = null;
+function buildShellSessionListPayload() {
+  return {
+    terminals: listShellSessions(),
+    activeTerminalId: getActiveShellTerminalId(),
+  };
+}
 
-    if (error instanceof Error) {
-      throw error;
-    }
+function activateShellTerminalSession(terminalId) {
+  const session = requireTerminalSession(terminalId);
 
-    throw new Error("Failed to open the Python terminal.");
-
-    const message =
-      error instanceof Error ? error.message : "Не удалось открыть терминал для Python.";
-
-    throw new Error(
-      `Не удалось запустить Python (${path.basename(pythonCommand)}) для файла ${resolvedFilePath}. ${message}`,
-    );
+  if (session.mode !== "shell") {
+    throw new Error("Можно активировать только обычные терминальные сессии.");
   }
+
+  defaultShellTerminalId = session.id;
+  return buildShellSessionListPayload();
 }
 
 function ensureTerminalSession(terminalId = null) {
@@ -802,272 +688,6 @@ function ensureTerminalSession(terminalId = null) {
   }
 
   return ensureShellTerminal();
-}
-
-function findAvailablePythonInterpreter() {
-  const candidates =
-    process.platform === "win32"
-      ? [
-          {
-            command: "py",
-            args: ["-3"],
-            checkArgs: ["-3", "--version"],
-            label: "py -3",
-          },
-          {
-            command: "python",
-            args: [],
-            checkArgs: ["--version"],
-            label: "python",
-          },
-          {
-            command: "python3",
-            args: [],
-            checkArgs: ["--version"],
-            label: "python3",
-          },
-        ]
-      : [
-          {
-            command: "python3",
-            args: [],
-            checkArgs: ["--version"],
-            label: "python3",
-          },
-          {
-            command: "python",
-            args: [],
-            checkArgs: ["--version"],
-            label: "python",
-          },
-        ];
-
-  for (const candidate of candidates) {
-    const result = spawnSync(candidate.command, candidate.checkArgs, {
-      encoding: "utf-8",
-      windowsHide: true,
-    });
-
-    if (result.status === 0) {
-      return {
-        ...candidate,
-        resolvedCommand: resolveExecutablePath(candidate.command),
-      };
-    }
-  }
-
-  return null;
-}
-
-function resolvePythonRuntime(candidate) {
-  const probeResult = spawnSync(
-    candidate.command,
-    [...candidate.args, "-c", "import sys; print(getattr(sys, '_base_executable', '') or sys.executable)"],
-    {
-      encoding: "utf-8",
-      windowsHide: true,
-    },
-  );
-
-  if (probeResult.status !== 0) {
-    return candidate.resolvedCommand ?? null;
-  }
-
-  const output = `${probeResult.stdout ?? ""}`
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .at(-1);
-
-  if (!output) {
-    return candidate.resolvedCommand ?? null;
-  }
-
-  const resolvedRuntimePath = path.resolve(output);
-
-  if (fsSync.existsSync(resolvedRuntimePath) && !isPythonLauncherPath(resolvedRuntimePath)) {
-    return resolvedRuntimePath;
-  }
-
-  if (candidate.command === "py" || isPythonLauncherPath(candidate.resolvedCommand ?? "")) {
-    return (
-      resolvePythonRuntimeFromLauncher(candidate) ??
-      resolveWindowsPythonFromKnownLocations() ??
-      null
-    );
-  }
-
-  if (candidate.resolvedCommand && !isPythonLauncherPath(candidate.resolvedCommand)) {
-    return candidate.resolvedCommand;
-  }
-
-  return resolveWindowsPythonFromKnownLocations();
-}
-
-function resolvePythonRunTarget(filePath) {
-  if (typeof filePath !== "string") {
-    throw new Error("Не удалось определить путь к файлу Python для запуска.");
-  }
-
-  const trimmedPath = filePath.trim();
-
-  if (!trimmedPath || trimmedPath === "." || trimmedPath === path.sep) {
-    throw new Error("Не удалось определить путь к файлу Python для запуска.");
-  }
-
-  const resolvedFilePath = path.resolve(trimmedPath);
-
-  let fileStats = null;
-
-  try {
-    fileStats = fsSync.statSync(resolvedFilePath);
-  } catch {
-    throw new Error(`Файл для запуска не найден: ${resolvedFilePath}`);
-  }
-
-  if (!fileStats.isFile()) {
-    throw new Error(`Указанный путь не является файлом: ${resolvedFilePath}`);
-  }
-
-  const fileDirectory = path.dirname(resolvedFilePath);
-
-  let directoryStats = null;
-
-  try {
-    directoryStats = fsSync.statSync(fileDirectory);
-  } catch {
-    throw new Error(`Не удалось открыть директорию запуска: ${fileDirectory}`);
-  }
-
-  if (!directoryStats.isDirectory()) {
-    throw new Error(`Некорректная директория запуска: ${fileDirectory}`);
-  }
-
-  return {
-    resolvedFilePath,
-    fileDirectory,
-  };
-}
-
-function pickPythonShellCommand() {
-  if (resolveExecutablePath("python")) {
-    return "python";
-  }
-
-  if (process.platform === "win32" && resolveExecutablePath("py")) {
-    return "py";
-  }
-
-  if (resolveExecutablePath("python3")) {
-    return "python3";
-  }
-
-  return process.platform === "win32" ? "python" : "python3";
-}
-
-function formatPythonRunHeader() {
-  return "";
-}
-
-function runPythonInTerminal(filePath) {
-  if (!filePath) {
-    throw new Error("Не выбран файл для запуска.");
-  }
-
-  if (!filePath.toLowerCase().endsWith(".py")) {
-    throw new Error("Можно запускать только Python-файлы с расширением .py.");
-  }
-
-  if (activeIdeRunTerminalId) {
-    throw new Error("Предыдущий запуск еще не завершен.");
-  }
-
-  const { resolvedFilePath, fileDirectory } = resolvePythonRunTarget(filePath);
-  const interpreter = findAvailablePythonInterpreter();
-
-  if (!interpreter) {
-    const { terminal } = ensureShellTerminal();
-    emitTerminalData(terminal.id, "\r\nPython не найден. Установите Python или py launcher.\r\n");
-    return {
-      started: false,
-      terminal,
-      reason: "python-missing",
-    };
-  }
-
-  const pythonRuntime = resolvePythonRuntime(interpreter);
-  const pythonCommand = pythonRuntime ?? interpreter.resolvedCommand ?? null;
-
-  if (!pythonCommand || !path.isAbsolute(pythonCommand) || !fsSync.existsSync(pythonCommand)) {
-    throw new Error("Не удалось определить путь к Python интерпретатору.");
-  }
-
-  const existingRunSession = ideRunTerminalId ? getTerminalSession(ideRunTerminalId) : null;
-
-  if (existingRunSession?.isRunning) {
-    throw new Error("Предыдущий запуск еще не завершен.");
-  }
-
-  const interpreterLabel = path.basename(pythonCommand);
-  const terminalId = existingRunSession?.id ?? createTerminalId("run");
-  const session = createPtySession({
-    terminalId,
-    mode: "python-run",
-    title: "Python",
-    command: pythonCommand,
-    args: ["-u", resolvedFilePath],
-    cwd: fileDirectory,
-    label: interpreterLabel,
-  });
-
-  ideRunTerminalId = session.id;
-  activeIdeRunTerminalId = session.id;
-  session.isRunning = true;
-  session.activeRun = {
-    filePath: resolvedFilePath,
-    interpreter: interpreterLabel,
-  };
-
-  emitTerminalData(session.id, formatPythonRunHeader(resolvedFilePath));
-
-  emitTerminalStatus({
-    type: "run-started",
-    terminalId: session.id,
-    filePath: resolvedFilePath,
-    interpreter: interpreterLabel,
-  });
-
-  return {
-    started: true,
-    terminal: buildTerminalMeta(session),
-  };
-}
-
-function runPythonInShellTerminal(filePath) {
-  if (!filePath) {
-    throw new Error("Не выбран файл для запуска.");
-  }
-
-  if (!filePath.toLowerCase().endsWith(".py")) {
-    throw new Error("Для локального запуска нужен Python-файл с расширением .py.");
-  }
-
-  const { resolvedFilePath, fileDirectory } = resolvePythonRunTarget(filePath);
-  const terminal = createShellSession();
-  const session = requireTerminalSession(terminal.id);
-  const commandText = buildPythonRunCommand({
-    shellType: session.shellType,
-    cwd: fileDirectory,
-    filePath: resolvedFilePath,
-    commandName: pickPythonShellCommand(),
-  });
-
-  session.pty?.write(`${commandText}\r`);
-
-  return {
-    started: true,
-    terminal,
-  };
 }
 
 function interruptTerminalSession(terminalId) {
@@ -1261,13 +881,24 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("terminal:create", async () => {
+    const terminal = createShellSession();
+    defaultShellTerminalId = terminal.id;
+
     return {
-      terminal: createShellSession(),
+      terminal,
     };
   });
 
   ipcMain.handle("terminal:ensure", async (_, terminalId) => {
     return ensureTerminalSession(terminalId ?? null);
+  });
+
+  ipcMain.handle("terminal:list", async () => {
+    return buildShellSessionListPayload();
+  });
+
+  ipcMain.handle("terminal:activate", async (_, terminalId) => {
+    return activateShellTerminalSession(terminalId);
   });
 
   ipcMain.handle("terminal:close", async (_, terminalId) => {
@@ -1323,10 +954,6 @@ app.whenReady().then(() => {
     emitTerminalData(session.id, `${text.endsWith("\n") ? text : `${text}\r\n`}`);
 
     return { success: true };
-  });
-
-  ipcMain.handle("terminal:run-python", async (_, filePath) => {
-    return runPythonInShellTerminal(filePath);
   });
 
   ipcMain.handle("run:list-configurations", async (_, workspaceDescriptor) => {

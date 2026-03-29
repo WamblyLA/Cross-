@@ -5,7 +5,7 @@ import { IoIosSquareOutline } from "react-icons/io";
 import { IoSearchOutline } from "react-icons/io5";
 import { RxCross1 } from "react-icons/rx";
 import { TfiLayoutLineSolid } from "react-icons/tfi";
-import { VscChevronDown, VscChromeClose, VscEllipsis, VscTerminal } from "react-icons/vsc";
+import { VscChevronDown, VscChromeClose, VscEllipsis } from "react-icons/vsc";
 import { selectIsAuthenticated } from "../../features/auth/authSelectors";
 import {
   selectCloudActiveProjectId,
@@ -249,6 +249,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     "file",
     "edit",
     "view",
+    "terminal",
     "run",
     "settings",
   ]);
@@ -268,12 +269,22 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     (state) => state.panel.isVisible && state.panel.activeTab === "terminal",
   );
   const isTerminalReady = useAppSelector((state) => state.terminal.isReady);
+  const activeTerminalId = useAppSelector((state) => state.terminal.activeTerminalId);
+  const terminalSessions = useAppSelector((state) => state.terminal.sessions);
   const currentRunSession = useAppSelector((state) => state.run.currentSession);
   const isRunning = Boolean(
     currentRunSession &&
       ["preparing", "materializing", "building", "running"].includes(currentRunSession.status),
   );
-  const { openTerminal, toggleTerminal, clearTerminal } = useDesktopActions();
+  const {
+    activateTerminal,
+    clearTerminal,
+    createTerminal,
+    focusTerminal,
+    interruptTerminal,
+    openTerminal,
+    toggleTerminal,
+  } = useDesktopActions();
   const { activeFile, openFolder, saveActiveFile } = useWorkspaceActions();
   const { openRunConfigurationDialog, rerun, runSelectedConfiguration, stopRun } = useRunActions();
 
@@ -313,6 +324,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
   const canRefreshExplorer = source === "cloud" ? isAuthenticated : Boolean(rootPath);
   const canCollapseExplorer =
     source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
+  const hasTerminalSession = Boolean(activeTerminalId);
   const hasRunnableFile = ["py", "cpp", "cc", "cxx"].includes(
     activeFile?.extension?.toLowerCase() ?? "",
   );
@@ -437,6 +449,59 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
         ],
       },
       {
+        id: "terminal",
+        label: "Терминал",
+        sections: [
+          {
+            id: "terminal-main",
+            items: [
+              {
+                id: "terminal-new",
+                label: "Новый терминал",
+                onSelect: createTerminal,
+              },
+              {
+                id: "terminal-open",
+                label: isTerminalVisible ? "Показать терминал" : "Открыть терминал",
+                shortcut: "Ctrl+J",
+                onSelect: openTerminal,
+              },
+              {
+                id: "terminal-focus",
+                label: "Фокус на терминале",
+                disabled: !hasTerminalSession,
+                onSelect: focusTerminal,
+              },
+              {
+                id: "terminal-clear",
+                label: "Очистить терминал",
+                disabled: !isTerminalReady,
+                onSelect: () => clearTerminal(activeTerminalId),
+              },
+              {
+                id: "terminal-interrupt",
+                label: "Прервать терминал",
+                disabled: !hasTerminalSession,
+                onSelect: () => interruptTerminal(activeTerminalId),
+              },
+            ],
+          },
+          ...(terminalSessions.length > 1
+            ? [
+                {
+                  id: "terminal-sessions",
+                  title: "Сессии",
+                  items: terminalSessions.map((session) => ({
+                    id: `terminal-session-${session.id}`,
+                    label: `${session.id === activeTerminalId ? "[активный] " : ""}${session.title}`,
+                    onSelect: () => activateTerminal(session.id),
+                  })),
+                },
+              ]
+            : []),
+        ],
+      },
+      {
         id: "run",
         label: "Запуск",
         sections: [
@@ -460,12 +525,6 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
                 id: "edit-configurations",
                 label: "Изменить конфигурации...",
                 onSelect: openRunConfigurationDialog,
-              },
-              {
-                id: "clear-terminal",
-                label: "Очистить терминал",
-                disabled: !isTerminalReady,
-                onSelect: clearTerminal,
               },
             ],
           },
@@ -491,6 +550,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     [
       activeFile,
       activeSearchQuery,
+      activeTerminalId,
       canCollapseExplorer,
       canCreateFile,
       canCreateFolder,
@@ -499,13 +559,18 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       canRenameSelectedNode,
       canRefreshExplorer,
       canRunActiveTarget,
+      createTerminal,
       clearTerminal,
       currentRunSession?.canRerun,
       dispatch,
       handleOpenCloudProjectDraft,
+      hasTerminalSession,
       isRunning,
       isTerminalReady,
       isTerminalVisible,
+      activateTerminal,
+      focusTerminal,
+      interruptTerminal,
       openRunConfigurationDialog,
       onToggleTheme,
       openFolder,
@@ -517,6 +582,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       settingsLabel,
       source,
       stopRun,
+      terminalSessions,
       toggleTerminal,
     ],
   );
@@ -898,20 +964,6 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
 
         <div className="flex shrink-0 items-center gap-2">
           <TopBarRunButton />
-
-          <button
-            type="button"
-            className={`ui-control flex h-8 items-center gap-2 px-3 text-sm ${
-              isTerminalVisible ? "border border-default bg-active text-primary" : ""
-            }`}
-            onClick={() => {
-              void openTerminal();
-            }}
-            title="Открыть терминал"
-          >
-            <VscTerminal className="h-4 w-4" />
-            <span>Терминал</span>
-          </button>
 
           <button
             ref={searchTriggerRef}

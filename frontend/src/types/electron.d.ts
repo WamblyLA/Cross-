@@ -11,7 +11,7 @@ declare global {
     id: string;
     title: string;
     shellLabel: string;
-    kind: "shell" | "python-run";
+    kind: "shell";
   };
 
   type TerminalDataEvent = {
@@ -350,6 +350,14 @@ declare global {
       createTerminalSession: () => Promise<{
         terminal: TerminalMeta;
       }>;
+      listTerminalSessions: () => Promise<{
+        terminals: TerminalMeta[];
+        activeTerminalId: string | null;
+      }>;
+      activateTerminalSession: (terminalId: string) => Promise<{
+        terminals: TerminalMeta[];
+        activeTerminalId: string;
+      }>;
       closeTerminalSession: (terminalId: string) => Promise<{
         success: true;
       }>;
@@ -367,11 +375,6 @@ declare global {
       }>;
       printTerminalMessage: (text: string, terminalId?: string | null) => Promise<{
         success: true;
-      }>;
-      runPythonInTerminal: (filePath: string) => Promise<{
-        started: boolean;
-        terminal?: TerminalMeta;
-        reason?: string;
       }>;
 
       listRunConfigurations: (

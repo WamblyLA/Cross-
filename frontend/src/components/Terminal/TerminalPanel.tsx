@@ -2,8 +2,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useMemo, useRef } from "react";
-import { VscClearAll, VscChromeClose } from "react-icons/vsc";
+import { VscClearAll, VscChromeClose, VscDebugPause } from "react-icons/vsc";
 import { hideBottomPanel } from "../../features/panel/panelSlice";
+import { useTerminalConsoleChunks } from "../../features/terminal/terminalConsoleStore";
 import { useDesktopActions } from "../../hooks/useDesktopActions";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import type { ThemeName } from "../../styles/tokens";
@@ -18,21 +19,23 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
   const terminalHostRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const terminalIdRef = useRef<string | null>(null);
+  const activeTerminalIdRef = useRef<string | null>(null);
+  const renderedChunkCountRef = useRef(0);
 
-  const { ensureTerminalSession, clearTerminal } = useDesktopActions();
-  const terminalId = useAppSelector((state) => state.terminal.terminalId);
-  const terminalTitle = useAppSelector((state) => state.terminal.title);
-  const shellLabel = useAppSelector((state) => state.terminal.shellLabel);
+  const { clearTerminal, ensureTerminalSession, interruptTerminal } = useDesktopActions();
+  const activeTerminalId = useAppSelector((state) => state.terminal.activeTerminalId);
+  const terminalSessions = useAppSelector((state) => state.terminal.sessions);
+  const activeTerminal = terminalSessions.find((session) => session.id === activeTerminalId) ?? null;
   const isActive = useAppSelector(
     (state) => state.panel.isVisible && state.panel.activeTab === "terminal",
   );
+  const terminalChunks = useTerminalConsoleChunks(activeTerminalId);
 
   const terminalTheme = useMemo(() => getConsoleTheme(theme), [theme]);
 
   useEffect(() => {
-    terminalIdRef.current = terminalId;
-  }, [terminalId]);
+    activeTerminalIdRef.current = activeTerminalId;
+  }, [activeTerminalId]);
 
   useEffect(() => {
     if (!terminalHostRef.current || terminalRef.current) {
@@ -54,7 +57,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
     terminal.open(terminalHostRef.current);
 
     const disposeInput = terminal.onData((data) => {
-      const currentTerminalId = terminalIdRef.current;
+      const currentTerminalId = activeTerminalIdRef.current;
 
       if (!currentTerminalId) {
         return;
@@ -63,19 +66,11 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
       void window.electronAPI.writeToTerminal(data, currentTerminalId);
     });
 
-    const unsubscribeData = window.electronAPI.onTerminalData((payload) => {
-      if (!terminalIdRef.current || payload.terminalId !== terminalIdRef.current) {
-        return;
-      }
-
-      terminal.write(payload.text);
-    });
-
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
     const observer = new ResizeObserver(() => {
-      const currentTerminalId = terminalIdRef.current;
+      const currentTerminalId = activeTerminalIdRef.current;
       fitAddon.fit();
 
       if (currentTerminalId) {
@@ -87,7 +82,6 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
 
     return () => {
       observer.disconnect();
-      unsubscribeData();
       disposeInput.dispose();
       terminal.dispose();
       terminalRef.current = null;
@@ -105,12 +99,38 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
   }, [terminalTheme]);
 
   useEffect(() => {
+    if (!terminalRef.current) {
+      return;
+    }
+
+    terminalRef.current.write("\x1bc");
+    renderedChunkCountRef.current = 0;
+  }, [activeTerminalId]);
+
+  useEffect(() => {
+    const terminal = terminalRef.current;
+
+    if (!terminal) {
+      return;
+    }
+
+    const nextChunks = terminalChunks.slice(renderedChunkCountRef.current);
+
+    if (nextChunks.length === 0) {
+      return;
+    }
+
+    terminal.write(nextChunks.join(""));
+    renderedChunkCountRef.current = terminalChunks.length;
+  }, [terminalChunks]);
+
+  useEffect(() => {
     if (!isActive) {
       return;
     }
 
-    void ensureTerminalSession().then((session) => {
-      terminalIdRef.current = session.terminal.id;
+    void ensureTerminalSession(activeTerminalId).then((session) => {
+      activeTerminalIdRef.current = session.terminal.id;
 
       window.requestAnimationFrame(() => {
         fitAddonRef.current?.fit();
@@ -127,7 +147,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
         terminalRef.current.focus();
       });
     });
-  }, [ensureTerminalSession, isActive]);
+  }, [activeTerminalId, ensureTerminalSession, isActive]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -135,14 +155,14 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
         <div className="min-w-0">
           <div className="text-[11px] uppercase tracking-[0.18em] text-muted">Терминал</div>
           <div className="truncate text-xs text-secondary">
-            {terminalTitle ?? "Локальная shell-сессия внутри IDE"}
+            {activeTerminal?.title ?? "Локальная shell-сессия внутри IDE"}
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {shellLabel ? (
+          {activeTerminal?.shellLabel ? (
             <span className="rounded-full border border-default px-2 py-1 text-[11px] text-muted">
-              {shellLabel}
+              {activeTerminal.shellLabel}
             </span>
           ) : null}
 
@@ -150,10 +170,24 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => {
+              void interruptTerminal(activeTerminalId);
+            }}
+            title="Прервать терминал"
+            disabled={!activeTerminalId}
+          >
+            <VscDebugPause />
+          </button>
+
+          <button
+            type="button"
+            className="ui-control h-8 w-8"
+            onClick={() => {
               terminalRef.current?.clear();
-              void clearTerminal();
+              renderedChunkCountRef.current = 0;
+              void clearTerminal(activeTerminalId);
             }}
             title="Очистить терминал"
+            disabled={!activeTerminalId}
           >
             <VscClearAll />
           </button>

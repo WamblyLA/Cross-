@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("file:move-many", sourcePaths, targetDirectory),
   ensureTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:ensure", terminalId),
   createTerminalSession: () => ipcRenderer.invoke("terminal:create"),
+  listTerminalSessions: () => ipcRenderer.invoke("terminal:list"),
+  activateTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:activate", terminalId),
   closeTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:close", terminalId),
   writeToTerminal: (data, terminalId) => ipcRenderer.invoke("terminal:write", terminalId ?? null, data),
   resizeTerminal: (cols, rows, terminalId) =>
@@ -28,7 +30,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   clearTerminal: (terminalId) => ipcRenderer.invoke("terminal:clear", terminalId ?? null),
   printTerminalMessage: (text, terminalId) =>
     ipcRenderer.invoke("terminal:message", terminalId ?? null, text),
-  runPythonInTerminal: (filePath) => ipcRenderer.invoke("terminal:run-python", filePath),
   listRunConfigurations: (workspaceDescriptor) =>
     ipcRenderer.invoke("run:list-configurations", workspaceDescriptor),
   createRunConfiguration: (workspaceDescriptor, configurationInput) =>
