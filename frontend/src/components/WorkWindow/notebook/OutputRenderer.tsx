@@ -1,11 +1,11 @@
-import type { ThemeName } from "../../styles/tokens";
-import HtmlOutputFrame from "./HtmlOutputFrame";
-import { renderLatexExpressionToHtml, renderMarkdownToHtml } from "./markdownPreview";
+import type { ThemeName } from "../../../styles/tokens";
+import HtmlOutputFrame from "../HtmlOutputFrame";
+import MarkdownRenderer from "../markdown/MarkdownRenderer";
+import type { NotebookOutput } from "./types";
 
-type NotebookCellOutput = NotebookOutput;
-
-type NotebookOutputViewProps = {
-  outputs: NotebookCellOutput[];
+type OutputRendererProps = {
+  outputs: NotebookOutput[];
+  hasUnsupportedOutputs: boolean;
   filePath: string;
   theme: ThemeName;
 };
@@ -31,7 +31,7 @@ function coerceText(value: unknown) {
 }
 
 function renderRichOutput(
-  output: Extract<NotebookCellOutput, { output_type: "display_data" | "execute_result" }>,
+  output: Extract<NotebookOutput, { output_type: "display_data" | "execute_result" }>,
   filePath: string,
   theme: ThemeName,
 ) {
@@ -48,7 +48,7 @@ function renderRichOutput(
     return (
       <img
         src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`}
-        alt="Результат выполнения"
+        alt="Сохранённый вывод ячейки"
         className="max-w-full rounded-[12px] border border-default"
       />
     );
@@ -60,7 +60,7 @@ function renderRichOutput(
     return (
       <img
         src={`data:image/png;base64,${png}`}
-        alt="Результат выполнения"
+        alt="Сохранённый вывод ячейки"
         className="max-w-full rounded-[12px] border border-default"
       />
     );
@@ -72,7 +72,7 @@ function renderRichOutput(
     return (
       <img
         src={`data:image/jpeg;base64,${jpeg}`}
-        alt="Результат выполнения"
+        alt="Сохранённый вывод ячейки"
         className="max-w-full rounded-[12px] border border-default"
       />
     );
@@ -82,30 +82,20 @@ function renderRichOutput(
 
   if (markdown) {
     return (
-      <div
-        className="markdown-preview rounded-[14px] border border-default bg-input px-4 py-4"
-        dangerouslySetInnerHTML={{ __html: renderMarkdownToHtml(markdown, filePath) }}
-      />
-    );
-  }
-
-  const latex = coerceText(data["text/latex"]);
-
-  if (latex) {
-    return (
-      <div
+      <MarkdownRenderer
+        source={markdown}
+        filePath={filePath}
         className="rounded-[14px] border border-default bg-input px-4 py-4"
-        dangerouslySetInnerHTML={{ __html: renderLatexExpressionToHtml(latex, true) }}
       />
     );
   }
 
   const jsonValue = data["application/json"];
 
-  if (jsonValue != null && typeof jsonValue === "object") {
+  if (jsonValue != null) {
     return (
       <pre className="overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
-        {JSON.stringify(jsonValue, null, 2)}
+        {typeof jsonValue === "string" ? jsonValue : JSON.stringify(jsonValue, null, 2)}
       </pre>
     );
   }
@@ -119,12 +109,13 @@ function renderRichOutput(
   );
 }
 
-export default function NotebookOutputView({
+export default function OutputRenderer({
   outputs,
+  hasUnsupportedOutputs,
   filePath,
   theme,
-}: NotebookOutputViewProps) {
-  if (outputs.length === 0) {
+}: OutputRendererProps) {
+  if (outputs.length === 0 && !hasUnsupportedOutputs) {
     return null;
   }
 
@@ -171,6 +162,13 @@ export default function NotebookOutputView({
           </div>
         );
       })}
+
+      {hasUnsupportedOutputs ? (
+        <div className="rounded-[14px] border border-dashed border-default px-4 py-3 text-xs leading-6 text-secondary">
+          В этом ноутбуке есть сохранённые выводы, которые этот просмотрщик пока не умеет
+          отображать. Они будут сохранены при повторном сохранении файла.
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ThemeName } from "../../styles/tokens";
-import { getParentPath } from "../../utils/path";
-import { toFileUrl } from "./markdownPreview";
+import { resolveMarkdownBaseHref } from "./markdown/markdownUrlResolver";
 
 type HtmlOutputFrameProps = {
   html: string;
@@ -11,14 +10,7 @@ type HtmlOutputFrameProps = {
 };
 
 function getBaseHref(filePath: string) {
-  const parentPath = getParentPath(filePath);
-
-  if (!parentPath) {
-    return "";
-  }
-
-  const fileUrl = toFileUrl(parentPath);
-  return fileUrl.endsWith("/") ? fileUrl : `${fileUrl}/`;
+  return resolveMarkdownBaseHref(filePath);
 }
 
 function buildFrameDocument({
@@ -51,7 +43,6 @@ function buildFrameDocument({
           link: "#6fbe7f",
         };
   const baseHref = getBaseHref(filePath);
-  const escapedHtml = html;
 
   return `<!DOCTYPE html>
 <html>
@@ -121,7 +112,7 @@ function buildFrameDocument({
     </style>
   </head>
   <body>
-    ${escapedHtml}
+    ${html}
     <script>
       const frameId = ${JSON.stringify(frameId)};
 

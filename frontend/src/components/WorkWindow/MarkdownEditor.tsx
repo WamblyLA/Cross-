@@ -1,11 +1,11 @@
 import { Editor } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { VscCode, VscEye, VscSplitHorizontal } from "react-icons/vsc";
 import { getMonacoThemeName, type ThemeName } from "../../styles/tokens";
 import ResizeableBlock from "../../ui/ResizeableBlock";
 import { createDevLogger } from "../../utils/devLogger";
-import { renderMarkdownToHtml } from "./markdownPreview";
+import MarkdownRenderer from "./markdown/MarkdownRenderer";
 
 type MarkdownViewMode = "code" | "split" | "preview";
 
@@ -23,13 +23,15 @@ type MarkdownEditorProps = {
 const logger = createDevLogger("crosspp:markdown");
 
 function MarkdownPreviewPane({
-  html,
+  source,
+  filePath,
 }: {
-  html: string;
+  source: string;
+  filePath: string;
 }) {
   return (
-    <div className="markdown-preview h-full overflow-y-auto px-6 py-5">
-      <div dangerouslySetInnerHTML={{ __html: html }} />
+    <div className="h-full overflow-y-auto px-6 py-5">
+      <MarkdownRenderer source={source} filePath={filePath} />
     </div>
   );
 }
@@ -47,20 +49,20 @@ export default function MarkdownEditor({
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const lastFilePathRef = useRef(filePath);
   const lastCommittedContentRef = useRef(content);
+  const latestDraftContentRef = useRef(content);
   const dirtyNotifiedRef = useRef(isDirty);
 
   const [draftContent, setDraftContent] = useState(content);
   const [viewMode, setViewMode] = useState<MarkdownViewMode>("split");
   const deferredContent = useDeferredValue(draftContent);
 
-  const previewHtml = useMemo(
-    () => renderMarkdownToHtml(deferredContent, filePath),
-    [deferredContent, filePath],
-  );
-
   useEffect(() => {
     dirtyNotifiedRef.current = isDirty;
   }, [isDirty]);
+
+  useEffect(() => {
+    latestDraftContentRef.current = draftContent;
+  }, [draftContent]);
 
   useEffect(() => {
     if (filePath !== lastFilePathRef.current) {
@@ -98,11 +100,11 @@ export default function MarkdownEditor({
 
   useEffect(() => {
     return () => {
-      if (draftContent !== lastCommittedContentRef.current) {
-        onCommitContent(draftContent);
+      if (latestDraftContentRef.current !== lastCommittedContentRef.current) {
+        onCommitContent(latestDraftContentRef.current);
       }
     };
-  }, [draftContent, onCommitContent]);
+  }, [onCommitContent]);
 
   const handleMount = useCallback(
     (editor: Monaco.editor.IStandaloneCodeEditor, monacoInstance: typeof Monaco) => {
@@ -177,7 +179,7 @@ export default function MarkdownEditor({
 
   const previewPane = (
     <div className="h-full min-h-0 bg-panel">
-      <MarkdownPreviewPane html={previewHtml} />
+      <MarkdownPreviewPane source={deferredContent} filePath={filePath} />
     </div>
   );
 

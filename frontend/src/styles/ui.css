@@ -26,6 +26,16 @@
     color: var(--text-primary);
   }
 
+  .ui-control:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .ui-control:disabled:hover {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
   .ui-control:active {
     background: var(--bg-active);
   }
@@ -223,73 +233,135 @@
     line-height: 1.75;
   }
 
-  .markdown-preview > :first-child,
-  .markdown-preview > div > :first-child {
+  .markdown-preview > :first-child {
     margin-top: 0;
   }
 
-  .markdown-preview > :last-child,
-  .markdown-preview > div > :last-child {
+  .markdown-preview > :last-child {
     margin-bottom: 0;
   }
 
-  .markdown-preview .markdown-heading {
+  .markdown-preview h1,
+  .markdown-preview h2,
+  .markdown-preview h3,
+  .markdown-preview h4,
+  .markdown-preview h5,
+  .markdown-preview h6 {
     margin: 1.4rem 0 0.75rem;
     font-weight: 600;
     line-height: 1.25;
     color: var(--text-primary);
   }
 
-  .markdown-preview .markdown-heading-1 {
+  .markdown-preview h1 {
     font-size: 2rem;
   }
 
-  .markdown-preview .markdown-heading-2 {
+  .markdown-preview h2 {
     font-size: 1.55rem;
   }
 
-  .markdown-preview .markdown-heading-3 {
+  .markdown-preview h3 {
     font-size: 1.2rem;
   }
 
-  .markdown-preview .markdown-paragraph,
-  .markdown-preview .markdown-blockquote,
-  .markdown-preview .markdown-list,
-  .markdown-preview .markdown-list-ordered,
+  .markdown-preview p,
+  .markdown-preview blockquote,
+  .markdown-preview ul,
+  .markdown-preview ol,
   .markdown-preview .markdown-table-wrap,
-  .markdown-preview .markdown-math-display,
-  .markdown-preview .markdown-code-block {
+  .markdown-preview pre,
+  .markdown-preview hr {
     margin: 0.9rem 0;
   }
 
-  .markdown-preview .markdown-list,
-  .markdown-preview .markdown-list-ordered {
+  .markdown-preview ul,
+  .markdown-preview ol {
+    list-style-position: outside;
     padding-left: 1.4rem;
   }
 
-  .markdown-preview .markdown-list li,
-  .markdown-preview .markdown-list-ordered li {
+  .markdown-preview ul {
+    list-style-type: disc;
+  }
+
+  .markdown-preview ul ul {
+    list-style-type: circle;
+  }
+
+  .markdown-preview ul ul ul {
+    list-style-type: square;
+  }
+
+  .markdown-preview ol {
+    list-style-type: decimal;
+  }
+
+  .markdown-preview ol ol {
+    list-style-type: lower-alpha;
+  }
+
+  .markdown-preview ol ol ol {
+    list-style-type: lower-roman;
+  }
+
+  .markdown-preview li {
     margin: 0.3rem 0;
   }
 
-  .markdown-preview .markdown-rule {
+  .markdown-preview li::marker {
+    color: var(--text-secondary);
+  }
+
+  .markdown-preview li > ul,
+  .markdown-preview li > ol {
+    margin: 0.35rem 0;
+  }
+
+  .markdown-preview .contains-task-list {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .markdown-preview .task-list-item {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+  }
+
+  .markdown-preview .task-list-item::marker {
+    content: "";
+  }
+
+  .markdown-preview .task-list-item input[type="checkbox"] {
+    margin-top: 0.35rem;
+  }
+
+  .markdown-preview hr {
     margin: 1.2rem 0;
     border: 0;
     border-top: 1px solid var(--border-default);
   }
 
-  .markdown-preview .markdown-blockquote {
+  .markdown-preview .katex-display {
+    margin: 1rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.15rem 0;
+  }
+
+  .markdown-preview blockquote {
     padding-left: 1rem;
     border-left: 3px solid var(--border-strong);
     color: var(--text-secondary);
   }
 
-  .markdown-preview .markdown-inline-code,
-  .markdown-preview .markdown-code-block {
+  .markdown-preview code,
+  .markdown-preview pre {
     font-family: Consolas, "Cascadia Code", monospace;
   }
 
-  .markdown-preview .markdown-inline-code {
+  .markdown-preview :not(pre) > code {
     border: 1px solid var(--border-default);
     border-radius: 999px;
     background: color-mix(in srgb, var(--bg-input) 80%, transparent);
@@ -298,13 +370,21 @@
     color: var(--text-primary);
   }
 
-  .markdown-preview .markdown-code-block {
+  .markdown-preview pre {
     overflow-x: auto;
     border: 1px solid var(--border-default);
     border-radius: 16px;
     background: var(--bg-input);
     padding: 1rem 1.1rem;
     color: var(--text-secondary);
+  }
+
+  .markdown-preview pre code {
+    display: block;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    color: inherit;
   }
 
   .markdown-preview .markdown-link {
@@ -322,6 +402,11 @@
     margin: 1rem 0;
   }
 
+  .markdown-preview .markdown-image-fallback {
+    display: inline-block;
+    color: var(--text-secondary);
+  }
+
   .markdown-preview .markdown-table-wrap {
     overflow-x: auto;
     border: 1px solid var(--border-default);
@@ -329,77 +414,33 @@
     background: var(--bg-input);
   }
 
-  .markdown-preview .markdown-table {
+  .markdown-preview table {
     width: 100%;
     border-collapse: collapse;
   }
 
-  .markdown-preview .markdown-table th,
-  .markdown-preview .markdown-table td {
+  .markdown-preview th,
+  .markdown-preview td {
     padding: 0.75rem 0.9rem;
     border-bottom: 1px solid var(--border-default);
     border-right: 1px solid var(--border-default);
     text-align: left;
     vertical-align: top;
+    background: var(--bg-input);
   }
 
-  .markdown-preview .markdown-table th:last-child,
-  .markdown-preview .markdown-table td:last-child {
+  .markdown-preview th:last-child,
+  .markdown-preview td:last-child {
     border-right: 0;
   }
 
-  .markdown-preview .markdown-table tr:last-child td {
+  .markdown-preview tr:last-child td {
     border-bottom: 0;
   }
 
-  .markdown-preview .markdown-table th {
+  .markdown-preview th {
     background: color-mix(in srgb, var(--bg-active) 75%, transparent);
     color: var(--text-primary);
     font-weight: 600;
-  }
-
-  .markdown-preview .markdown-math {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.08rem;
-    font-family: "Times New Roman", serif;
-    color: var(--text-primary);
-  }
-
-  .markdown-preview .markdown-math-display {
-    display: flex;
-    justify-content: center;
-    border: 1px solid var(--border-default);
-    border-radius: 16px;
-    background: var(--bg-input);
-    padding: 1rem 1.25rem;
-    overflow-x: auto;
-  }
-
-  .markdown-preview .markdown-math-fraction {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0 0.1rem;
-  }
-
-  .markdown-preview .markdown-math-top {
-    padding: 0 0.2rem 0.08rem;
-    border-bottom: 1px solid currentColor;
-  }
-
-  .markdown-preview .markdown-math-bottom {
-    padding: 0.08rem 0.2rem 0;
-  }
-
-  .markdown-preview .markdown-math-root {
-    display: inline-flex;
-    align-items: flex-end;
-    gap: 0.1rem;
-  }
-
-  .markdown-preview .markdown-math-root-value {
-    border-top: 1px solid currentColor;
-    padding: 0 0.15rem;
   }
 }

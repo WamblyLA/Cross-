@@ -21,7 +21,6 @@ import { registerMonacoThemes } from "../../styles/monacoTheme";
 import { getMonacoThemeName, type ThemeName } from "../../styles/tokens";
 import MarkdownEditor from "./MarkdownEditor";
 import NotebookEditor from "./NotebookEditor";
-import type { LocalOpenedFile } from "../../features/files/fileTypes";
 
 type WorkWindowProps = {
   theme: ThemeName;
@@ -70,9 +69,7 @@ function EmptyEditorState({
   return (
     <div className="flex h-full items-center justify-center px-6">
       <div className="max-w-lg rounded-2xl border border-default bg-panel px-6 py-8 text-center shadow-sm">
-        <div className="text-xs uppercase tracking-[0.22em] text-muted">
-          Cross++ IDE
-        </div>
+        <div className="text-xs uppercase tracking-[0.22em] text-muted">Cross++ IDE</div>
         <h2 className="mt-3 text-xl text-primary">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-secondary">{description}</p>
       </div>
@@ -91,13 +88,10 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
   const activeFile = useAppSelector(selectActiveFile);
   const { saveActiveFile } = useWorkspaceActions();
 
-  const isNotebookFile =
-    activeFile?.kind === "local" &&
-    activeFile.extension?.toLowerCase() === "ipynb";
+  const isNotebookFile = activeFile?.extension?.toLowerCase() === "ipynb";
   const isMarkdownFile = activeFile?.extension?.toLowerCase() === "md";
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const notebookPathsRef = useRef<string[]>([]);
 
   const handleSave = useCallback(async () => {
     const result = await saveActiveFile();
@@ -198,25 +192,6 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
     [activeFile, dispatch, saveActiveFile],
   );
 
-  useEffect(() => {
-    const currentNotebookPaths = openedFiles
-      .filter(
-        (file): file is LocalOpenedFile =>
-          file.kind === "local" && file.extension?.toLowerCase() === "ipynb",
-      )
-      .map((file) => file.path);
-    const previousNotebookPaths = notebookPathsRef.current;
-    const removedNotebookPaths = previousNotebookPaths.filter(
-      (filePath) => !currentNotebookPaths.includes(filePath),
-    );
-
-    notebookPathsRef.current = currentNotebookPaths;
-
-    removedNotebookPaths.forEach((filePath) => {
-      void window.electronAPI.releaseNotebookKernel(filePath);
-    });
-  }, [openedFiles]);
-
   if (!activeFile) {
     if (source === "cloud") {
       if (!isAuthenticated) {
@@ -264,7 +239,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 min-w-0 flex-col bg-editor">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor">
       <div className="flex items-end overflow-x-auto border-b border-default bg-editor px-2 pt-2">
         {openedFiles.length > 0 ? (
           openedFiles.map((file) => (
@@ -290,9 +265,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
                     Облако
                   </span>
                 ) : null}
-                {file.isDirty ? (
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                ) : null}
+                {file.isDirty ? <span className="h-2 w-2 rounded-full bg-emerald-400" /> : null}
               </span>
 
               <button
@@ -309,21 +282,18 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
             </div>
           ))
         ) : (
-          <div className="px-3 py-2 text-sm text-muted">
-            Файлы пока не открыты
-          </div>
+          <div className="px-3 py-2 text-sm text-muted">Файлы пока не открыты</div>
         )}
       </div>
 
       <div className="min-h-0 flex-1 border-t border-default">
         {activeFile ? (
-          isNotebookFile && rootPath ? (
+          isNotebookFile ? (
             <NotebookEditor
-              filePath={activeFile.path}
+              filePath={activeFile.editorPath}
               content={activeFile.content}
               isDirty={activeFile.isDirty}
               theme={theme}
-              rootPath={rootPath}
               beforeMount={beforeMount}
               onCommitContent={handleCommitActiveFileContent}
               onMarkDirty={handleMarkActiveFileDirty}
