@@ -1,6 +1,7 @@
 import { request } from "../../lib/api/request";
 import type {
   CloudFile,
+  CloudProjectRunSnapshot,
   CloudFileSummary,
   CloudFolderSummary,
   CloudProject,
@@ -17,6 +18,10 @@ type ProjectResponse = {
 
 type ProjectTreeResponse = {
   tree: CloudProjectTree;
+};
+
+type ProjectRunSnapshotResponse = {
+  snapshot: CloudProjectRunSnapshot;
 };
 
 type FilesResponse = {
@@ -72,6 +77,12 @@ export function getProject(projectId: string) {
 export function getProjectTree(projectId: string) {
   return request<ProjectTreeResponse>({
     url: `/api/projects/${projectId}/tree`,
+  });
+}
+
+export function getProjectRunSnapshot(projectId: string) {
+  return request<ProjectRunSnapshotResponse>({
+    url: `/api/projects/${projectId}/run-snapshot`,
   });
 }
 

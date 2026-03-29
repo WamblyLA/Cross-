@@ -33,7 +33,7 @@ import { selectActiveFile, selectOpenedFiles } from "../features/files/filesSele
 import { setRootPath, setWorkspaceSource } from "../features/workspace/workspaceSlice";
 import { normalizeApiError } from "../lib/api/errorNormalization";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import { useDesktopActions } from "./useDesktopActions";
+import { useRunActions } from "./useRunActions";
 
 export function useWorkspaceActions() {
   const dispatch = useAppDispatch();
@@ -41,7 +41,7 @@ export function useWorkspaceActions() {
   const openedFiles = useAppSelector(selectOpenedFiles);
   const projects = useAppSelector(selectCloudProjects);
   const activeProjectId = useAppSelector(selectCloudActiveProjectId);
-  const { openTerminal, printTerminalMessage } = useDesktopActions();
+  const { runSelectedConfiguration } = useRunActions();
 
   const openFolder = useCallback(async () => {
     try {
@@ -98,45 +98,8 @@ export function useWorkspaceActions() {
   }, [activeFile, dispatch]);
 
   const runActivePythonFile = useCallback(async () => {
-    await openTerminal();
-
-    if (!activeFile) {
-      await printTerminalMessage("Нет активного файла для запуска.");
-      return { ok: false };
-    }
-
-    if (activeFile.kind !== "local") {
-      await printTerminalMessage("Запуск доступен только для локальных Python-файлов.");
-      return { ok: false };
-    }
-
-    if (activeFile.extension?.toLowerCase() !== "py") {
-      await printTerminalMessage(
-        "Для локального запуска откройте активный Python-файл с расширением .py.",
-      );
-      return { ok: false };
-    }
-
-    if (activeFile.isDirty) {
-      const saveResult = await saveActiveFile();
-
-      if (!saveResult.ok) {
-        await printTerminalMessage(
-          saveResult.message ?? "Не удалось сохранить текущий файл перед запуском.",
-        );
-        return { ok: false };
-      }
-    }
-
-    try {
-      await window.electronAPI.runPythonInTerminal(activeFile.path);
-      return { ok: true };
-    } catch (error) {
-      const message = normalizeApiError(error).message;
-      await printTerminalMessage(message);
-      return { ok: false };
-    }
-  }, [activeFile, openTerminal, printTerminalMessage, saveActiveFile]);
+    return runSelectedConfiguration();
+  }, [runSelectedConfiguration]);
 
   const refreshCloudProjects = useCallback(async () => {
     await dispatch(fetchProjects()).unwrap();

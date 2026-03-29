@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import { AppError } from "../lib/errors.js";
-import { ensureOwnedProject, getOwnedProjectTree } from "../lib/cloudExplorer.js";
+import {
+  ensureOwnedProject,
+  getOwnedProjectRunSnapshot,
+  getOwnedProjectTree,
+} from "../lib/cloudExplorer.js";
 import { prisma } from "../lib/prisma.js";
 import type {
   CreateProjectBody,
@@ -65,6 +69,19 @@ export async function getProjectTree(req: Request, res: Response) {
   const tree = await getOwnedProjectTree(id, userId);
 
   res.json({ tree });
+}
+
+export async function getProjectRunSnapshot(req: Request, res: Response) {
+  const { id } = req.params as ProjectParams;
+  const userId = req.userId;
+
+  if (!userId) {
+    throw new AppError("Требуется авторизация", 401);
+  }
+
+  const snapshot = await getOwnedProjectRunSnapshot(id, userId);
+
+  res.json({ snapshot });
 }
 
 export async function updateProject(req: Request, res: Response) {

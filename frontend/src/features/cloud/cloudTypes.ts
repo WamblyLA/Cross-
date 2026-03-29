@@ -41,6 +41,21 @@ export type CloudFile = CloudFileSummary & {
   content: string;
 };
 
+export type CloudRunSnapshotFolder = CloudFolderSummary & {
+  relativePath: string;
+};
+
+export type CloudRunSnapshotFile = CloudFile & {
+  relativePath: string;
+};
+
+export type CloudProjectRunSnapshot = {
+  projectId: string;
+  projectName: string;
+  folders: CloudRunSnapshotFolder[];
+  files: CloudRunSnapshotFile[];
+};
+
 export type AsyncStatus = "idle" | "loading" | "succeeded" | "failed";
 
 export type CloudSelectionType = "project" | "folder" | "file" | null;

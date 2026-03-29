@@ -1,4 +1,4 @@
-﻿import ast
+import ast
 import base64
 import builtins
 import contextlib

@@ -19,13 +19,36 @@ contextBridge.exposeInMainWorld("electronAPI", {
   moveFileSystemItems: (sourcePaths, targetDirectory) =>
     ipcRenderer.invoke("file:move-many", sourcePaths, targetDirectory),
   ensureTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:ensure", terminalId),
+  createTerminalSession: () => ipcRenderer.invoke("terminal:create"),
+  closeTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:close", terminalId),
   writeToTerminal: (data, terminalId) => ipcRenderer.invoke("terminal:write", terminalId ?? null, data),
   resizeTerminal: (cols, rows, terminalId) =>
     ipcRenderer.invoke("terminal:resize", terminalId ?? null, cols, rows),
+  interruptTerminal: (terminalId) => ipcRenderer.invoke("terminal:interrupt", terminalId),
   clearTerminal: (terminalId) => ipcRenderer.invoke("terminal:clear", terminalId ?? null),
   printTerminalMessage: (text, terminalId) =>
     ipcRenderer.invoke("terminal:message", terminalId ?? null, text),
   runPythonInTerminal: (filePath) => ipcRenderer.invoke("terminal:run-python", filePath),
+  listRunConfigurations: (workspaceDescriptor) =>
+    ipcRenderer.invoke("run:list-configurations", workspaceDescriptor),
+  createRunConfiguration: (workspaceDescriptor, configurationInput) =>
+    ipcRenderer.invoke("run:create-configuration", workspaceDescriptor, configurationInput),
+  updateRunConfiguration: (workspaceDescriptor, configurationInput) =>
+    ipcRenderer.invoke("run:update-configuration", workspaceDescriptor, configurationInput),
+  deleteRunConfiguration: (workspaceDescriptor, configurationId) =>
+    ipcRenderer.invoke("run:delete-configuration", workspaceDescriptor, configurationId),
+  selectRunConfiguration: (workspaceDescriptor, configurationId) =>
+    ipcRenderer.invoke("run:select-configuration", workspaceDescriptor, configurationId),
+  listRunPythonInterpreters: (options) =>
+    ipcRenderer.invoke("run:list-python-interpreters", options),
+  listRunCppToolchains: () => ipcRenderer.invoke("run:list-cpp-toolchains"),
+  startRunSession: (launchRequest) => ipcRenderer.invoke("run:start", launchRequest),
+  stopRunSession: () => ipcRenderer.invoke("run:stop"),
+  rerunRunSession: () => ipcRenderer.invoke("run:rerun"),
+  writeToRunSession: (sessionId, data) => ipcRenderer.invoke("run:write", sessionId, data),
+  resizeRunSession: (sessionId, cols, rows) =>
+    ipcRenderer.invoke("run:resize", sessionId, cols, rows),
+  getCurrentRunSession: () => ipcRenderer.invoke("run:get-current-session"),
   listNotebookKernels: (options) => ipcRenderer.invoke("notebook:list-kernels", options),
   refreshNotebookKernels: (options) => ipcRenderer.invoke("notebook:refresh-kernels", options),
   getNotebookKernelDiagnostics: (options) =>
@@ -49,6 +72,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
     const listener = (_, payload) => callback(payload);
     ipcRenderer.on("terminal:status", listener);
     return () => ipcRenderer.removeListener("terminal:status", listener);
+  },
+  onRunData: (callback) => {
+    const listener = (_, payload) => callback(payload);
+    ipcRenderer.on("run:data", listener);
+    return () => ipcRenderer.removeListener("run:data", listener);
+  },
+  onRunSession: (callback) => {
+    const listener = (_, payload) => callback(payload);
+    ipcRenderer.on("run:session", listener);
+    return () => ipcRenderer.removeListener("run:session", listener);
   },
   onNotebookKernelEvent: (callback) => {
     const listener = (_, payload) => callback(payload);

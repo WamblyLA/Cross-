@@ -2,16 +2,20 @@ import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "../features/auth/authSlice";
 import cloudReducer from "../features/cloud/cloudSlice";
 import filesReducer from "../features/files/filesSlice";
+import panelReducer from "../features/panel/panelSlice";
+import runReducer from "../features/run/runSlice";
+import terminalReducer from "../features/terminal/terminalSlice";
 import workspaceReducer from "../features/workspace/workspaceSlice";
-import runnerReducer from "../features/runner/runnerSlice";
 
 const store = configureStore({
   reducer: {
     auth: authReducer,
     cloud: cloudReducer,
     files: filesReducer,
+    panel: panelReducer,
+    run: runReducer,
+    terminal: terminalReducer,
     workspace: workspaceReducer,
-    runner: runnerReducer,
   },
 });
 

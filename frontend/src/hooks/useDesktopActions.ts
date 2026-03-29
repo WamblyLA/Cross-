@@ -1,53 +1,71 @@
 import { useCallback } from "react";
-import { setTerminalVisible, terminalReady } from "../features/runner/runnerSlice";
+import {
+  hideBottomPanel,
+  showBottomPanel,
+  toggleBottomPanelTab,
+} from "../features/panel/panelSlice";
+import { terminalSessionReady } from "../features/terminal/terminalSlice";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 
 export function useDesktopActions() {
   const dispatch = useAppDispatch();
-  const isTerminalVisible = useAppSelector((state) => state.runner.isVisible);
+  const terminalId = useAppSelector((state) => state.terminal.terminalId);
+  const isTerminalTabVisible = useAppSelector(
+    (state) => state.panel.isVisible && state.panel.activeTab === "terminal",
+  );
 
   const ensureTerminalSession = useCallback(async () => {
-    const session = await window.electronAPI.ensureTerminalSession();
+    const session = await window.electronAPI.ensureTerminalSession(terminalId);
 
-    dispatch(terminalReady({ shellLabel: session.terminal.shellLabel }));
+    dispatch(
+      terminalSessionReady({
+        terminalId: session.terminal.id,
+        title: session.terminal.title,
+        shellLabel: session.terminal.shellLabel,
+      }),
+    );
 
     return session;
-  }, [dispatch]);
+  }, [dispatch, terminalId]);
 
   const openTerminal = useCallback(async () => {
     const session = await ensureTerminalSession();
-
-    dispatch(setTerminalVisible(true));
-
+    dispatch(showBottomPanel("terminal"));
     return session;
   }, [dispatch, ensureTerminalSession]);
 
   const toggleTerminal = useCallback(async () => {
-    if (isTerminalVisible) {
-      dispatch(setTerminalVisible(false));
-      return null;
+    if (isTerminalTabVisible) {
+      dispatch(hideBottomPanel());
+      return;
     }
 
-    return openTerminal();
-  }, [dispatch, isTerminalVisible, openTerminal]);
+    await openTerminal();
+  }, [dispatch, isTerminalTabVisible, openTerminal]);
+
+  const focusTerminalTab = useCallback(async () => {
+    await ensureTerminalSession();
+    dispatch(toggleBottomPanelTab("terminal"));
+  }, [dispatch, ensureTerminalSession]);
 
   const printTerminalMessage = useCallback(
     async (message: string) => {
-      await ensureTerminalSession();
-      await window.electronAPI.printTerminalMessage(message);
+      const session = await ensureTerminalSession();
+      await window.electronAPI.printTerminalMessage(message, session.terminal.id);
     },
     [ensureTerminalSession],
   );
 
   const clearTerminal = useCallback(async () => {
-    await ensureTerminalSession();
-    await window.electronAPI.clearTerminal();
+    const session = await ensureTerminalSession();
+    await window.electronAPI.clearTerminal(session.terminal.id);
   }, [ensureTerminalSession]);
 
   return {
     ensureTerminalSession,
     openTerminal,
     toggleTerminal,
+    focusTerminalTab,
     printTerminalMessage,
     clearTerminal,
   };

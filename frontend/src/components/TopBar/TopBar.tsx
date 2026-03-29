@@ -5,24 +5,23 @@ import { IoIosSquareOutline } from "react-icons/io";
 import { IoSearchOutline } from "react-icons/io5";
 import { RxCross1 } from "react-icons/rx";
 import { TfiLayoutLineSolid } from "react-icons/tfi";
-import { VscChevronDown, VscChromeClose, VscEllipsis } from "react-icons/vsc";
+import { VscChevronDown, VscChromeClose, VscEllipsis, VscTerminal } from "react-icons/vsc";
 import { selectIsAuthenticated } from "../../features/auth/authSelectors";
 import {
   selectCloudActiveProjectId,
   selectCloudSelectedItemCount,
   selectCloudSelectedItemType,
 } from "../../features/cloud/cloudSelectors";
-import {
-  requestExplorerAction,
-  setWorkspaceSource,
-} from "../../features/workspace/workspaceSlice";
+import { requestExplorerAction, setWorkspaceSource } from "../../features/workspace/workspaceSlice";
 import { useDesktopActions } from "../../hooks/useDesktopActions";
+import { useRunActions } from "../../hooks/useRunActions";
 import { useWorkspaceActions } from "../../hooks/useWorkspaceActions";
 import type { ThemeName } from "../../styles/tokens";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import SearchBar from "../../ui/SearchBar";
 import TopBarAccountControls from "./TopBarAccountControls";
 import TopBarIcon from "./TopBarIcon";
+import TopBarRunButton from "./TopBarRunButton";
 
 type TopBarProps = {
   theme: ThemeName;
@@ -156,7 +155,9 @@ function MenuPanel({
               role="menuitem"
             >
               <span>{item.label}</span>
-              {item.shortcut ? <span className="text-[11px] text-muted">{item.shortcut}</span> : null}
+              {item.shortcut ? (
+                <span className="text-[11px] text-muted">{item.shortcut}</span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -263,16 +264,18 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
   const selectedCloudItemCount = useAppSelector(selectCloudSelectedItemCount);
   const activeCloudProjectId = useAppSelector(selectCloudActiveProjectId);
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
-  const isTerminalVisible = useAppSelector((state) => state.runner.isVisible);
-  const isTerminalReady = useAppSelector((state) => state.runner.isReady);
-  const isRunning = useAppSelector((state) => state.runner.isRunning);
+  const isTerminalVisible = useAppSelector(
+    (state) => state.panel.isVisible && state.panel.activeTab === "terminal",
+  );
+  const isTerminalReady = useAppSelector((state) => state.terminal.isReady);
+  const currentRunSession = useAppSelector((state) => state.run.currentSession);
+  const isRunning = Boolean(
+    currentRunSession &&
+      ["preparing", "materializing", "building", "running"].includes(currentRunSession.status),
+  );
   const { openTerminal, toggleTerminal, clearTerminal } = useDesktopActions();
-  const {
-    activeFile,
-    openFolder,
-    saveActiveFile,
-    runActivePythonFile,
-  } = useWorkspaceActions();
+  const { activeFile, openFolder, saveActiveFile } = useWorkspaceActions();
+  const { openRunConfigurationDialog, rerun, runSelectedConfiguration, stopRun } = useRunActions();
 
   const closeMenus = useCallback(() => {
     setOpenMenuId(null);
@@ -310,16 +313,22 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
   const canRefreshExplorer = source === "cloud" ? isAuthenticated : Boolean(rootPath);
   const canCollapseExplorer =
     source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
-  const hasActivePythonFile =
-    activeFile?.kind === "local" && activeFile.extension?.toLowerCase() === "py";
-  const canRunActivePython = Boolean(hasActivePythonFile && !isRunning);
+  const hasRunnableFile = ["py", "cpp", "cc", "cxx"].includes(
+    activeFile?.extension?.toLowerCase() ?? "",
+  );
+  const hasRunnableProjectContext =
+    source === "cloud" ? Boolean(activeCloudProjectId) : Boolean(rootPath);
+  const canRunActiveTarget = Boolean(
+    !isRunning && (hasRunnableProjectContext || (activeFile && hasRunnableFile)),
+  );
 
   const handleOpenCloudProjectDraft = useCallback(() => {
     dispatch(setWorkspaceSource("cloud"));
     dispatch(requestExplorerAction("create-project"));
   }, [dispatch]);
 
-  const settingsLabel = theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему";
+  const settingsLabel =
+    theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему";
 
   const primaryMenus = useMemo<MenuConfig[]>(
     () => [
@@ -351,7 +360,7 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
               },
               {
                 id: "new-folder",
-                label: source === "cloud" ? "Новая папка недоступна" : "Новая папка",
+                label: "Новая папка",
                 shortcut: "Ctrl+Shift+N",
                 disabled: !canCreateFolder,
                 onSelect: () => dispatch(requestExplorerAction("create-folder")),
@@ -435,11 +444,22 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
             id: "run-main",
             items: [
               {
-                id: "run-python",
+                id: "run-active",
                 label: isRunning ? "Запуск уже выполняется" : "Запустить",
                 shortcut: "F5",
-                disabled: !canRunActivePython,
-                onSelect: runActivePythonFile,
+                disabled: !isRunning && !canRunActiveTarget,
+                onSelect: () => (isRunning ? stopRun() : runSelectedConfiguration()),
+              },
+              {
+                id: "rerun-active",
+                label: "Перезапустить",
+                disabled: !currentRunSession?.canRerun || isRunning,
+                onSelect: rerun,
+              },
+              {
+                id: "edit-configurations",
+                label: "Изменить конфигурации...",
+                onSelect: openRunConfigurationDialog,
               },
               {
                 id: "clear-terminal",
@@ -475,24 +495,28 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       canCreateFile,
       canCreateFolder,
       canCreateProject,
-        canDeleteSelectedNode,
-        canRenameSelectedNode,
+      canDeleteSelectedNode,
+      canRenameSelectedNode,
       canRefreshExplorer,
-      canRunActivePython,
+      canRunActiveTarget,
       clearTerminal,
+      currentRunSession?.canRerun,
       dispatch,
       handleOpenCloudProjectDraft,
       isRunning,
       isTerminalReady,
       isTerminalVisible,
+      openRunConfigurationDialog,
       onToggleTheme,
       openFolder,
       openSearch,
       openTerminal,
-      runActivePythonFile,
+      rerun,
+      runSelectedConfiguration,
       saveActiveFile,
       settingsLabel,
       source,
+      stopRun,
       toggleTerminal,
     ],
   );
@@ -873,6 +897,22 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <TopBarRunButton />
+
+          <button
+            type="button"
+            className={`ui-control flex h-8 items-center gap-2 px-3 text-sm ${
+              isTerminalVisible ? "border border-default bg-active text-primary" : ""
+            }`}
+            onClick={() => {
+              void openTerminal();
+            }}
+            title="Открыть терминал"
+          >
+            <VscTerminal className="h-4 w-4" />
+            <span>Терминал</span>
+          </button>
+
           <button
             ref={searchTriggerRef}
             type="button"

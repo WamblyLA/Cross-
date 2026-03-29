@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { requestExplorerAction } from "../features/workspace/workspaceSlice";
-import { useWorkspaceActions } from "./useWorkspaceActions";
 import { useDesktopActions } from "./useDesktopActions";
+import { useRunActions } from "./useRunActions";
+import { useWorkspaceActions } from "./useWorkspaceActions";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 
 function isIgnoredTarget(target: EventTarget | null) {
@@ -25,7 +26,8 @@ export function useGlobalShortcuts() {
   const source = useAppSelector((state) => state.workspace.source);
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
   const { toggleTerminal } = useDesktopActions();
-  const { openFolder, saveActiveFile, runActivePythonFile } = useWorkspaceActions();
+  const { runSelectedConfiguration, stopRun } = useRunActions();
+  const { openFolder, saveActiveFile } = useWorkspaceActions();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -70,7 +72,13 @@ export function useGlobalShortcuts() {
 
       if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key === "F5") {
         event.preventDefault();
-        void runActivePythonFile();
+
+        if (event.shiftKey) {
+          void stopRun();
+          return;
+        }
+
+        void runSelectedConfiguration();
         return;
       }
 
@@ -85,5 +93,14 @@ export function useGlobalShortcuts() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [dispatch, openFolder, rootPath, runActivePythonFile, saveActiveFile, source, toggleTerminal]);
+  }, [
+    dispatch,
+    openFolder,
+    rootPath,
+    runSelectedConfiguration,
+    saveActiveFile,
+    source,
+    stopRun,
+    toggleTerminal,
+  ]);
 }

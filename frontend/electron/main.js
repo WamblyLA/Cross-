@@ -1,4 +1,4 @@
-﻿import { spawnSync } from "child_process";
+import { spawnSync } from "child_process";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import fsSync from "fs";
 import fs from "fs/promises";
@@ -7,6 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { startFolderWatcher } from "./folderWatcher.js";
 import { createNotebookKernelManager } from "./notebookKernel.js";
+import { createRunSubsystem } from "./run/index.js";
 
 const require = createRequire(import.meta.url);
 
@@ -41,6 +42,12 @@ let terminalSize = {
   rows: DEFAULT_TERMINAL_ROWS,
 };
 const notebookKernelManager = createNotebookKernelManager({
+  nodePty,
+  nodePtyLoadError,
+  sendToRenderer,
+});
+const runSubsystem = createRunSubsystem({
+  app,
   nodePty,
   nodePtyLoadError,
   sendToRenderer,
@@ -554,7 +561,7 @@ function disposePty(session) {
   try {
     session.pty.kill();
   } catch {
-    // Игнорируем ошибки завершения PTY, если процесс уже остановлен.
+    // DONE
   }
 
   session.pty = null;
@@ -1322,6 +1329,70 @@ app.whenReady().then(() => {
     return runPythonInShellTerminal(filePath);
   });
 
+  ipcMain.handle("run:list-configurations", async (_, workspaceDescriptor) => {
+    return runSubsystem.listConfigurations(workspaceDescriptor);
+  });
+
+  ipcMain.handle("run:create-configuration", async (_, workspaceDescriptor, configurationInput) => {
+    return runSubsystem.createConfiguration(workspaceDescriptor, configurationInput);
+  });
+
+  ipcMain.handle("run:update-configuration", async (_, workspaceDescriptor, configurationInput) => {
+    return runSubsystem.updateConfiguration(workspaceDescriptor, configurationInput);
+  });
+
+  ipcMain.handle("run:delete-configuration", async (_, workspaceDescriptor, configurationId) => {
+    return runSubsystem.deleteConfiguration(workspaceDescriptor, configurationId);
+  });
+
+  ipcMain.handle("run:select-configuration", async (_, workspaceDescriptor, configurationId) => {
+    return runSubsystem.selectConfiguration(workspaceDescriptor, configurationId);
+  });
+
+  ipcMain.handle("run:list-python-interpreters", async (_, options) => {
+    return {
+      interpreters: runSubsystem.listPythonInterpreters(options ?? {}),
+    };
+  });
+
+  ipcMain.handle("run:list-cpp-toolchains", async () => {
+    return {
+      toolchains: runSubsystem.listCppToolchains(),
+    };
+  });
+
+  ipcMain.handle("run:start", async (_, launchRequest) => {
+    return {
+      session: await runSubsystem.startRun(launchRequest),
+    };
+  });
+
+  ipcMain.handle("run:stop", async () => {
+    return {
+      session: await runSubsystem.stopRun(),
+    };
+  });
+
+  ipcMain.handle("run:rerun", async () => {
+    return {
+      session: await runSubsystem.rerun(),
+    };
+  });
+
+  ipcMain.handle("run:write", async (_, sessionId, data) => {
+    return runSubsystem.writeToRun(sessionId, data);
+  });
+
+  ipcMain.handle("run:resize", async (_, sessionId, cols, rows) => {
+    return runSubsystem.resizeRun(sessionId, cols, rows);
+  });
+
+  ipcMain.handle("run:get-current-session", async () => {
+    return {
+      session: runSubsystem.getCurrentSession(),
+    };
+  });
+
   ipcMain.handle("notebook:list-kernels", async (_, options) => {
     return notebookKernelManager.listKernels(options ?? {});
   });
@@ -1354,6 +1425,7 @@ app.whenReady().then(() => {
 app.on("before-quit", async () => {
   await closeFolderWatcher();
   notebookKernelManager.disposeAll();
+  runSubsystem.dispose();
 
   for (const terminalId of [...terminalOrder]) {
     disposeTerminalSession(terminalId, { notifyRenderer: false });
