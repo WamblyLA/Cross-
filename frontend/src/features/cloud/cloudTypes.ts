@@ -67,6 +67,9 @@ export type CloudProjectsState = {
   projectsStatus: AsyncStatus;
   projectsError: import("../../lib/api/errorNormalization").ApiError | null;
   activeProjectId: string | null;
+  selectedItemKeys: string[];
+  focusedItemKey: string | null;
+  selectionAnchorKey: string | null;
   selectedProjectId: string | null;
   selectedFolderId: string | null;
   selectedFileId: string | null;

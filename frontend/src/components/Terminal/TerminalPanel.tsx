@@ -17,6 +17,7 @@ import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import type { ThemeName } from "../../styles/tokens";
 import FloatingMenu, { type MenuSection } from "../../ui/FloatingMenu";
 import { getConsoleTheme } from "../BottomPanel/consoleTheme";
+import { TERMINAL_UI_STRINGS } from "./terminalUiStrings";
 
 type TerminalPanelProps = {
   theme: ThemeName;
@@ -29,7 +30,8 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
   const fitAddonRef = useRef<FitAddon | null>(null);
   const activeTerminalIdRef = useRef<string | null>(null);
   const renderedChunkCountRef = useRef(0);
-  const [profileMenuAnchorRect, setProfileMenuAnchorRect] = useState<DOMRect | null>(null);
+  const [profileMenuAnchorRect, setProfileMenuAnchorRect] =
+    useState<DOMRect | null>(null);
 
   const {
     activateTerminal,
@@ -44,8 +46,11 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
   const terminalSessions = useAppSelector((state) => state.terminal.sessions);
   const terminalProfiles = useAppSelector((state) => state.terminal.profiles);
   const defaultProfileId = useAppSelector((state) => state.terminal.defaultProfileId);
-  const profileDiscoveryStatus = useAppSelector((state) => state.terminal.profileDiscoveryStatus);
-  const activeTerminal = terminalSessions.find((session) => session.id === activeTerminalId) ?? null;
+  const profileDiscoveryStatus = useAppSelector(
+    (state) => state.terminal.profileDiscoveryStatus,
+  );
+  const activeTerminal =
+    terminalSessions.find((session) => session.id === activeTerminalId) ?? null;
   const isActive = useAppSelector(
     (state) => state.panel.isVisible && state.panel.activeTab === "terminal",
   );
@@ -57,7 +62,10 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
     () => [
       {
         id: "terminal-create-profile",
-        title: profileDiscoveryStatus === "loading" ? "Detecting shells..." : "New Terminal",
+        title:
+          profileDiscoveryStatus === "loading"
+            ? TERMINAL_UI_STRINGS.profilesLoading
+            : TERMINAL_UI_STRINGS.createTerminalSection,
         items:
           terminalProfiles.length > 0
             ? terminalProfiles.map((profile) => ({
@@ -71,7 +79,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
             : [
                 {
                   id: "terminal-profiles-empty",
-                  label: "Shell profiles are not available yet",
+                  label: TERMINAL_UI_STRINGS.emptyProfiles,
                   disabled: true,
                   onSelect: () => undefined,
                 },
@@ -79,12 +87,12 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
       },
       {
         id: "terminal-default-profile",
-        title: "Default Profile",
+        title: TERMINAL_UI_STRINGS.defaultProfileSection,
         items:
           terminalProfiles.length > 0
             ? terminalProfiles.map((profile) => ({
                 id: `terminal-default-${profile.id}`,
-                label: `${profile.id === defaultProfileId ? "● " : ""}${profile.label}`,
+                label: `${profile.id === defaultProfileId ? `${TERMINAL_UI_STRINGS.selectedMark} ` : ""}${profile.label}`,
                 disabled: !profile.isAvailable,
                 onSelect: async () => {
                   await setDefaultTerminalProfile(profile.id);
@@ -93,7 +101,13 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
             : [],
       },
     ],
-    [createTerminal, defaultProfileId, profileDiscoveryStatus, setDefaultTerminalProfile, terminalProfiles],
+    [
+      createTerminal,
+      defaultProfileId,
+      profileDiscoveryStatus,
+      setDefaultTerminalProfile,
+      terminalProfiles,
+    ],
   );
 
   useEffect(() => {
@@ -137,7 +151,11 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
       fitAddon.fit();
 
       if (currentTerminalId) {
-        void window.electronAPI.resizeTerminal(terminal.cols, terminal.rows, currentTerminalId);
+        void window.electronAPI.resizeTerminal(
+          terminal.cols,
+          terminal.rows,
+          currentTerminalId,
+        );
       }
     });
 
@@ -217,9 +235,11 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
       <div className="border-b border-default px-3 pb-2 pt-2">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">Терминал</div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">
+              {TERMINAL_UI_STRINGS.title}
+            </div>
             <div className="truncate text-xs text-secondary">
-              {activeTerminal?.title ?? "Локальная shell-сессия внутри IDE"}
+              {activeTerminal?.title ?? TERMINAL_UI_STRINGS.emptySubtitle}
             </div>
           </div>
 
@@ -236,7 +256,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
               onClick={() => {
                 void createTerminal();
               }}
-              title="Новый терминал"
+              title={TERMINAL_UI_STRINGS.newTerminal}
             >
               <VscAdd />
             </button>
@@ -247,7 +267,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
               onClick={(event) => {
                 setProfileMenuAnchorRect(event.currentTarget.getBoundingClientRect());
               }}
-              title="Профили терминала"
+              title={TERMINAL_UI_STRINGS.terminalProfiles}
             >
               <VscChevronDown />
             </button>
@@ -258,7 +278,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
               onClick={() => {
                 void interruptTerminal(activeTerminalId);
               }}
-              title="Прервать терминал"
+              title={TERMINAL_UI_STRINGS.interruptTerminal}
               disabled={!activeTerminalId}
             >
               <VscDebugPause />
@@ -272,7 +292,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
                 renderedChunkCountRef.current = 0;
                 void clearTerminal(activeTerminalId);
               }}
-              title="Очистить терминал"
+              title={TERMINAL_UI_STRINGS.clearTerminal}
               disabled={!activeTerminalId}
             >
               <VscClearAll />
@@ -282,7 +302,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
               type="button"
               className="ui-control h-8 w-8"
               onClick={() => dispatch(hideBottomPanel())}
-              title="Скрыть нижнюю панель"
+              title={TERMINAL_UI_STRINGS.hideBottomPanel}
             >
               <VscChromeClose />
             </button>
@@ -321,7 +341,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
                   onClick={() => {
                     void closeTerminal(session.id);
                   }}
-                  title="Закрыть терминал"
+                  title={TERMINAL_UI_STRINGS.closeTerminal}
                 >
                   <VscClose />
                 </button>
@@ -332,8 +352,8 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
           {terminalSessions.length === 0 ? (
             <div className="rounded-[10px] border border-dashed border-default px-3 py-2 text-sm text-muted">
               {profileDiscoveryStatus === "loading"
-                ? "Detecting shells..."
-                : "Создайте первый терминал"}
+                ? TERMINAL_UI_STRINGS.profilesLoading
+                : TERMINAL_UI_STRINGS.noSessions}
             </div>
           ) : null}
         </div>

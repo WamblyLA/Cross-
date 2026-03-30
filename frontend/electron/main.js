@@ -362,13 +362,13 @@ app.whenReady().then(() => {
     const trimmedName = name?.trim();
 
     if (!trimmedName) {
-      throw new Error("Name cannot be empty.");
+      throw new Error("Имя не может быть пустым.");
     }
 
     const fullPath = path.join(parentPath, trimmedName);
 
     if (fsSync.existsSync(fullPath)) {
-      throw new Error("That item already exists.");
+      throw new Error("Такой элемент уже существует.");
     }
 
     if (isFolder) {
@@ -384,7 +384,7 @@ app.whenReady().then(() => {
     const trimmedName = newName?.trim();
 
     if (!trimmedName) {
-      throw new Error("Name cannot be empty.");
+      throw new Error("Имя не может быть пустым.");
     }
 
     const nextPath = path.join(path.dirname(targetPath), trimmedName);
@@ -394,7 +394,7 @@ app.whenReady().then(() => {
     }
 
     if (fsSync.existsSync(nextPath)) {
-      throw new Error("An item with that name already exists.");
+      throw new Error("Элемент с таким именем уже существует.");
     }
 
     await withWorkspaceWatcherPaused(targetPath, async () => {
@@ -418,7 +418,7 @@ app.whenReady().then(() => {
     }
 
     if (!targetDirectory || !fsSync.existsSync(targetDirectory)) {
-      throw new Error("Target folder was not found.");
+      throw new Error("Целевая папка не найдена.");
     }
 
     const createdPaths = await withWorkspaceWatcherPausedForPaths(
@@ -430,7 +430,7 @@ app.whenReady().then(() => {
           const resolvedSourcePath = path.resolve(sourcePath);
 
           if (isPathInsideRoot(targetDirectory, resolvedSourcePath)) {
-            throw new Error("Cannot copy a folder into itself or one of its descendants.");
+            throw new Error("Нельзя копировать папку в неё саму или в её вложенную папку.");
           }
 
           results.push(await copyFileSystemEntry(resolvedSourcePath, targetDirectory));
@@ -449,7 +449,7 @@ app.whenReady().then(() => {
     }
 
     if (!targetDirectory || !fsSync.existsSync(targetDirectory)) {
-      throw new Error("Target folder was not found.");
+      throw new Error("Целевая папка не найдена.");
     }
 
     const movedPaths = await withWorkspaceWatcherPausedForPaths(
@@ -461,7 +461,7 @@ app.whenReady().then(() => {
           const resolvedSourcePath = path.resolve(sourcePath);
 
           if (isPathInsideRoot(targetDirectory, resolvedSourcePath)) {
-            throw new Error("Cannot move a folder into itself or one of its descendants.");
+            throw new Error("Нельзя перемещать папку в неё саму или в её вложенную папку.");
           }
 
           results.push(await moveFileSystemEntry(resolvedSourcePath, targetDirectory));

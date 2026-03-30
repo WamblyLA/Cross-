@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type DragEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
 } from "react";
 import {
@@ -18,9 +19,11 @@ import { useNavigate } from "react-router-dom";
 import { selectIsAuthenticated } from "../../../features/auth/authSelectors";
 import {
   clearFileActionError,
+  clearCloudSelection,
   clearFolderActionError,
   clearProjectActionError,
   clearProjectsError,
+  setCloudSelection,
   selectCloudItem,
 } from "../../../features/cloud/cloudSlice";
 import {
@@ -33,10 +36,15 @@ import {
   selectCloudProjectsError,
   selectCloudProjectsStatus,
   selectCloudProjectActionError,
+  selectCloudSelectedItemCount,
+  selectCloudSelectedItemKeys,
+  selectCloudSelectedItems,
   selectCloudSelectedFileId,
   selectCloudSelectedFolderId,
+  selectCloudFocusedItemKey,
   selectCloudSelectedItemType,
   selectCloudSelectedProjectId,
+  selectCloudSelectionAnchorKey,
   selectCloudTreeForProject,
 } from "../../../features/cloud/cloudSelectors";
 import type {
@@ -45,6 +53,10 @@ import type {
   CloudProject,
   CloudProjectTree,
 } from "../../../features/cloud/cloudTypes";
+import {
+  createCloudSelectionEntry,
+  type CloudSelectionEntry,
+} from "../../../features/cloud/cloudSelection";
 import { clearExplorerIntent } from "../../../features/workspace/workspaceSlice";
 import { normalizeApiError } from "../../../lib/api/errorNormalization";
 import { useWorkspaceActions } from "../../../hooks/useWorkspaceActions";
@@ -52,6 +64,14 @@ import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import FloatingMenu, { type MenuSection } from "../../../ui/FloatingMenu";
 import CloudAuthPrompt from "./CloudAuthPrompt";
 import CloudInlineInput from "./CloudInlineInput";
+import {
+  buildVisibleCloudSelectionItems,
+  findFileInTree,
+  findFolderNode,
+  hasPrimaryModifier,
+  pruneNestedCloudSelection,
+  type CloudExplorerSelectionItem,
+} from "./cloudExplorerSelection";
 
 type DraftState =
   | {
@@ -80,7 +100,14 @@ type DraftState =
 type DeleteTarget =
   | { kind: "project"; projectId: string; name: string }
   | { kind: "folder"; projectId: string; folderId: string; name: string }
-  | { kind: "file"; projectId: string; fileId: string; name: string };
+  | { kind: "file"; projectId: string; fileId: string; name: string }
+  | {
+      kind: "selection";
+      projectId: string;
+      items: CloudExplorerSelectionItem[];
+      folderCount: number;
+      fileCount: number;
+    };
 
 type ContextMenuState =
   | { kind: "root"; x: number; y: number }
@@ -95,6 +122,7 @@ type DragState =
       fileId: string;
       folderId: string | null;
       name: string;
+      items: CloudExplorerSelectionItem[];
     }
   | {
       kind: "folder";
@@ -102,6 +130,7 @@ type DragState =
       folderId: string;
       parentId: string | null;
       name: string;
+      items: CloudExplorerSelectionItem[];
     };
 
 type DropTarget =
@@ -139,22 +168,6 @@ function filterTree(tree: CloudProjectTree, query: string): CloudProjectTree {
     folders: filterFolders(tree.folders),
     files: tree.files.filter((file) => file.name.toLowerCase().includes(loweredQuery)),
   };
-}
-
-function findFolderNode(folders: CloudFolderTreeNode[], folderId: string): CloudFolderTreeNode | null {
-  for (const folder of folders) {
-    if (folder.id === folderId) {
-      return folder;
-    }
-
-    const nested = findFolderNode(folder.folders, folderId);
-
-    if (nested) {
-      return nested;
-    }
-  }
-
-  return null;
 }
 
 function isAuthError(error: { status?: number | null } | null | undefined) {
@@ -197,6 +210,11 @@ export default function CloudExplorer() {
     selectCloudFilesError(state, activeProjectId),
   );
   const treeByProjectId = useAppSelector((state) => state.cloud.treeByProjectId);
+  const selectedItemKeys = useAppSelector(selectCloudSelectedItemKeys);
+  const selectedItems = useAppSelector(selectCloudSelectedItems);
+  const selectedItemCount = useAppSelector(selectCloudSelectedItemCount);
+  const focusedItemKey = useAppSelector(selectCloudFocusedItemKey);
+  const selectionAnchorKey = useAppSelector(selectCloudSelectionAnchorKey);
   const selectedProjectId = useAppSelector(selectCloudSelectedProjectId);
   const selectedFolderId = useAppSelector(selectCloudSelectedFolderId);
   const selectedFileId = useAppSelector(selectCloudSelectedFileId);
@@ -217,8 +235,10 @@ export default function CloudExplorer() {
     createCloudFile,
     renameCloudFile,
     deleteCloudFile,
+    deleteCloudSelection,
     moveCloudFile,
     moveCloudFolder,
+    moveCloudSelection,
   } = useWorkspaceActions();
 
   const [draft, setDraft] = useState<DraftState | null>(null);
@@ -242,6 +262,22 @@ export default function CloudExplorer() {
   const filteredTree = useMemo(
     () => (activeProjectTree ? filterTree(activeProjectTree, searchQuery) : null),
     [activeProjectTree, searchQuery],
+  );
+  const selectedItemKeySet = useMemo(() => new Set(selectedItemKeys), [selectedItemKeys]);
+  const visibleSelectionItems = useMemo(
+    () =>
+      activeProjectId && filteredTree
+        ? buildVisibleCloudSelectionItems(activeProjectId, filteredTree, expandedFolderIds)
+        : [],
+    [activeProjectId, expandedFolderIds, filteredTree],
+  );
+  const selectedMovableItems = useMemo(
+    () =>
+      selectedItems.filter(
+        (item): item is CloudExplorerSelectionItem =>
+          item.itemType === "folder" || item.itemType === "file",
+      ),
+    [selectedItems],
   );
 
   const filteredProjects = useMemo(() => {
@@ -294,6 +330,75 @@ export default function CloudExplorer() {
       setLocalError(normalizeApiError(error).message);
     }
   }, [refreshCloudProjects, resetMessages]);
+
+  const commitSelection = useCallback(
+    (
+      items: CloudSelectionEntry[],
+      nextFocusedItemKey?: string | null,
+      nextSelectionAnchorKey?: string | null,
+    ) => {
+      dispatch(
+        setCloudSelection({
+          items,
+          focusedItemKey: nextFocusedItemKey ?? items[0]?.key ?? null,
+          selectionAnchorKey:
+            nextSelectionAnchorKey ??
+            nextFocusedItemKey ??
+            items[0]?.key ??
+            null,
+        }),
+      );
+    },
+    [dispatch],
+  );
+
+  const updateFileOrFolderSelection = useCallback(
+    (
+      item: CloudExplorerSelectionItem,
+      event?:
+        | Pick<MouseEvent, "ctrlKey" | "metaKey" | "shiftKey">
+        | Pick<globalThis.KeyboardEvent, "ctrlKey" | "metaKey" | "shiftKey">,
+    ) => {
+      if (!activeProjectId || item.projectId !== activeProjectId) {
+        commitSelection([item], item.key, item.key);
+        return;
+      }
+
+      if (event?.shiftKey) {
+        const visibleKeys = visibleSelectionItems.map((entry) => entry.key);
+        const rangeStartKey = selectionAnchorKey ?? focusedItemKey ?? item.key;
+        const startIndex = visibleKeys.indexOf(rangeStartKey);
+        const endIndex = visibleKeys.indexOf(item.key);
+
+        if (startIndex >= 0 && endIndex >= 0) {
+          const [from, to] =
+            startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+          const nextItems = visibleSelectionItems.slice(from, to + 1);
+          commitSelection(nextItems, item.key, rangeStartKey);
+          return;
+        }
+      }
+
+      if (event && hasPrimaryModifier(event)) {
+        const nextItems = selectedItemKeySet.has(item.key)
+          ? selectedItems.filter((entry) => entry.key !== item.key)
+          : [...selectedItems, item];
+        commitSelection(nextItems, item.key, selectionAnchorKey ?? item.key);
+        return;
+      }
+
+      commitSelection([item], item.key, item.key);
+    },
+    [
+      activeProjectId,
+      commitSelection,
+      focusedItemKey,
+      selectedItemKeySet,
+      selectedItems,
+      selectionAnchorKey,
+      visibleSelectionItems,
+    ],
+  );
 
   const handleProjectClick = useCallback(
     async (projectId: string) => {
@@ -528,6 +633,28 @@ export default function CloudExplorer() {
     [dispatch, resetMessages],
   );
 
+  const beginSelectionDelete = useCallback(
+    (items: CloudExplorerSelectionItem[]) => {
+      if (items.length === 0) {
+        return;
+      }
+
+      const folderCount = items.filter((item) => item.itemType === "folder").length;
+      const fileCount = items.length - folderCount;
+
+      resetMessages();
+      setDraft(null);
+      setDeleteTarget({
+        kind: "selection",
+        projectId: items[0].projectId,
+        items,
+        folderCount,
+        fileCount,
+      });
+    },
+    [resetMessages],
+  );
+
   const canDropIntoTarget = useCallback(
     (target: DropTarget) => {
       if (!dragState) {
@@ -536,36 +663,36 @@ export default function CloudExplorer() {
 
       const targetFolderId = target.kind === "folder" ? target.folderId : null;
 
-      if (dragState.kind === "file") {
-        return !(
-          dragState.projectId === target.projectId &&
-          (dragState.folderId ?? null) === targetFolderId
-        );
-      }
+      return dragState.items.every((item) => {
+        if (item.itemType === "file") {
+          return !(
+            item.projectId === target.projectId &&
+            (item.folderId ?? null) === targetFolderId
+          );
+        }
 
-      if (
-        dragState.projectId === target.projectId &&
-        (dragState.parentId ?? null) === targetFolderId
-      ) {
-        return false;
-      }
+        if (
+          item.projectId === target.projectId &&
+          (item.parentId ?? null) === targetFolderId
+        ) {
+          return false;
+        }
 
-      if (target.kind === "folder" && dragState.projectId === target.projectId) {
-        const sourceTree = treeByProjectId[dragState.projectId];
+        if (target.kind !== "folder" || item.projectId !== target.projectId) {
+          return true;
+        }
+
+        const sourceTree = treeByProjectId[item.projectId];
         const sourceFolder = sourceTree
-          ? findFolderNode(sourceTree.folders, dragState.folderId)
+          ? findFolderNode(sourceTree.folders, item.folderId)
           : null;
 
         if (!sourceFolder) {
           return false;
         }
 
-        if (folderContainsDescendant(sourceFolder, target.folderId)) {
-          return false;
-        }
-      }
-
-      return true;
+        return !folderContainsDescendant(sourceFolder, target.folderId);
+      });
     },
     [dragState, treeByProjectId],
   );
@@ -609,17 +736,32 @@ export default function CloudExplorer() {
       setContextMenu(null);
 
       try {
-        if (dragState.kind === "file") {
-          await moveCloudFile(
-            dragState.projectId,
-            dragState.fileId,
-            target.projectId,
-            target.kind === "folder" ? target.folderId : null,
-          );
+        const prunedItems = activeProjectTree
+          ? pruneNestedCloudSelection(dragState.items, activeProjectTree)
+          : dragState.items;
+
+        if (prunedItems.length === 1) {
+          const [item] = prunedItems;
+
+          if (item.itemType === "file") {
+            await moveCloudFile(
+              item.projectId,
+              item.fileId,
+              target.projectId,
+              target.kind === "folder" ? target.folderId : null,
+            );
+          } else {
+            await moveCloudFolder(
+              item.projectId,
+              item.folderId,
+              target.projectId,
+              target.kind === "folder" ? target.folderId : null,
+            );
+          }
         } else {
-          await moveCloudFolder(
+          await moveCloudSelection(
             dragState.projectId,
-            dragState.folderId,
+            prunedItems,
             target.projectId,
             target.kind === "folder" ? target.folderId : null,
           );
@@ -639,11 +781,13 @@ export default function CloudExplorer() {
       }
     },
     [
+      activeProjectTree,
       canDropIntoTarget,
       clearDragDropState,
       dragState,
       moveCloudFile,
       moveCloudFolder,
+      moveCloudSelection,
       resetMessages,
     ],
   );
@@ -655,7 +799,23 @@ export default function CloudExplorer() {
         return;
       }
 
-      dispatch(selectCloudItem({ projectId, folderId: folder.id, fileId: null, itemType: "folder" }));
+      const item = createCloudSelectionEntry({
+        itemType: "folder",
+        projectId,
+        folderId: folder.id,
+        parentId: folder.parentId,
+        name: folder.name,
+      });
+      const dragItems =
+        selectedItemKeySet.has(item.key) &&
+        selectedMovableItems.length === selectedItems.length
+          ? selectedMovableItems
+          : [item];
+
+      if (!selectedItemKeySet.has(item.key)) {
+        commitSelection([item], item.key, item.key);
+      }
+
       setContextMenu(null);
       setDragState({
         kind: "folder",
@@ -663,13 +823,14 @@ export default function CloudExplorer() {
         folderId: folder.id,
         parentId: folder.parentId,
         name: folder.name,
+        items: dragItems,
       });
       setDropTarget(null);
       setInvalidDropTargetKey(null);
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", `folder:${folder.id}`);
     },
-    [dispatch, isDragDropEnabled],
+    [commitSelection, isDragDropEnabled, selectedItemKeySet, selectedItems.length, selectedMovableItems],
   );
 
   const handleFileDragStart = useCallback(
@@ -679,14 +840,23 @@ export default function CloudExplorer() {
         return;
       }
 
-      dispatch(
-        selectCloudItem({
-          projectId,
-          folderId: file.folderId,
-          fileId: file.id,
-          itemType: "file",
-        }),
-      );
+      const item = createCloudSelectionEntry({
+        itemType: "file",
+        projectId,
+        fileId: file.id,
+        folderId: file.folderId ?? null,
+        name: file.name,
+      });
+      const dragItems =
+        selectedItemKeySet.has(item.key) &&
+        selectedMovableItems.length === selectedItems.length
+          ? selectedMovableItems
+          : [item];
+
+      if (!selectedItemKeySet.has(item.key)) {
+        commitSelection([item], item.key, item.key);
+      }
+
       setContextMenu(null);
       setDragState({
         kind: "file",
@@ -694,13 +864,14 @@ export default function CloudExplorer() {
         fileId: file.id,
         folderId: file.folderId,
         name: file.name,
+        items: dragItems,
       });
       setDropTarget(null);
       setInvalidDropTargetKey(null);
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", `file:${file.id}`);
     },
-    [dispatch, isDragDropEnabled],
+    [commitSelection, isDragDropEnabled, selectedItemKeySet, selectedItems.length, selectedMovableItems],
   );
 
   const handleCloudDragEnd = useCallback(() => {
@@ -882,6 +1053,8 @@ export default function CloudExplorer() {
     try {
       if (deleteTarget.kind === "project") {
         await deleteCloudProject(deleteTarget.projectId);
+      } else if (deleteTarget.kind === "selection") {
+        await deleteCloudSelection(deleteTarget.projectId, deleteTarget.items);
       } else if (deleteTarget.kind === "folder") {
         await deleteCloudFolder(deleteTarget.projectId, deleteTarget.folderId);
       } else {
@@ -892,7 +1065,14 @@ export default function CloudExplorer() {
     } catch (error) {
       setLocalError(normalizeApiError(error).message);
     }
-  }, [deleteCloudFile, deleteCloudFolder, deleteCloudProject, deleteTarget, resetMessages]);
+  }, [
+    deleteCloudFile,
+    deleteCloudFolder,
+    deleteCloudProject,
+    deleteCloudSelection,
+    deleteTarget,
+    resetMessages,
+  ]);
 
   useEffect(() => {
     if (!explorerIntent) {
@@ -920,6 +1100,10 @@ export default function CloudExplorer() {
           await beginFolderCreate();
           return;
         case "rename":
+          if (selectedItemCount !== 1) {
+            return;
+          }
+
           if (selectedItemType === "project" && selectedProjectId) {
             const project = projects.find((item) => item.id === selectedProjectId);
             if (project) {
@@ -931,19 +1115,9 @@ export default function CloudExplorer() {
               beginFolderRename(activeProjectId, folder.id, folder.parentId, folder.name);
             }
           } else if (selectedItemType === "file" && activeProjectId && selectedFileId) {
-            const selectedFile =
-              activeProjectTree &&
-              (() => {
-                const stack = [...activeProjectTree.files];
-                const visitFolders = (folders: CloudFolderTreeNode[]) => {
-                  folders.forEach((folder) => {
-                    stack.push(...folder.files);
-                    visitFolders(folder.folders);
-                  });
-                };
-                visitFolders(activeProjectTree.folders);
-                return stack.find((item) => item.id === selectedFileId) ?? null;
-              })();
+            const selectedFile = activeProjectTree
+              ? findFileInTree(activeProjectTree, selectedFileId)
+              : null;
             if (selectedFile) {
               beginFileRename(activeProjectId, selectedFile.id, selectedFile.folderId, selectedFile.name);
             }
@@ -955,25 +1129,24 @@ export default function CloudExplorer() {
             if (project) {
               beginProjectDelete(project.id, project.name);
             }
+          } else if (
+            selectedItemCount > 1 &&
+            activeProjectId &&
+            selectedMovableItems.length === selectedItems.length
+          ) {
+            beginSelectionDelete(
+              pruneNestedCloudSelection(
+                selectedMovableItems,
+                activeProjectTree ?? { projectId: activeProjectId, folders: [], files: [] },
+              ),
+            );
           } else if (selectedItemType === "folder" && activeProjectId && selectedFolderId && activeProjectTree) {
             const folder = findFolderNode(activeProjectTree.folders, selectedFolderId);
             if (folder) {
               beginFolderDelete(activeProjectId, folder.id, folder.name);
             }
           } else if (selectedItemType === "file" && activeProjectId && selectedFileId && activeProjectTree) {
-            let targetFile: CloudFileSummary | null = null;
-            const visitFolders = (folders: CloudFolderTreeNode[]) => {
-              folders.forEach((folder) => {
-                if (!targetFile) {
-                  targetFile = folder.files.find((item) => item.id === selectedFileId) ?? null;
-                }
-                visitFolders(folder.folders);
-              });
-            };
-            targetFile = activeProjectTree.files.find((item) => item.id === selectedFileId) ?? null;
-            if (!targetFile) {
-              visitFolders(activeProjectTree.folders);
-            }
+            const targetFile = findFileInTree(activeProjectTree, selectedFileId);
             if (targetFile) {
               beginFileDelete(activeProjectId, targetFile.id, targetFile.name);
             }
@@ -1011,6 +1184,9 @@ export default function CloudExplorer() {
     handleRefresh,
     isAuthenticated,
     projects,
+    selectedItemCount,
+    selectedItems,
+    selectedMovableItems,
     selectedFileId,
     selectedFolderId,
     selectedItemType,
@@ -1031,20 +1207,42 @@ export default function CloudExplorer() {
     (projectId: string, folder: CloudFolderTreeNode, event: MouseEvent<HTMLDivElement>) => {
       event.preventDefault();
       event.stopPropagation();
-      dispatch(selectCloudItem({ projectId, folderId: folder.id, fileId: null, itemType: "folder" }));
+      const item = createCloudSelectionEntry({
+        itemType: "folder",
+        projectId,
+        folderId: folder.id,
+        parentId: folder.parentId,
+        name: folder.name,
+      });
+
+      if (!selectedItemKeySet.has(item.key)) {
+        commitSelection([item], item.key, item.key);
+      }
+
       setContextMenu({ kind: "folder", projectId, folder, x: event.clientX, y: event.clientY });
     },
-    [dispatch],
+    [commitSelection, selectedItemKeySet],
   );
 
   const handleFileContextMenu = useCallback(
     (projectId: string, file: CloudFileSummary, event: MouseEvent<HTMLDivElement>) => {
       event.preventDefault();
       event.stopPropagation();
-      dispatch(selectCloudItem({ projectId, folderId: file.folderId, fileId: file.id, itemType: "file" }));
+      const item = createCloudSelectionEntry({
+        itemType: "file",
+        projectId,
+        fileId: file.id,
+        folderId: file.folderId ?? null,
+        name: file.name,
+      });
+
+      if (!selectedItemKeySet.has(item.key)) {
+        commitSelection([item], item.key, item.key);
+      }
+
       setContextMenu({ kind: "file", projectId, file, x: event.clientX, y: event.clientY });
     },
-    [dispatch],
+    [commitSelection, selectedItemKeySet],
   );
 
   const handleRootContextMenu = useCallback((event: MouseEvent<HTMLDivElement>) => {
@@ -1053,8 +1251,141 @@ export default function CloudExplorer() {
     }
 
     event.preventDefault();
+    dispatch(clearCloudSelection());
     setContextMenu({ kind: "root", x: event.clientX, y: event.clientY });
-  }, []);
+  }, [dispatch]);
+
+  const handleKeyboardSelectionMove = useCallback(
+    (delta: number, extendSelection: boolean) => {
+      if (visibleSelectionItems.length === 0) {
+        return;
+      }
+
+      const visibleKeys = visibleSelectionItems.map((item) => item.key);
+      const currentKey = focusedItemKey ?? selectedItemKeys[0] ?? visibleKeys[0] ?? null;
+      const currentIndex = currentKey ? Math.max(0, visibleKeys.indexOf(currentKey)) : 0;
+      const nextIndex = Math.max(0, Math.min(visibleSelectionItems.length - 1, currentIndex + delta));
+      const nextItem = visibleSelectionItems[nextIndex];
+
+      if (!nextItem) {
+        return;
+      }
+
+      if (extendSelection) {
+        const rangeStartKey = selectionAnchorKey ?? focusedItemKey ?? nextItem.key;
+        const startIndex = visibleKeys.indexOf(rangeStartKey);
+        const [from, to] =
+          startIndex <= nextIndex ? [startIndex, nextIndex] : [nextIndex, startIndex];
+        commitSelection(
+          visibleSelectionItems.slice(from, to + 1),
+          nextItem.key,
+          rangeStartKey,
+        );
+        return;
+      }
+
+      commitSelection([nextItem], nextItem.key, nextItem.key);
+    },
+    [
+      commitSelection,
+      focusedItemKey,
+      selectedItemKeys,
+      selectionAnchorKey,
+      visibleSelectionItems,
+    ],
+  );
+
+  const handleExplorerKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+
+      if (
+        target.closest("input, textarea, [contenteditable='true'], button[data-cloud-inline-input]")
+      ) {
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        handleKeyboardSelectionMove(1, event.shiftKey);
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        handleKeyboardSelectionMove(-1, event.shiftKey);
+        return;
+      }
+
+      if (event.key === "Delete") {
+        if (selectedItemCount === 0) {
+          return;
+        }
+
+        event.preventDefault();
+
+        if (selectedItemCount > 1 && activeProjectTree) {
+          beginSelectionDelete(
+            pruneNestedCloudSelection(
+              selectedItems.filter(
+                (item): item is CloudExplorerSelectionItem =>
+                  item.itemType === "folder" || item.itemType === "file",
+              ),
+              activeProjectTree,
+            ),
+          );
+          return;
+        }
+
+        if (selectedItemType === "project" && selectedProjectId) {
+          const project = projects.find((item) => item.id === selectedProjectId);
+          if (project) {
+            beginProjectDelete(project.id, project.name);
+          }
+          return;
+        }
+
+        if (selectedItemType === "folder" && activeProjectId && selectedFolderId && activeProjectTree) {
+          const folder = findFolderNode(activeProjectTree.folders, selectedFolderId);
+          if (folder) {
+            beginFolderDelete(activeProjectId, folder.id, folder.name);
+          }
+          return;
+        }
+
+        if (selectedItemType === "file" && activeProjectId && selectedFileId && activeProjectTree) {
+          const file = findFileInTree(activeProjectTree, selectedFileId);
+          if (file) {
+            beginFileDelete(activeProjectId, file.id, file.name);
+          }
+        }
+        return;
+      }
+
+      if (event.key === "Enter" && selectedItemCount === 1 && selectedItemType === "file" && selectedProjectId && selectedFileId) {
+        event.preventDefault();
+        void handleOpenFile(selectedProjectId, selectedFileId);
+      }
+    },
+    [
+      activeProjectId,
+      activeProjectTree,
+      beginFileDelete,
+      beginFolderDelete,
+      beginProjectDelete,
+      beginSelectionDelete,
+      handleKeyboardSelectionMove,
+      handleOpenFile,
+      projects,
+      selectedFileId,
+      selectedFolderId,
+      selectedItemCount,
+      selectedItemKeys,
+      selectedItemType,
+      selectedItems,
+      selectedProjectId,
+    ],
+  );
 
   const contextMenuSections = useMemo<MenuSection[]>(() => {
     if (!contextMenu) {
@@ -1098,6 +1429,16 @@ export default function CloudExplorer() {
     }
 
     if (contextMenu.kind === "folder") {
+      const folderSelectionItem = createCloudSelectionEntry({
+        itemType: "folder",
+        projectId: contextMenu.projectId,
+        folderId: contextMenu.folder.id,
+        parentId: contextMenu.folder.parentId,
+        name: contextMenu.folder.name,
+      });
+      const useCurrentSelection =
+        selectedItemCount > 1 && selectedItemKeySet.has(folderSelectionItem.key);
+
       return [
         {
           id: "cloud-folder-create",
@@ -1109,8 +1450,29 @@ export default function CloudExplorer() {
         {
           id: "cloud-folder-actions",
           items: [
-            { id: "cloud-folder-rename", label: "Переименовать", onSelect: () => beginFolderRename(contextMenu.projectId, contextMenu.folder.id, contextMenu.folder.parentId, contextMenu.folder.name) },
-            { id: "cloud-folder-delete", label: "Удалить", onSelect: () => beginFolderDelete(contextMenu.projectId, contextMenu.folder.id, contextMenu.folder.name) },
+            {
+              id: "cloud-folder-rename",
+              label: "Переименовать",
+              disabled: useCurrentSelection,
+              onSelect: () => beginFolderRename(contextMenu.projectId, contextMenu.folder.id, contextMenu.folder.parentId, contextMenu.folder.name),
+            },
+            {
+              id: "cloud-folder-delete",
+              label: "Удалить",
+              onSelect: () =>
+                useCurrentSelection
+                  ? beginSelectionDelete(
+                      pruneNestedCloudSelection(
+                        selectedMovableItems,
+                        activeProjectTree ?? {
+                          projectId: contextMenu.projectId,
+                          folders: [],
+                          files: [],
+                        },
+                      ),
+                    )
+                  : beginFolderDelete(contextMenu.projectId, contextMenu.folder.id, contextMenu.folder.name),
+            },
           ],
         },
       ];
@@ -1121,13 +1483,56 @@ export default function CloudExplorer() {
         id: "cloud-file-actions",
         items: [
           { id: "cloud-file-open", label: "Открыть", onSelect: () => handleOpenFile(contextMenu.projectId, contextMenu.file.id) },
-          { id: "cloud-file-rename", label: "Переименовать", onSelect: () => beginFileRename(contextMenu.projectId, contextMenu.file.id, contextMenu.file.folderId, contextMenu.file.name) },
-          { id: "cloud-file-delete", label: "Удалить", onSelect: () => beginFileDelete(contextMenu.projectId, contextMenu.file.id, contextMenu.file.name) },
+          {
+            id: "cloud-file-rename",
+            label: "Переименовать",
+            disabled:
+              selectedItemCount > 1 &&
+              selectedItemKeySet.has(
+                createCloudSelectionEntry({
+                  itemType: "file",
+                  projectId: contextMenu.projectId,
+                  fileId: contextMenu.file.id,
+                  folderId: contextMenu.file.folderId ?? null,
+                  name: contextMenu.file.name,
+                }).key,
+              ),
+            onSelect: () => beginFileRename(contextMenu.projectId, contextMenu.file.id, contextMenu.file.folderId, contextMenu.file.name),
+          },
+          {
+            id: "cloud-file-delete",
+            label: "Удалить",
+            onSelect: () => {
+              const fileSelectionItem = createCloudSelectionEntry({
+                itemType: "file",
+                projectId: contextMenu.projectId,
+                fileId: contextMenu.file.id,
+                folderId: contextMenu.file.folderId ?? null,
+                name: contextMenu.file.name,
+              });
+              const useCurrentSelection =
+                selectedItemCount > 1 && selectedItemKeySet.has(fileSelectionItem.key);
+
+              return useCurrentSelection
+                ? beginSelectionDelete(
+                    pruneNestedCloudSelection(
+                      selectedMovableItems,
+                      activeProjectTree ?? {
+                        projectId: contextMenu.projectId,
+                        folders: [],
+                        files: [],
+                      },
+                    ),
+                  )
+                : beginFileDelete(contextMenu.projectId, contextMenu.file.id, contextMenu.file.name);
+            },
+          },
         ],
       },
     ];
   }, [
     activeProjectId,
+    activeProjectTree,
     beginFileCreate,
     beginFileDelete,
     beginFileRename,
@@ -1137,15 +1542,27 @@ export default function CloudExplorer() {
     beginProjectCreate,
     beginProjectDelete,
     beginProjectRename,
+    beginSelectionDelete,
     contextMenu,
     handleOpenFile,
     handleProjectClick,
     handleRefresh,
+    selectedItemCount,
+    selectedItemKeySet,
+    selectedItems,
+    selectedMovableItems,
   ]);
 
   const renderFolder = (projectId: string, folder: CloudFolderTreeNode, depth = 1) => {
     const isExpanded = expandedFolderIds.includes(folder.id);
-    const isSelected = selectedItemType === "folder" && selectedFolderId === folder.id;
+    const selectionItem = createCloudSelectionEntry({
+      itemType: "folder",
+      projectId,
+      folderId: folder.id,
+      parentId: folder.parentId,
+      name: folder.name,
+    });
+    const isSelected = selectedItemKeySet.has(selectionItem.key);
     const isRenaming =
       draft?.kind === "folder" && draft.mode === "rename" && draft.folderId === folder.id;
     const showCreateFolder = draft?.kind === "folder" && draft.mode === "create" && draft.parentId === folder.id;
@@ -1196,9 +1613,12 @@ export default function CloudExplorer() {
                   ? { boxShadow: "inset 0 0 0 1px var(--error)" }
                   : undefined
               }
-              onClick={() => {
-                dispatch(selectCloudItem({ projectId, folderId: folder.id, fileId: null, itemType: "folder" }));
-                toggleFolder(folder.id);
+              onClick={(event) => {
+                updateFileOrFolderSelection(selectionItem, event);
+
+                if (!event.shiftKey && !hasPrimaryModifier(event)) {
+                  toggleFolder(folder.id);
+                }
               }}
               draggable={isDragDropEnabled}
               onDragStart={(event) => handleFolderDragStart(projectId, folder, event)}
@@ -1245,7 +1665,14 @@ export default function CloudExplorer() {
             ) : null}
             {folder.folders.map((childFolder) => renderFolder(projectId, childFolder, depth + 1))}
             {folder.files.map((file) => {
-              const isSelectedFile = selectedItemType === "file" && selectedFileId === file.id;
+              const fileSelectionItem = createCloudSelectionEntry({
+                itemType: "file",
+                projectId,
+                fileId: file.id,
+                folderId: file.folderId ?? null,
+                name: file.name,
+              });
+              const isSelectedFile = selectedItemKeySet.has(fileSelectionItem.key);
               const isRenamingFile =
                 draft?.kind === "file" && draft.mode === "rename" && draft.fileId === file.id;
               const isFileDragging =
@@ -1279,8 +1706,11 @@ export default function CloudExplorer() {
                     className={`ui-tree-item flex w-full min-w-0 items-center gap-2 px-2 py-1.5 text-left ${
                       isSelectedFile ? "border border-default bg-active text-primary" : ""
                     } ${isFileDragging ? "opacity-60" : ""}`}
-                    onClick={() => {
-                      void handleOpenFile(projectId, file.id);
+                    onClick={(event) => {
+                      updateFileOrFolderSelection(fileSelectionItem, event);
+                      if (!event.shiftKey && !hasPrimaryModifier(event)) {
+                        void handleOpenFile(projectId, file.id);
+                      }
                     }}
                     draggable={isDragDropEnabled}
                     onDragStart={(event) => handleFileDragStart(projectId, file, event)}
@@ -1321,7 +1751,12 @@ export default function CloudExplorer() {
       {aggregatedError ? (
         <div className="border-b border-default px-3 py-2 text-sm text-error">{aggregatedError}</div>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-auto px-2 py-2 text-sm text-secondary" onContextMenu={handleRootContextMenu}>
+      <div
+        className="min-h-0 flex-1 overflow-auto px-2 py-2 text-sm text-secondary"
+        onContextMenu={handleRootContextMenu}
+        onKeyDown={handleExplorerKeyDown}
+        tabIndex={0}
+      >
         {draft?.kind === "project" && draft.mode === "create" ? (
           <CloudInlineInput
             icon={<FiCloud className="h-4 w-4" />}
@@ -1435,7 +1870,14 @@ export default function CloudExplorer() {
                   ) : null}
                   {projectTree?.folders.map((folder) => renderFolder(project.id, folder, 1))}
                   {projectTree?.files.map((file) => {
-                    const isSelectedFile = selectedItemType === "file" && selectedFileId === file.id;
+                    const fileSelectionItem = createCloudSelectionEntry({
+                      itemType: "file",
+                      projectId: project.id,
+                      fileId: file.id,
+                      folderId: file.folderId ?? null,
+                      name: file.name,
+                    });
+                    const isSelectedFile = selectedItemKeySet.has(fileSelectionItem.key);
                     const isRenamingFile = draft?.kind === "file" && draft.mode === "rename" && draft.fileId === file.id;
                     const isFileDragging =
                       dragState?.kind === "file" &&
@@ -1462,8 +1904,11 @@ export default function CloudExplorer() {
                           className={`ui-tree-item flex w-full min-w-0 items-center gap-2 px-2 py-1.5 text-left ${
                             isSelectedFile ? "border border-default bg-active text-primary" : ""
                           } ${isFileDragging ? "opacity-60" : ""}`}
-                          onClick={() => {
-                            void handleOpenFile(project.id, file.id);
+                          onClick={(event) => {
+                            updateFileOrFolderSelection(fileSelectionItem, event);
+                            if (!event.shiftKey && !hasPrimaryModifier(event)) {
+                              void handleOpenFile(project.id, file.id);
+                            }
                           }}
                           draggable={isDragDropEnabled}
                           onDragStart={(event) => handleFileDragStart(project.id, file, event)}
@@ -1486,14 +1931,18 @@ export default function CloudExplorer() {
       {deleteTarget ? (
         <div className="border-t border-default bg-panel px-3 py-3">
           <div className="text-sm text-primary">
-            {deleteTarget.kind === "project" ? "Удалить проект" : deleteTarget.kind === "folder" ? "Удалить папку" : "Удалить файл"} "{deleteTarget.name}"?
+            {deleteTarget.kind === "selection"
+              ? `Удалить выбранные элементы (${deleteTarget.folderCount} папок, ${deleteTarget.fileCount} файлов)?`
+              : `${deleteTarget.kind === "project" ? "Удалить проект" : deleteTarget.kind === "folder" ? "Удалить папку" : "Удалить файл"} "${deleteTarget.name}"?`}
           </div>
           <div className="mt-1 text-xs leading-5 text-muted">
-            {deleteTarget.kind === "project"
-              ? "Все файлы и папки проекта будут удалены из облака, а связанные вкладки в IDE закроются."
-              : deleteTarget.kind === "folder"
-                ? "Папка будет удалена вместе со всем вложенным содержимым."
-                : "Файл будет удалён из облака, а открытая вкладка закроется автоматически."}
+            {deleteTarget.kind === "selection"
+              ? "Выбранные папки и файлы будут удалены из облака. Вложенные элементы выбранных папок не будут обрабатываться повторно."
+              : deleteTarget.kind === "project"
+                ? "Все файлы и папки проекта будут удалены из облака, а связанные вкладки в IDE закроются."
+                : deleteTarget.kind === "folder"
+                  ? "Папка будет удалена вместе со всем вложенным содержимым."
+                  : "Файл будет удалён из облака, а открытая вкладка закроется автоматически."}
           </div>
           <div className="mt-3 flex items-center gap-2">
             <button type="button" className="ui-button-secondary ui-control h-9 px-3 text-sm" onClick={() => setDeleteTarget(null)}>

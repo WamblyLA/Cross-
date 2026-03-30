@@ -21,6 +21,12 @@ import {
   saveCloudProjectFile,
 } from "./cloudThunks";
 import type { CloudProjectsState, CloudSelectionType } from "./cloudTypes";
+import {
+  createCloudSelectionEntry,
+  dedupeCloudSelectionEntries,
+  parseCloudSelectionKey,
+  type CloudSelectionEntry,
+} from "./cloudSelection";
 import { flattenCloudTreeFiles } from "./cloudTypes";
 
 function resolveError(error: ApiError | undefined, fallbackMessage: string) {
@@ -32,6 +38,9 @@ const initialState: CloudProjectsState = {
   projectsStatus: "idle",
   projectsError: null,
   activeProjectId: null,
+  selectedItemKeys: [],
+  focusedItemKey: null,
+  selectionAnchorKey: null,
   selectedProjectId: null,
   selectedFolderId: null,
   selectedFileId: null,
@@ -52,22 +61,80 @@ const initialState: CloudProjectsState = {
   fileActionError: null,
 };
 
-function updateSelection(
+function syncLegacySelectionState(
   state: CloudProjectsState,
-  payload: {
-    projectId: string | null;
-    folderId?: string | null;
-    fileId?: string | null;
-    itemType: CloudSelectionType;
-    count?: number;
-  },
+  selection: CloudSelectionEntry[],
+  focusedItemKey: string | null,
 ) {
-  state.selectedProjectId = payload.projectId;
-  state.selectedFolderId = payload.folderId ?? null;
-  state.selectedFileId = payload.fileId ?? null;
-  state.selectedItemType = payload.itemType;
-  state.selectedItemCount =
-    payload.count ?? (payload.itemType === null ? 0 : 1);
+  const primarySelection =
+    (focusedItemKey
+      ? selection.find((entry) => entry.key === focusedItemKey)
+      : null) ?? selection[0] ?? null;
+
+  state.selectedProjectId = primarySelection?.projectId ?? null;
+  state.selectedFolderId =
+    primarySelection?.itemType === "folder"
+      ? primarySelection.folderId
+      : null;
+  state.selectedFileId =
+    primarySelection?.itemType === "file" ? primarySelection.fileId : null;
+  state.selectedItemType = primarySelection?.itemType ?? null;
+  state.selectedItemCount = selection.length;
+}
+
+function applySelection(
+  state: CloudProjectsState,
+  items: CloudSelectionEntry[],
+  focusedItemKey?: string | null,
+  selectionAnchorKey?: string | null,
+) {
+  const nextItems = dedupeCloudSelectionEntries(items);
+  const nextKeys = nextItems.map((entry) => entry.key);
+  const resolvedFocusedKey =
+    focusedItemKey && nextKeys.includes(focusedItemKey)
+      ? focusedItemKey
+      : nextKeys[0] ?? null;
+  const resolvedAnchorKey =
+    selectionAnchorKey && nextKeys.includes(selectionAnchorKey)
+      ? selectionAnchorKey
+      : resolvedFocusedKey;
+
+  state.selectedItemKeys = nextKeys;
+  state.focusedItemKey = resolvedFocusedKey;
+  state.selectionAnchorKey = resolvedAnchorKey;
+  syncLegacySelectionState(state, nextItems, resolvedFocusedKey);
+}
+
+function clearSelection(state: CloudProjectsState) {
+  state.selectedItemKeys = [];
+  state.focusedItemKey = null;
+  state.selectionAnchorKey = null;
+  state.selectedProjectId = null;
+  state.selectedFolderId = null;
+  state.selectedFileId = null;
+  state.selectedItemType = null;
+  state.selectedItemCount = 0;
+}
+
+function removeSelectionKeys(
+  state: CloudProjectsState,
+  predicate: (entry: CloudSelectionEntry) => boolean,
+) {
+  const remainingEntries = state.selectedItemKeys
+    .map((key) => parseCloudSelectionKey(key))
+    .filter((entry): entry is CloudSelectionEntry => Boolean(entry))
+    .filter((entry) => !predicate(entry));
+
+  applySelection(
+    state,
+    remainingEntries,
+    remainingEntries.some((entry) => entry.key === state.focusedItemKey)
+      ? state.focusedItemKey
+      : remainingEntries[0]?.key ?? null,
+    remainingEntries.some((entry) => entry.key === state.selectionAnchorKey)
+      ? state.selectionAnchorKey
+      : remainingEntries[0]?.key ?? null,
+  );
 }
 
 const cloudSlice = createSlice({
@@ -78,13 +145,7 @@ const cloudSlice = createSlice({
       state.activeProjectId = action.payload;
 
       if (!action.payload) {
-        updateSelection(state, {
-          projectId: null,
-          folderId: null,
-          fileId: null,
-          itemType: null,
-          count: 0,
-        });
+        clearSelection(state);
       }
     },
     selectCloudItem(
@@ -97,7 +158,55 @@ const cloudSlice = createSlice({
         count?: number;
       }>,
     ) {
-      updateSelection(state, action.payload);
+      if (!action.payload.projectId || action.payload.itemType === null) {
+        clearSelection(state);
+        return;
+      }
+
+      applySelection(
+        state,
+        [
+          createCloudSelectionEntry({
+            itemType: action.payload.itemType,
+            projectId: action.payload.projectId,
+            folderId: action.payload.folderId ?? null,
+            fileId: action.payload.fileId ?? null,
+          } as
+            | {
+                itemType: "project";
+                projectId: string;
+              }
+            | {
+                itemType: "folder";
+                projectId: string;
+                folderId: string;
+              }
+            | {
+                itemType: "file";
+                projectId: string;
+                fileId: string;
+                folderId: string | null;
+              }),
+        ],
+      );
+    },
+    setCloudSelection(
+      state,
+      action: PayloadAction<{
+        items: CloudSelectionEntry[];
+        focusedItemKey?: string | null;
+        selectionAnchorKey?: string | null;
+      }>,
+    ) {
+      applySelection(
+        state,
+        action.payload.items,
+        action.payload.focusedItemKey,
+        action.payload.selectionAnchorKey,
+      );
+    },
+    clearCloudSelection(state) {
+      clearSelection(state);
     },
     clearProjectsError(state) {
       state.projectsError = null;
@@ -137,13 +246,7 @@ const cloudSlice = createSlice({
         );
 
         if (!hasSelectedProject) {
-          updateSelection(state, {
-            projectId: null,
-            folderId: null,
-            fileId: null,
-            itemType: null,
-            count: 0,
-          });
+          clearSelection(state);
         }
       })
       .addCase(fetchProjects.rejected, (state, action) => {
@@ -194,13 +297,10 @@ const cloudSlice = createSlice({
         };
         state.filesStatusByProjectId[nextProject.id] = "succeeded";
         state.filesErrorByProjectId[nextProject.id] = null;
-        updateSelection(state, {
-          projectId: nextProject.id,
-          folderId: null,
-          fileId: null,
-          itemType: "project",
-          count: 1,
-        });
+        applySelection(
+          state,
+          [createCloudSelectionEntry({ itemType: "project", projectId: nextProject.id })],
+        );
         state.projectActionPending = null;
         state.projectActionTargetId = null;
         state.projectActionError = null;
@@ -250,13 +350,7 @@ const cloudSlice = createSlice({
         }
 
         if (state.selectedProjectId === projectId) {
-          updateSelection(state, {
-            projectId: null,
-            folderId: null,
-            fileId: null,
-            itemType: null,
-            count: 0,
-          });
+          clearSelection(state);
         }
 
         state.projectActionPending = null;
@@ -358,13 +452,18 @@ const cloudSlice = createSlice({
           (state.filesByProjectId[projectId] ?? []).filter((file) => file.id !== fileId);
 
         if (state.selectedFileId === fileId && state.selectedItemCount <= 1) {
-          updateSelection(state, {
-            projectId,
-            folderId: null,
-            fileId: null,
-            itemType: "project",
-            count: 1,
-          });
+          applySelection(
+            state,
+            [createCloudSelectionEntry({ itemType: "project", projectId })],
+          );
+        } else {
+          removeSelectionKeys(
+            state,
+            (entry) =>
+              entry.itemType === "file" &&
+              entry.projectId === projectId &&
+              entry.fileId === fileId,
+          );
         }
 
         state.fileActionPending = null;
@@ -435,13 +534,17 @@ const cloudSlice = createSlice({
           state.selectedFolderId === action.payload.folderId &&
           state.selectedItemCount <= 1
         ) {
-          updateSelection(state, {
-            projectId: action.payload.projectId,
-            folderId: null,
-            fileId: null,
-            itemType: "project",
-            count: 1,
-          });
+          applySelection(
+            state,
+            [createCloudSelectionEntry({ itemType: "project", projectId: action.payload.projectId })],
+          );
+        } else {
+          removeSelectionKeys(
+            state,
+            (entry) =>
+              entry.projectId === action.payload.projectId &&
+              (entry.itemType === "folder" && entry.folderId === action.payload.folderId),
+          );
         }
 
         state.folderActionPending = null;
@@ -479,6 +582,8 @@ const cloudSlice = createSlice({
 export const {
   setActiveProjectId,
   selectCloudItem,
+  setCloudSelection,
+  clearCloudSelection,
   clearProjectsError,
   clearProjectActionError,
   clearFolderActionError,

@@ -1,4 +1,5 @@
 import type { StateType } from "../../store/store";
+import { parseCloudSelectionKey } from "./cloudSelection";
 
 export const selectCloudState = (state: StateType) => state.cloud;
 export const selectCloudProjects = (state: StateType) => state.cloud.projects;
@@ -21,11 +22,31 @@ export const selectCloudFilesStatus = (state: StateType, projectId: string | nul
   projectId ? state.cloud.filesStatusByProjectId[projectId] ?? "idle" : "idle";
 export const selectCloudFilesError = (state: StateType, projectId: string | null) =>
   projectId ? state.cloud.filesErrorByProjectId[projectId] ?? null : null;
+export const selectCloudSelectedItemKeys = (state: StateType) => state.cloud.selectedItemKeys;
+export const selectCloudFocusedItemKey = (state: StateType) => state.cloud.focusedItemKey;
+export const selectCloudSelectionAnchorKey = (state: StateType) => state.cloud.selectionAnchorKey;
+export const selectCloudSelectedItems = (state: StateType) =>
+  state.cloud.selectedItemKeys
+    .map((key) => parseCloudSelectionKey(key))
+    .filter((item) => item !== null);
 export const selectCloudSelectedProjectId = (state: StateType) => state.cloud.selectedProjectId;
 export const selectCloudSelectedFolderId = (state: StateType) => state.cloud.selectedFolderId;
 export const selectCloudSelectedFileId = (state: StateType) => state.cloud.selectedFileId;
 export const selectCloudSelectedItemType = (state: StateType) => state.cloud.selectedItemType;
 export const selectCloudSelectedItemCount = (state: StateType) => state.cloud.selectedItemCount;
+export const selectCloudCanRenameSingle = (state: StateType) =>
+  state.cloud.selectedItemCount === 1 &&
+  (state.cloud.selectedItemType === "project" ||
+    state.cloud.selectedItemType === "folder" ||
+    state.cloud.selectedItemType === "file");
+export const selectCloudCanDeleteSelection = (state: StateType) =>
+  state.cloud.selectedItemCount > 0 &&
+  (state.cloud.selectedItemType === "project" ||
+    state.cloud.selectedItemType === "folder" ||
+    state.cloud.selectedItemType === "file");
+export const selectCloudCanMoveSelection = (state: StateType) =>
+  state.cloud.selectedItemCount > 0 &&
+  (state.cloud.selectedItemType === "folder" || state.cloud.selectedItemType === "file");
 export const selectCloudProjectActionPending = (state: StateType) =>
   state.cloud.projectActionPending;
 export const selectCloudProjectActionTargetId = (state: StateType) =>

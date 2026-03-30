@@ -17,7 +17,15 @@ import {
   saveCloudProjectFile,
 } from "../features/cloud/cloudThunks";
 import { selectCloudActiveProjectId, selectCloudProjects } from "../features/cloud/cloudSelectors";
-import { selectCloudItem, setActiveProjectId } from "../features/cloud/cloudSlice";
+import {
+  createCloudSelectionEntry,
+  type CloudSelectionEntry,
+} from "../features/cloud/cloudSelection";
+import {
+  selectCloudItem,
+  setActiveProjectId,
+  setCloudSelection,
+} from "../features/cloud/cloudSlice";
 import {
   applyCloudFileSavedSnapshot,
   clearLocalFiles,
@@ -474,6 +482,171 @@ export function useWorkspaceActions() {
     [dispatch],
   );
 
+  const deleteCloudSelection = useCallback(
+    async (
+      projectId: string,
+      items: Array<
+        Extract<CloudSelectionEntry, { itemType: "folder" }> |
+          Extract<CloudSelectionEntry, { itemType: "file" }>
+      >,
+    ) => {
+      const deletedFileIds = new Set<string>();
+
+      for (const item of items) {
+        if (item.itemType === "folder") {
+          const response = await dispatch(
+            deleteCloudProjectFolderThunk({
+              projectId,
+              folderId: item.folderId,
+            }),
+          ).unwrap();
+
+          response.deletedFileIds.forEach((fileId) => deletedFileIds.add(fileId));
+          continue;
+        }
+
+        await dispatch(
+          deleteCloudProjectFile({
+            projectId,
+            fileId: item.fileId,
+          }),
+        ).unwrap();
+        deletedFileIds.add(item.fileId);
+      }
+
+      await dispatch(fetchProjectTree({ projectId })).unwrap();
+
+      if (deletedFileIds.size > 0) {
+        dispatch(
+          closeCloudFiles({
+            projectId,
+            fileIds: Array.from(deletedFileIds),
+          }),
+        );
+      }
+
+      dispatch(
+        setCloudSelection({
+          items: [createCloudSelectionEntry({ itemType: "project", projectId })],
+        }),
+      );
+    },
+    [dispatch],
+  );
+
+  const moveCloudSelection = useCallback(
+    async (
+      projectId: string,
+      items: Array<
+        Extract<CloudSelectionEntry, { itemType: "folder" }> |
+          Extract<CloudSelectionEntry, { itemType: "file" }>
+      >,
+      targetProjectId: string,
+      targetFolderId: string | null,
+    ) => {
+      const movedSelection: CloudSelectionEntry[] = [];
+      const retargetedFiles: {
+        sourceProjectId: string;
+        targetProjectId: string;
+        fileId: string;
+        name: string;
+      }[] = [];
+
+      for (const item of items) {
+        if (item.itemType === "folder") {
+          const response = await dispatch(
+            moveCloudProjectFolderThunk({
+              projectId,
+              folderId: item.folderId,
+              targetProjectId,
+              targetParentId: targetFolderId,
+            }),
+          ).unwrap();
+
+          movedSelection.push(
+            createCloudSelectionEntry({
+              itemType: "folder",
+              projectId: targetProjectId,
+              folderId: response.folder.id,
+              parentId: response.folder.parentId,
+              name: response.folder.name,
+            }),
+          );
+
+          if (projectId !== targetProjectId && response.movedFiles.length > 0) {
+            retargetedFiles.push(
+              ...response.movedFiles.map((file) => ({
+                sourceProjectId: projectId,
+                targetProjectId,
+                fileId: file.id,
+                name: file.name,
+              })),
+            );
+          }
+
+          continue;
+        }
+
+        const response = await dispatch(
+          moveCloudProjectFileThunk({
+            projectId,
+            fileId: item.fileId,
+            targetProjectId,
+            targetFolderId,
+          }),
+        ).unwrap();
+
+        movedSelection.push(
+          createCloudSelectionEntry({
+            itemType: "file",
+            projectId: targetProjectId,
+            fileId: response.file.id,
+            folderId: response.file.folderId ?? null,
+            name: response.file.name,
+          }),
+        );
+
+        if (projectId !== targetProjectId) {
+          retargetedFiles.push({
+            sourceProjectId: projectId,
+            targetProjectId,
+            fileId: response.file.id,
+            name: response.file.name,
+          });
+        }
+      }
+
+      const refreshRequests =
+        projectId === targetProjectId
+          ? [dispatch(fetchProjectTree({ projectId }))]
+          : [
+              dispatch(fetchProjectTree({ projectId })),
+              dispatch(fetchProjectTree({ projectId: targetProjectId })),
+            ];
+
+      await Promise.all(refreshRequests.map((request) => request.unwrap()));
+
+      if (retargetedFiles.length > 0) {
+        dispatch(
+          retargetCloudFiles({
+            items: retargetedFiles,
+          }),
+        );
+      }
+
+      dispatch(setWorkspaceSource("cloud"));
+      dispatch(setActiveProjectId(targetProjectId));
+      dispatch(
+        setCloudSelection({
+          items: movedSelection,
+          focusedItemKey: movedSelection[0]?.key ?? null,
+          selectionAnchorKey: movedSelection[0]?.key ?? null,
+        }),
+      );
+    },
+    [dispatch],
+  );
+
   const activeCloudProject = projects.find((project) => project.id === activeProjectId) ?? null;
 
   return {
@@ -494,7 +667,9 @@ export function useWorkspaceActions() {
     createCloudFolder,
     renameCloudFolder,
     deleteCloudFolder,
+    deleteCloudSelection,
     moveCloudFile,
     moveCloudFolder,
+    moveCloudSelection,
   };
 }
