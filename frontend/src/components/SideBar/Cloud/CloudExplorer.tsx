@@ -1179,6 +1179,7 @@ export default function CloudExplorer() {
     beginProjectCreate,
     beginProjectDelete,
     beginProjectRename,
+    beginSelectionDelete,
     dispatch,
     explorerIntent,
     handleRefresh,
@@ -1380,7 +1381,6 @@ export default function CloudExplorer() {
       selectedFileId,
       selectedFolderId,
       selectedItemCount,
-      selectedItemKeys,
       selectedItemType,
       selectedItems,
       selectedProjectId,
@@ -1549,7 +1549,6 @@ export default function CloudExplorer() {
     handleRefresh,
     selectedItemCount,
     selectedItemKeySet,
-    selectedItems,
     selectedMovableItems,
   ]);
 
@@ -1752,7 +1751,7 @@ export default function CloudExplorer() {
         <div className="border-b border-default px-3 py-2 text-sm text-error">{aggregatedError}</div>
       ) : null}
       <div
-        className="min-h-0 flex-1 overflow-auto px-2 py-2 text-sm text-secondary"
+        className="ui-scrollbar min-h-0 flex-1 overflow-auto px-2 py-2 text-sm text-secondary"
         onContextMenu={handleRootContextMenu}
         onKeyDown={handleExplorerKeyDown}
         tabIndex={0}

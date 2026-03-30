@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { ensureDirectory, ensureEmptyDirectory } from "../../run/utils.js";
+import { buildNotebookSessionDirectoryKey } from "../session/notebookSessionKey.js";
 
 function sortFoldersByDepth(folders) {
   return [...folders].sort(
@@ -25,7 +26,10 @@ export function createNotebookExecutionMaterializer({ app }) {
   }
 
   async function prepareCloudContext(context) {
-    const sessionRoot = path.join(runtimeCacheRoot, context.runtimeId);
+    const sessionRoot = path.join(
+      runtimeCacheRoot,
+      buildNotebookSessionDirectoryKey(context),
+    );
     const workspaceRootPath = path.join(sessionRoot, "workspace");
     const notebookFile = context.cloudSnapshot?.files?.find(
       (file) => file.id === context.fileId,

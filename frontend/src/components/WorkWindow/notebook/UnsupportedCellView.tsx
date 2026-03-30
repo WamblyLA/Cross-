@@ -82,7 +82,7 @@ export default function UnsupportedCellView({
       </div>
 
       <div className="px-4 py-4">
-        <pre className="overflow-x-auto rounded-[16px] border border-default bg-input px-4 py-4 text-xs leading-6 text-secondary">
+        <pre className="ui-scrollbar-x overflow-x-auto rounded-[16px] border border-default bg-input px-4 py-4 text-xs leading-6 text-secondary">
           {cell.source}
         </pre>
       </div>

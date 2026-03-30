@@ -11,7 +11,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-editor">
+    <div className="ui-scrollbar h-full overflow-y-auto bg-editor">
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6">
         <AccountPageHeader />
 

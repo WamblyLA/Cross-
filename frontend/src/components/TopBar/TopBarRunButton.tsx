@@ -73,7 +73,7 @@ export default function TopBarRunButton() {
             <VscPlay className="h-4 w-4 shrink-0" />
           )}
           <span className="min-w-0">
-            <span className="block text-[10px] uppercase tracking-[0.16em] text-muted">
+            <span className="ui-micro-label block">
               {isBusy ? "Остановить" : "Запуск"}
             </span>
             <span className="block truncate text-xs">{secondaryLabel}</span>

@@ -175,6 +175,9 @@ class NotebookSession:
     kernel_id: str
     notebook_path: str
     working_directory: str
+    launch_kind: str = "kernelspec"
+    kernel_name: str | None = None
+    interpreter_path: str | None = None
     km: KernelManager | None = None
     kc: Any = None
     is_executing: bool = False
@@ -183,18 +186,32 @@ class NotebookSession:
     language_info_name: str | None = None
     lock: threading.RLock = field(default_factory=threading.RLock)
 
+    def create_kernel_manager(self) -> KernelManager:
+        if self.launch_kind == "interpreter":
+            if not self.interpreter_path:
+                raise RuntimeError("Не указан Python-интерпретатор для запуска ядра.")
+
+            manager = KernelManager()
+            manager.kernel_cmd = [
+                self.interpreter_path,
+                "-m",
+                "ipykernel_launcher",
+                "-f",
+                "{connection_file}",
+            ]
+            return manager
+
+        return KernelManager(kernel_name=self.kernel_name or self.kernel_id)
+
     def start(self) -> dict[str, Any]:
-        self.km = KernelManager(kernel_name=self.kernel_id)
+        self.km = self.create_kernel_manager()
         self.km.start_kernel(cwd=self.working_directory)
         self.kc = self.km.blocking_client()
         self.kc.start_channels()
         self.kc.wait_for_ready(timeout=READY_TIMEOUT_SECONDS)
         info = self.request_kernel_info()
-        self.kernel_display_name = (
-            str(info.get("implementation") or "")
-            if not self.kernel_display_name
-            else self.kernel_display_name
-        )
+        if not self.kernel_display_name:
+            self.kernel_display_name = str(info.get("implementation") or self.kernel_id)
         language_info = info.get("language_info")
         if isinstance(language_info, dict) and isinstance(language_info.get("name"), str):
             self.language_info_name = language_info.get("name")
@@ -311,11 +328,22 @@ def start_session(payload: dict[str, Any]) -> dict[str, Any]:
     kernel_id = str(payload.get("kernelId") or "").strip()
     notebook_path = str(payload.get("notebookPath") or "").strip()
     working_directory = str(payload.get("workingDirectory") or "").strip()
+    kernel_launch = payload.get("kernelLaunch") if isinstance(payload.get("kernelLaunch"), dict) else {}
+    launch_kind = str(kernel_launch.get("launchKind") or "kernelspec").strip() or "kernelspec"
+    kernel_name = str(kernel_launch.get("kernelName") or kernel_id).strip() or kernel_id
+    display_name = str(kernel_launch.get("displayName") or kernel_id).strip() or kernel_id
+    interpreter_path = str(kernel_launch.get("interpreterPath") or "").strip() or None
 
     if not runtime_id or not kernel_id or not notebook_path or not working_directory:
         raise RuntimeError(
             "Недостаточно данных для запуска kernel session."
         )
+
+    if launch_kind not in {"kernelspec", "interpreter"}:
+        raise RuntimeError(f"Неизвестный тип запуска ядра: {launch_kind}")
+
+    if launch_kind == "interpreter" and not interpreter_path:
+        raise RuntimeError("Для interpreter-ядра не указан Python-интерпретатор.")
 
     with sessions_lock:
         existing = sessions.get(runtime_id)
@@ -342,7 +370,10 @@ def start_session(payload: dict[str, Any]) -> dict[str, Any]:
         kernel_id=kernel_id,
         notebook_path=notebook_path,
         working_directory=working_directory,
-        kernel_display_name=kernel_id,
+        launch_kind=launch_kind,
+        kernel_name=kernel_name,
+        interpreter_path=interpreter_path,
+        kernel_display_name=display_name,
     )
     session_info = session.start()
 

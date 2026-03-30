@@ -26,6 +26,12 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
+  --scrollbar-track: rgba(36, 50, 40, 0.34);
+  --scrollbar-thumb: rgba(94, 120, 100, 0.72);
+  --scrollbar-thumb-hover: rgba(122, 154, 129, 0.84);
+  --scrollbar-thumb-active: rgba(103, 175, 123, 0.94);
+  --scrollbar-size: 12px;
+  --scrollbar-size-thin: 9px;
 }
 
 :root[data-theme="dark"] {
@@ -57,4 +63,8 @@
   --focus-ring: 0 0 0 1px var(--border-focus), 0 0 0 4px rgba(61, 135, 83, 0.18);
   --shadow-panel: 0 16px 32px rgba(13, 23, 16, 0.1);
   --shadow-overlay: 0 20px 38px rgba(13, 23, 16, 0.14);
+  --scrollbar-track: rgba(201, 214, 204, 0.72);
+  --scrollbar-thumb: rgba(138, 157, 141, 0.84);
+  --scrollbar-thumb-hover: rgba(110, 133, 115, 0.9);
+  --scrollbar-thumb-active: rgba(61, 135, 83, 0.96);
 }

@@ -29,7 +29,7 @@ export default function FileTree() {
 
       <div
         ref={controller.containerRef}
-        className={`min-h-0 flex-1 overflow-auto px-2 py-2 text-sm text-secondary outline-none ${
+        className={`ui-scrollbar min-h-0 flex-1 overflow-auto px-2 py-2 text-sm text-secondary outline-none ${
           controller.dropTarget?.kind === "root" ? "bg-hover" : ""
         }`}
         style={

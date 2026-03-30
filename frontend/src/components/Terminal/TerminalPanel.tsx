@@ -235,7 +235,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
       <div className="border-b border-default px-3 pb-2 pt-2">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">
+            <div className="ui-eyebrow">
               {TERMINAL_UI_STRINGS.title}
             </div>
             <div className="truncate text-xs text-secondary">
@@ -245,7 +245,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
 
           <div className="flex shrink-0 items-center gap-2">
             {activeTerminal?.shellLabel ? (
-              <span className="rounded-full border border-default px-2 py-1 text-[11px] text-muted">
+              <span className="ui-pill ui-pill-muted">
                 {activeTerminal.shellLabel}
               </span>
             ) : null}
@@ -309,7 +309,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="ui-scrollbar-x mt-3 flex items-center gap-2 overflow-x-auto pb-1">
           {terminalSessions.map((session) => {
             const isCurrent = session.id === activeTerminalId;
 
@@ -332,7 +332,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
                   title={session.title}
                 >
                   <span className="max-w-[180px] truncate">{session.title}</span>
-                  <span className="text-[11px] text-muted">{session.shellLabel}</span>
+                  <span className="text-xs text-muted">{session.shellLabel}</span>
                 </button>
 
                 <button
@@ -350,7 +350,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
           })}
 
           {terminalSessions.length === 0 ? (
-            <div className="rounded-[10px] border border-dashed border-default px-3 py-2 text-sm text-muted">
+            <div className="ui-console-frame border-dashed px-3 py-2 text-sm text-muted">
               {profileDiscoveryStatus === "loading"
                 ? TERMINAL_UI_STRINGS.profilesLoading
                 : TERMINAL_UI_STRINGS.noSessions}
@@ -362,7 +362,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
       <div className="min-h-0 flex-1 px-2 py-2">
         <div
           ref={terminalHostRef}
-          className="h-full w-full overflow-hidden rounded-[10px] border border-default bg-editor px-2 py-2"
+          className="ui-console-frame h-full w-full overflow-hidden px-2 py-2"
         />
       </div>
 

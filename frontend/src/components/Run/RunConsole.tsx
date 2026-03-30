@@ -239,7 +239,7 @@ export default function RunConsole({ theme, session, isActive, onStop }: RunCons
     <div className="min-h-0 flex-1 px-2 py-2">
       <div
         ref={hostRef}
-        className="h-full w-full overflow-hidden rounded-[10px] border border-default bg-editor px-2 py-2"
+        className="ui-console-frame h-full w-full overflow-hidden px-2 py-2"
       />
     </div>
   );

@@ -130,7 +130,7 @@ export default function NotebookKernelControls({
         </button>
 
         {isSelectorOpen ? (
-          <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-80 overflow-y-auto rounded-[16px] border border-default bg-panel p-2 shadow-xl">
+          <div className="ui-menu ui-scrollbar-thin absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-80 overflow-y-auto rounded-[16px] p-2">
             {kernels.length === 0 ? (
               <div className="px-3 py-2 text-sm text-secondary">
                 {kernelsLoading
@@ -178,7 +178,7 @@ export default function NotebookKernelControls({
       </button>
 
       <div
-        className={`rounded-full border px-3 py-2 text-xs ${renderStatusClass(sessionStatus)}`}
+        className={`ui-pill border px-3 py-2 text-xs ${renderStatusClass(sessionStatus)}`}
         title={sessionDetail ?? renderStatusLabel(sessionStatus)}
       >
         {renderStatusLabel(sessionStatus)}
@@ -189,10 +189,10 @@ export default function NotebookKernelControls({
         className="ui-control h-9 px-3"
         onClick={onRunAll}
         disabled={!canExecute || isRunningAnyCell}
-        title="Run All"
+        title="Выполнить весь ноутбук"
       >
         <VscRunAll className="h-4 w-4" />
-        <span>Run All</span>
+        <span>Выполнить всё</span>
       </button>
 
       <button
@@ -200,10 +200,10 @@ export default function NotebookKernelControls({
         className="ui-control h-9 px-3"
         onClick={onInterrupt}
         disabled={!isRunningAnyCell}
-        title="Interrupt"
+        title="Прервать выполнение"
       >
         <VscDebugPause className="h-4 w-4" />
-        <span>Interrupt</span>
+        <span>Прервать</span>
       </button>
 
       <button
@@ -211,10 +211,10 @@ export default function NotebookKernelControls({
         className="ui-control h-9 px-3"
         onClick={onRestart}
         disabled={!selectedKernelId || isRunningAnyCell}
-        title="Restart"
+        title="Перезапустить ядро"
       >
         <VscDebugRestart className="h-4 w-4" />
-        <span>Restart</span>
+        <span>Перезапустить</span>
       </button>
 
       {kernelsError ? (

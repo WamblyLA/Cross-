@@ -21,7 +21,7 @@ export default function NotebookMimeRendererHost({
 
   if (!mimeType) {
     return (
-      <pre className="overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
+      <pre className="ui-scrollbar-x overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
         {JSON.stringify(data, null, 2)}
       </pre>
     );
@@ -84,14 +84,14 @@ export default function NotebookMimeRendererHost({
 
   if (mimeType === "application/json") {
     return (
-      <pre className="overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
+      <pre className="ui-scrollbar-x overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
         {typeof data[mimeType] === "string" ? data[mimeType] : JSON.stringify(data[mimeType], null, 2)}
       </pre>
     );
   }
 
   return (
-    <pre className="overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
+    <pre className="ui-scrollbar-x overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
       {coerceMimeText(data[mimeType])}
     </pre>
   );

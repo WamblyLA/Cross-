@@ -33,7 +33,7 @@ class RunConsoleErrorBoundaryInner extends Component<
     if (this.state.hasError) {
       return (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-6">
-          <div className="rounded-[14px] border border-default bg-editor px-5 py-4 text-sm text-secondary">
+          <div className="ui-inset-panel rounded-[14px] px-5 py-4 text-sm text-secondary">
             {RECOVERY_TEXT}
           </div>
         </div>
@@ -78,7 +78,7 @@ export default function RunConsoleBoundary({
   if (isRecovering) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-6">
-        <div className="rounded-[14px] border border-default bg-editor px-5 py-4 text-sm text-secondary">
+        <div className="ui-inset-panel rounded-[14px] px-5 py-4 text-sm text-secondary">
           {RECOVERY_TEXT}
         </div>
       </div>

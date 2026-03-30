@@ -44,14 +44,10 @@ export default function RunSessionHeader({
 
       <div className="flex shrink-0 items-center gap-2">
         {session.runtimeLabel ? (
-          <span className="rounded-full border border-default px-2 py-1 text-[11px] text-muted">
-            {session.runtimeLabel}
-          </span>
+          <span className="ui-pill ui-pill-muted">{session.runtimeLabel}</span>
         ) : null}
         {session.exitCode !== null ? (
-          <span className="rounded-full border border-default px-2 py-1 text-[11px] text-secondary">
-            Код: {session.exitCode}
-          </span>
+          <span className="ui-pill ui-pill-secondary">Код: {session.exitCode}</span>
         ) : null}
         <button
           type="button"

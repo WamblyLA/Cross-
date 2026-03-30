@@ -22,7 +22,7 @@ export function TopBarMenuPanel({
 }) {
   return (
     <div
-      className="pointer-events-auto fixed z-[120] rounded-[14px] border border-default bg-panel p-1 shadow-2xl"
+      className="ui-menu pointer-events-auto fixed z-[120]"
       style={style}
       role="menu"
     >
@@ -32,19 +32,17 @@ export function TopBarMenuPanel({
           className={sectionIndex > 0 ? "mt-1 border-t border-default pt-1" : ""}
         >
           {section.title ? (
-            <div className="px-3 pb-1 pt-1 text-[11px] uppercase tracking-[0.18em] text-muted">
-              {section.title}
-            </div>
+            <div className="ui-menu-section-title ui-eyebrow">{section.title}</div>
           ) : null}
 
           {section.items.map((item) => (
             <button
               key={item.id}
               type="button"
-              className={`flex w-full items-center justify-between rounded-[10px] px-3 py-2 text-left text-sm transition-colors ${
+              className={`ui-menu-item ${
                 item.disabled
                   ? "cursor-not-allowed text-muted"
-                  : "text-secondary hover:bg-hover hover:text-primary"
+                  : "text-secondary"
               }`}
               disabled={item.disabled}
               onClick={() => onSelect(item)}
@@ -52,7 +50,7 @@ export function TopBarMenuPanel({
             >
               <span>{item.label}</span>
               {item.shortcut ? (
-                <span className="text-[11px] text-muted">{item.shortcut}</span>
+                <span className="text-xs text-muted">{item.shortcut}</span>
               ) : null}
             </button>
           ))}
@@ -89,7 +87,7 @@ export function TopBarOverflowPanel({
   return (
     <>
       <div
-        className="pointer-events-auto fixed z-[120] rounded-[14px] border border-default bg-panel p-1 shadow-2xl"
+        className="ui-menu pointer-events-auto fixed z-[120]"
         style={mainStyle}
         role="menu"
       >
@@ -97,10 +95,10 @@ export function TopBarOverflowPanel({
           <button
             key={menu.id}
             type="button"
-            className={`flex w-full items-center justify-between rounded-[10px] px-3 py-2 text-left text-sm transition-colors ${
+            className={`ui-menu-item ${
               submenuState?.menuId === menu.id
                 ? "bg-hover text-primary"
-                : "text-secondary hover:bg-hover hover:text-primary"
+                : "text-secondary"
             }`}
             onMouseEnter={(event) => {
               onOpenSubmenu(menu.id, event.currentTarget.getBoundingClientRect());

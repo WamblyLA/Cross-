@@ -71,7 +71,7 @@ function EmptyEditorState({
   return (
     <div className="flex h-full items-center justify-center px-6">
       <div className="max-w-lg rounded-2xl border border-default bg-panel px-6 py-8 text-center shadow-sm">
-        <div className="text-xs uppercase tracking-[0.22em] text-muted">Cross++ IDE</div>
+        <div className="ui-brand-mark">Cross++ IDE</div>
         <h2 className="mt-3 text-xl text-primary">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-secondary">{description}</p>
       </div>
@@ -266,7 +266,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor">
-      <div className="flex items-end overflow-x-auto border-b border-default bg-editor px-2 pt-2">
+      <div className="ui-scrollbar-x flex items-end overflow-x-auto border-b border-default bg-editor px-2 pt-2">
         {openedFiles.length > 0 ? (
           openedFiles.map((file) => (
             <div

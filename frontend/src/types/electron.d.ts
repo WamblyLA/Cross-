@@ -214,6 +214,8 @@ declare global {
     interpreterPath?: string | null;
   };
 
+  type NotebookKernelLaunchKind = "kernelspec" | "interpreter";
+
   type NotebookKernelDescriptor = {
     id: string;
     name: string;
@@ -229,7 +231,14 @@ declare global {
     interruptMode: string | null;
     kind: "python" | "kernel";
     isRecommended: boolean;
+    launchKind: NotebookKernelLaunchKind;
+    kernelName: string | null;
   };
+
+  type NotebookKernelSelection = Pick<
+    NotebookKernelDescriptor,
+    "id" | "displayName" | "launchKind" | "kernelName" | "interpreterPath"
+  >;
 
   type NotebookKernelListResult = {
     kernels: NotebookKernelDescriptor[];
@@ -483,7 +492,7 @@ declare global {
       }) => Promise<NotebookKernelListResult>;
       startNotebookSession: (payload: {
         runtimeContext: NotebookExecutionContext;
-        kernelId: string;
+        kernel: NotebookKernelSelection;
       }) => Promise<{
         session: NotebookSessionInfo;
       }>;

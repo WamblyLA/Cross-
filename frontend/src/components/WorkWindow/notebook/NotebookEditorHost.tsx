@@ -418,7 +418,7 @@ export default function NotebookEditorHost({
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div className="ui-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {parseError ? (
           <div className="rounded-[18px] border border-dashed border-default bg-panel px-6 py-8 text-center">
             <div className="text-base text-primary">

@@ -4,6 +4,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { listPythonInterpreters } from "../../run/pythonRuntimeLocator.js";
 import { existsFile, normalizePathCase, toErrorMessage } from "../../run/utils.js";
+import {
+  buildInterpreterKernelId,
+  mergeNotebookKernelDescriptors,
+  normalizeKernelExecutablePath,
+} from "./notebookKernelDescriptors.js";
 
 const BRIDGE_READY_TIMEOUT_MS = 15000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
@@ -21,6 +26,7 @@ function buildProbeScript() {
     "print(json.dumps({",
     "  'has_jupyter_client': importlib.util.find_spec('jupyter_client') is not None,",
     "  'has_jupyter_core': importlib.util.find_spec('jupyter_core') is not None,",
+    "  'has_ipykernel': importlib.util.find_spec('ipykernel') is not None,",
     "  'version': '.'.join(map(str, sys.version_info[:3])),",
     "  'executable': sys.executable,",
     "}, ensure_ascii=False))",
@@ -122,6 +128,28 @@ function buildKernelPrimaryLabel(kernel, interpreterVersion, environmentLabel) {
   return interpreterVersion ? `Python ${interpreterVersion}` : kernel.displayName;
 }
 
+function buildKernelSecondaryLabel({
+  executablePath,
+  rawExecutableCommand,
+  matchedInterpreter,
+}) {
+  return (
+    compactPathForDisplay(executablePath) ??
+    compactPathForDisplay(matchedInterpreter?.path ?? null) ??
+    (rawExecutableCommand ? `Команда ядра: ${rawExecutableCommand}` : null)
+  );
+}
+
+function buildInterpreterDisplayName(interpreterVersion, environmentLabel) {
+  if (environmentLabel && environmentLabel.toLowerCase() !== "python") {
+    return interpreterVersion
+      ? `${environmentLabel} (Python ${interpreterVersion})`
+      : environmentLabel;
+  }
+
+  return interpreterVersion ? `Python ${interpreterVersion}` : "Python";
+}
+
 function waitForChildProcess(childProcess) {
   return new Promise((resolve) => {
     let stdout = "";
@@ -173,13 +201,20 @@ async function probeInterpreterSupport(interpreterPath) {
         .at(-1) ?? "{}",
     );
 
+    const hasJupyterClient = Boolean(parsed.has_jupyter_client);
+    const hasJupyterCore = Boolean(parsed.has_jupyter_core);
+    const hasIpykernel = Boolean(parsed.has_ipykernel);
+
     return {
-      ok: Boolean(parsed.has_jupyter_client && parsed.has_jupyter_core),
+      ok: true,
+      supportsBridge: hasJupyterClient && hasJupyterCore,
+      supportsKernel: hasIpykernel,
       version: typeof parsed.version === "string" ? parsed.version : null,
       executable: typeof parsed.executable === "string" ? parsed.executable : interpreterPath,
       missingModules: [
-        ...(!parsed.has_jupyter_client ? ["jupyter_client"] : []),
-        ...(!parsed.has_jupyter_core ? ["jupyter_core"] : []),
+        ...(!hasJupyterClient ? ["jupyter_client"] : []),
+        ...(!hasJupyterCore ? ["jupyter_core"] : []),
+        ...(!hasIpykernel ? ["ipykernel"] : []),
       ],
     };
   } catch (error) {
@@ -195,9 +230,7 @@ async function resolveBridgeInterpreter(workspaceRootPath) {
   const interpreters = listPythonInterpreters({ workspaceRootPath });
 
   if (interpreters.length === 0) {
-    const error = new Error(
-      "Не найден Python для Jupyter bridge.",
-    );
+    const error = new Error("Не найден Python для Jupyter bridge.");
     error.diagnostics = [
       createDiagnostic(
         "Не найден Python-интерпретатор для запуска Jupyter bridge.",
@@ -209,7 +242,7 @@ async function resolveBridgeInterpreter(workspaceRootPath) {
   for (const interpreter of interpreters) {
     const probe = await probeInterpreterSupport(interpreter.path);
 
-    if (probe.ok) {
+    if (probe.supportsBridge) {
       return {
         interpreter: {
           ...interpreter,
@@ -263,43 +296,83 @@ async function enrichKernelDescriptors(kernels, workspaceRootPath) {
     return resolvedProbe;
   };
 
-  const enriched = await Promise.all(
+  const kernelspecDescriptors = await Promise.all(
     kernels.map(async (kernel) => {
-      const executablePath =
+      const rawExecutableCommand =
         typeof kernel.executablePath === "string" && kernel.executablePath.trim()
-          ? path.resolve(kernel.executablePath)
+          ? kernel.executablePath.trim()
           : null;
+      const executablePath = rawExecutableCommand
+        ? normalizeKernelExecutablePath(rawExecutableCommand)
+        : null;
       const normalizedExecutablePath = executablePath ? normalizePathCase(executablePath) : null;
       const matchedInterpreter = normalizedExecutablePath
         ? interpreterMap.get(normalizedExecutablePath) ?? null
         : null;
-      const probe = executablePath ? await getProbe(executablePath) : null;
+      const probe = matchedInterpreter
+        ? await getProbe(matchedInterpreter.path)
+        : executablePath
+          ? await getProbe(executablePath)
+          : null;
+      const interpreterPath = matchedInterpreter?.path ?? executablePath;
       const interpreterVersion = probe?.version ?? null;
-      const environmentLabel = deriveEnvironmentLabel(executablePath);
+      const environmentLabel = deriveEnvironmentLabel(interpreterPath);
 
       return {
         ...kernel,
         executablePath,
-        interpreterPath: executablePath,
+        interpreterPath,
         interpreterVersion,
         environmentLabel,
         primaryLabel: buildKernelPrimaryLabel(kernel, interpreterVersion, environmentLabel),
-        secondaryLabel:
-          compactPathForDisplay(executablePath) ?? compactPathForDisplay(matchedInterpreter?.path ?? null),
+        secondaryLabel: buildKernelSecondaryLabel({
+          executablePath,
+          rawExecutableCommand,
+          matchedInterpreter,
+        }),
         kind: isPythonKernel(kernel) ? "python" : "kernel",
+        launchKind: "kernelspec",
+        kernelName: kernel.name,
       };
     }),
   );
 
-  enriched.sort((left, right) => {
-    if (left.isRecommended !== right.isRecommended) {
-      return left.isRecommended ? -1 : 1;
-    }
+  const interpreterDescriptors = (
+    await Promise.all(
+      interpreters.map(async (interpreter) => {
+        const probe = await getProbe(interpreter.path);
 
-    return left.primaryLabel.localeCompare(right.primaryLabel, "ru");
-  });
+        if (!probe?.supportsKernel) {
+          return null;
+        }
 
-  return enriched;
+        const interpreterVersion = probe.version ?? null;
+        const environmentLabel = deriveEnvironmentLabel(interpreter.path);
+        const displayName = buildInterpreterDisplayName(interpreterVersion, environmentLabel);
+
+        return {
+          id: buildInterpreterKernelId(interpreter.path),
+          name: displayName,
+          displayName,
+          primaryLabel: displayName,
+          secondaryLabel: compactPathForDisplay(interpreter.path),
+          language: "python",
+          executablePath: interpreter.path,
+          interpreterPath: interpreter.path,
+          interpreterVersion,
+          environmentLabel,
+          resourceDir: null,
+          interruptMode: null,
+          kind: "python",
+          isRecommended: Boolean(interpreter.isRecommended),
+          launchKind: "interpreter",
+          kernelName: null,
+        };
+      }),
+    )
+  ).filter(Boolean);
+
+  return mergeNotebookKernelDescriptors(kernelspecDescriptors, interpreterDescriptors);
 }
 
 function parseJsonLines(buffer, chunk, onMessage) {

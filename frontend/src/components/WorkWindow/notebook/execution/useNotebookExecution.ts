@@ -263,6 +263,20 @@ export function useNotebookExecution({
 
   const startSession = useCallback(
     async (kernelId: string) => {
+      const kernel = kernelsRef.current.find((candidate) => candidate.id === kernelId);
+
+      if (!kernel) {
+        if (mountedRef.current) {
+          setState((current) => ({
+            ...current,
+            executionMessage: "Выбранное ядро больше недоступно.",
+            sessionStatus: "failed",
+            sessionDetail: "Выбранное ядро больше недоступно.",
+          }));
+        }
+
+        return null;
+      }
       setState((current) => ({
         ...current,
         selectedKernelId: kernelId,
@@ -275,7 +289,13 @@ export function useNotebookExecution({
         const executionContext = await buildExecutionContext();
         const result = await window.electronAPI.startNotebookSession({
           runtimeContext: executionContext,
-          kernelId,
+          kernel: {
+            id: kernel.id,
+            displayName: kernel.displayName,
+            launchKind: kernel.launchKind,
+            kernelName: kernel.kernelName,
+            interpreterPath: kernel.interpreterPath,
+          },
         });
 
         if (!mountedRef.current) {

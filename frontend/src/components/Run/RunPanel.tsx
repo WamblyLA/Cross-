@@ -52,7 +52,7 @@ export default function RunPanel({ theme }: RunPanelProps) {
       ) : (
         <div className="flex h-14 items-center justify-between gap-3 border-b border-default px-3">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">Запуск</div>
+            <div className="ui-eyebrow">Запуск</div>
             <div className="text-sm text-secondary">{helperText}</div>
           </div>
           <div className="flex items-center gap-2">
@@ -95,11 +95,11 @@ export default function RunPanel({ theme }: RunPanelProps) {
         </RunConsoleBoundary>
       ) : (
         <div className="flex min-h-0 flex-1 items-center justify-center px-6">
-          <div className="max-w-lg rounded-2xl border border-default bg-editor px-6 py-8 text-center shadow-sm">
-            <div className="text-xs uppercase tracking-[0.22em] text-muted">Run Console</div>
+          <div className="ui-inset-panel max-w-lg px-6 py-8 text-center shadow-sm">
+            <div className="ui-brand-mark">Консоль запуска</div>
             <h2 className="mt-3 text-xl text-primary">Подсистема запуска готова</h2>
             <p className="mt-2 text-sm leading-6 text-secondary">
-              Выберите конфигурацию и запустите текущий файл или Python-проект
+              Выберите конфигурацию и запустите текущий файл или Python-проект.
             </p>
           </div>
         </div>

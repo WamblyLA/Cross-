@@ -40,7 +40,7 @@ export default function WindowChrome() {
   return (
     <div className="window-drag flex h-9 items-center justify-between border-b border-default bg-app px-3">
       <div className="min-w-0">
-        <div className="text-[10px] uppercase tracking-[0.22em] text-muted">Cross++</div>
+        <div className="ui-brand-mark">Cross++</div>
         <div className="truncate text-xs text-secondary">{projectLabel}</div>
       </div>
 

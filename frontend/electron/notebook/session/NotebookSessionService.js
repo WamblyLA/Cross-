@@ -99,9 +99,14 @@ export function createNotebookSessionService({
     emitEvent(event);
   });
 
-  async function startSession({ runtimeContext, kernelId }) {
+  async function startSession({ runtimeContext, kernel }) {
     const runtimeId = runtimeContext.runtimeId;
+    const kernelId = `${kernel?.id ?? ""}`.trim();
     const existing = sessions.get(runtimeId);
+
+    if (!kernelId) {
+      throw new Error("Не выбрано ядро ноутбука.");
+    }
 
     if (
       existing &&
@@ -123,6 +128,12 @@ export function createNotebookSessionService({
       const result = await bridge.startSession({
         runtimeId,
         kernelId,
+        kernelLaunch: {
+          launchKind: kernel.launchKind,
+          kernelName: kernel.kernelName ?? null,
+          displayName: kernel.displayName ?? kernelId,
+          interpreterPath: kernel.interpreterPath ?? null,
+        },
         notebookPath: materializedContext.notebookPath,
         workingDirectory: materializedContext.workingDirectory,
         preferredWorkspaceRootPath: materializedContext.workspaceRootPath ?? null,
@@ -133,7 +144,7 @@ export function createNotebookSessionService({
         runtimeContext,
         materializedContext,
         kernelId,
-        kernelDisplayName: result.session?.kernelDisplayName ?? kernelId,
+        kernelDisplayName: result.session?.kernelDisplayName ?? kernel.displayName ?? kernelId,
         languageInfoName: result.session?.languageInfoName ?? null,
         status: result.session?.status ?? "idle",
         detail: result.session?.detail ?? null,

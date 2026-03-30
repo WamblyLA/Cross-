@@ -9,8 +9,8 @@ import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import { getBaseName } from "../../../utils/path";
 
 function sourceButtonClassName(isActive: boolean) {
-  return `ui-control h-8 px-3 text-xs uppercase tracking-[0.14em] ${
-    isActive ? "border border-default bg-active text-primary" : ""
+  return `ui-control ui-segmented-control-button ${
+    isActive ? "ui-segmented-control-button-active" : ""
   }`;
 }
 
@@ -41,7 +41,7 @@ export default function OptionsBar() {
     <div className="border-b border-default bg-chrome px-3 py-3">
       <div className={`flex gap-3 ${isCloud ? "flex-col" : "flex-wrap items-start justify-between"}`}>
         <div className="min-w-0 flex-1">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted">{subtitle}</div>
+          <div className="ui-eyebrow">{subtitle}</div>
           <div className="truncate text-sm text-primary">{title}</div>
         </div>
 
@@ -52,7 +52,7 @@ export default function OptionsBar() {
               : "shrink-0 flex-wrap items-center justify-end"
           }`}
         >
-          <div className="flex min-w-0 items-center gap-1 rounded-[10px] border border-default bg-panel p-1">
+          <div className="ui-segmented-control">
             <button
               type="button"
               className={sourceButtonClassName(source === "local")}

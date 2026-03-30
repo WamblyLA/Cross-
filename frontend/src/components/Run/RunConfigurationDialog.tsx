@@ -82,11 +82,11 @@ export default function RunConfigurationDialog() {
 
   return createPortal(
     <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/45 px-4">
-      <div className="flex h-[min(82vh,720px)] w-[min(100%,1024px)] min-w-0 overflow-hidden rounded-[20px] border border-default bg-panel shadow-2xl">
+      <div className="ui-dialog flex h-[min(82vh,720px)] w-[min(100%,1024px)] min-w-0 overflow-hidden">
         <div className="flex w-72 shrink-0 flex-col border-r border-default">
           <div className="flex items-center justify-between border-b border-default px-4 py-3">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-muted">
+              <div className="ui-eyebrow">
                 Конфигурации
               </div>
               <div className="text-sm text-primary">Что запускать</div>
@@ -103,7 +103,7 @@ export default function RunConfigurationDialog() {
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          <div className="ui-scrollbar-thin min-h-0 flex-1 overflow-y-auto p-2">
             {configurations.map((configuration) => (
               <button
                 key={configuration.id}
@@ -129,7 +129,7 @@ export default function RunConfigurationDialog() {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b border-default px-5 py-4">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-muted">
+              <div className="ui-eyebrow">
                 Параметры запуска
               </div>
               <div className="text-base text-primary">
@@ -146,7 +146,7 @@ export default function RunConfigurationDialog() {
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div className="ui-scrollbar-thin min-h-0 flex-1 overflow-y-auto px-5 py-4">
             {draft ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="flex flex-col gap-1">
@@ -260,8 +260,8 @@ export default function RunConfigurationDialog() {
                   />
                 </label>
 
-                <div className="rounded-[12px] border border-default bg-editor px-4 py-3 md:col-span-2">
-                  <div className="text-xs uppercase tracking-[0.14em] text-muted">
+                <div className="ui-inset-panel px-4 py-3 md:col-span-2">
+                  <div className="ui-micro-label">
                     Рабочая папка
                   </div>
                   <div className="mt-1 text-sm text-secondary">

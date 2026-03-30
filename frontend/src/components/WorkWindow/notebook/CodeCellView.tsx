@@ -99,7 +99,7 @@ export default function CodeCellView({
             title="Run Cell"
           >
             <VscPlay className="h-4 w-4" />
-            <span>Run Cell</span>
+            <span>Запустить ячейку</span>
           </button>
 
           <button

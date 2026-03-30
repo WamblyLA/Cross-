@@ -17,10 +17,10 @@ export default function VisualSettingsDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/45 px-4">
-      <div className="flex max-h-[85vh] w-[min(100%,760px)] min-w-0 flex-col overflow-hidden rounded-[20px] border border-default bg-panel shadow-2xl">
+      <div className="ui-dialog flex max-h-[85vh] w-[min(100%,760px)] min-w-0 flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-default px-5 py-4">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">Вид</div>
+            <div className="ui-eyebrow">Вид</div>
             <div className="text-base text-primary">Визуальные настройки</div>
           </div>
 
@@ -34,10 +34,10 @@ export default function VisualSettingsDialog({
           </button>
         </div>
 
-        <div className="min-h-0 overflow-y-auto p-5">
+        <div className="ui-scrollbar-thin min-h-0 overflow-y-auto p-5">
           <VisualSettingsPanel
             title="Визуальные настройки IDE"
-            description="Изменения применяются сразу к теме приложения и редакторам"
+            description="Изменения применяются сразу к теме приложения и редакторам."
           />
         </div>
       </div>

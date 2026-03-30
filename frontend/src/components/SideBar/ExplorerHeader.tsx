@@ -31,14 +31,14 @@ export default function ExplorerHeader() {
     <div className="border-b border-default bg-chrome px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted">{subtitle}</div>
+          <div className="ui-eyebrow">{subtitle}</div>
           <div className="truncate text-sm text-primary">{title}</div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
-            className="ui-control flex h-8 w-8 items-center justify-center"
+            className="ui-control h-8 w-8"
             onClick={() => dispatch(requestExplorerAction("create-file"))}
             disabled={!canCreateFile}
             title={source === "cloud" ? "Новый облачный файл" : "Новый файл"}
@@ -49,7 +49,7 @@ export default function ExplorerHeader() {
           {source === "local" ? (
             <button
               type="button"
-              className="ui-control flex h-8 w-8 items-center justify-center"
+              className="ui-control h-8 w-8"
               onClick={() => dispatch(requestExplorerAction("create-folder"))}
               disabled={!canCreateFolder}
               title="Новая папка"
@@ -60,7 +60,7 @@ export default function ExplorerHeader() {
 
           <button
             type="button"
-            className="ui-control flex h-8 w-8 items-center justify-center"
+            className="ui-control h-8 w-8"
             onClick={() => dispatch(requestExplorerAction("refresh"))}
             disabled={!canRefresh}
             title={source === "cloud" ? "Синхронизировать проекты" : "Обновить проводник"}

@@ -26,7 +26,7 @@ export default function OutputRenderer({
           return (
             <pre
               key={`${output.output_type}-${index}`}
-              className={`overflow-x-auto rounded-[14px] border px-4 py-3 text-xs leading-6 ${
+              className={`ui-scrollbar-x overflow-x-auto rounded-[14px] border px-4 py-3 text-xs leading-6 ${
                 output.name === "stderr"
                   ? "border-[color:var(--error)] bg-[rgba(217,121,121,0.08)] text-error"
                   : "border-default bg-input text-secondary"
@@ -50,7 +50,7 @@ export default function OutputRenderer({
                 {output.evalue ? `: ${output.evalue}` : ""}
               </div>
               {traceback ? (
-                <pre className="mt-3 overflow-x-auto text-xs leading-6 text-error">{traceback}</pre>
+                <pre className="ui-scrollbar-x mt-3 overflow-x-auto text-xs leading-6 text-error">{traceback}</pre>
               ) : null}
             </div>
           );

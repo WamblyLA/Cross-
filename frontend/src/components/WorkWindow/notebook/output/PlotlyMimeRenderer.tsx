@@ -87,7 +87,7 @@ export default function PlotlyMimeRenderer({ value }: PlotlyMimeRendererProps) {
 
   if (!figure) {
     return (
-      <pre className="overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
+      <pre className="ui-scrollbar-x overflow-x-auto rounded-[14px] border border-default bg-input px-4 py-3 text-xs leading-6 text-secondary">
         {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
       </pre>
     );

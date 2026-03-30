@@ -137,7 +137,7 @@ export default function FloatingMenu({
     <div className="pointer-events-none fixed inset-0 z-[140]">
       <div
         ref={menuRef}
-        className="pointer-events-auto fixed rounded-[14px] border border-default bg-panel p-1 shadow-2xl"
+        className="ui-menu pointer-events-auto fixed"
         style={style}
         role="menu"
       >
@@ -147,9 +147,7 @@ export default function FloatingMenu({
             className={sectionIndex > 0 ? "mt-1 border-t border-default pt-1" : ""}
           >
             {section.title ? (
-              <div className="px-3 pb-1 pt-1 text-[11px] uppercase tracking-[0.18em] text-muted">
-                {section.title}
-              </div>
+              <div className="ui-menu-section-title ui-eyebrow">{section.title}</div>
             ) : null}
 
             {section.items.map((item) => (
@@ -158,12 +156,12 @@ export default function FloatingMenu({
                 type="button"
                 disabled={item.disabled}
                 role="menuitem"
-                className={`flex w-full items-center justify-between rounded-[10px] px-3 py-2 text-left text-sm transition-colors ${
+                className={`ui-menu-item ${
                   item.disabled
                     ? "cursor-not-allowed text-muted"
                     : item.tone === "danger"
-                      ? "text-error hover:bg-hover"
-                      : "text-secondary hover:bg-hover hover:text-primary"
+                      ? "ui-menu-item-danger"
+                      : "text-secondary"
                 }`}
                 onClick={() => {
                   void Promise.resolve(item.onSelect()).finally(onClose);
@@ -171,7 +169,7 @@ export default function FloatingMenu({
               >
                 <span>{item.label}</span>
                 {item.shortcut ? (
-                  <span className="text-[11px] text-muted">{item.shortcut}</span>
+                  <span className="text-xs text-muted">{item.shortcut}</span>
                 ) : null}
               </button>
             ))}
