@@ -76,7 +76,7 @@ export default function VisualSettingsForm({
         >
           <input
             type="number"
-            min={10}
+            min={9}
             max={32}
             step={1}
             value={value.fontSize}

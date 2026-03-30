@@ -12,6 +12,27 @@ declare global {
     title: string;
     shellLabel: string;
     kind: "shell";
+    profileId: string;
+    shellType: string;
+  };
+
+  type TerminalProfileDescriptor = {
+    id: string;
+    label: string;
+    shellType: string;
+    command: string;
+    args: string[];
+    source: string;
+    isAvailable: boolean;
+    isDefault: boolean;
+  };
+
+  type TerminalProfileDiscoveryStatus = "idle" | "loading" | "ready" | "error";
+
+  type TerminalProfilesState = {
+    profiles: TerminalProfileDescriptor[];
+    defaultProfileId: string | null;
+    discoveryStatus: TerminalProfileDiscoveryStatus;
   };
 
   type TerminalDataEvent = {
@@ -371,8 +392,12 @@ declare global {
       ) => Promise<{
         terminal: TerminalMeta;
       }>;
-      createTerminalSession: () => Promise<{
+      createTerminalSession: (options?: {
+        profileId?: string | null;
+      }) => Promise<{
         terminal: TerminalMeta;
+        terminals: TerminalMeta[];
+        activeTerminalId: string | null;
       }>;
       listTerminalSessions: () => Promise<{
         terminals: TerminalMeta[];
@@ -383,7 +408,8 @@ declare global {
         activeTerminalId: string;
       }>;
       closeTerminalSession: (terminalId: string) => Promise<{
-        success: true;
+        terminals: TerminalMeta[];
+        activeTerminalId: string | null;
       }>;
       writeToTerminal: (data: string, terminalId?: string | null) => Promise<unknown>;
       resizeTerminal: (cols: number, rows: number, terminalId?: string | null) => Promise<{
@@ -400,6 +426,8 @@ declare global {
       printTerminalMessage: (text: string, terminalId?: string | null) => Promise<{
         success: true;
       }>;
+      listTerminalProfiles: () => Promise<TerminalProfilesState>;
+      setDefaultTerminalProfile: (profileId: string) => Promise<TerminalProfilesState>;
 
       listRunConfigurations: (
         workspaceDescriptor: RunWorkspaceDescriptor,
@@ -479,6 +507,8 @@ declare global {
       ) => () => void;
       onTerminalData: (callback: (payload: TerminalDataEvent) => void) => () => void;
       onTerminalStatus: (callback: (payload: TerminalStatusEvent) => void) => () => void;
+      onTerminalProfilesUpdated: (callback: (payload: TerminalProfilesState) => void) => () => void;
+      onAppCommand: (callback: (payload: { commandId: string }) => void) => () => void;
       onRunData: (callback: (payload: RunDataEvent) => void) => () => void;
       onRunSession: (callback: (payload: RunSession) => void) => () => void;
       onNotebookKernelEvent: (callback: (payload: NotebookKernelEvent) => void) => () => void;

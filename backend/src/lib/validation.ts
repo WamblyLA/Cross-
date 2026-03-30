@@ -202,7 +202,7 @@ export const updateSettingsBodySchema = z
     fontSize: z.coerce
       .number()
       .int("Размер шрифта должен быть целым числом")
-      .min(10, "Размер шрифта должен быть не меньше 10")
+      .min(9, "Размер шрифта должен быть не меньше 9")
       .max(32, "Размер шрифта должен быть не больше 32")
       .optional(),
     tabSize: z.coerce

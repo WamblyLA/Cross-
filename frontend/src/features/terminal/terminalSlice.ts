@@ -1,36 +1,52 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-type TerminalSessionMeta = {
-  id: string;
-  title: string;
-  shellLabel: string;
-  kind: "shell";
-};
-
 type TerminalState = {
   activeTerminalId: string | null;
-  sessions: TerminalSessionMeta[];
+  sessions: TerminalMeta[];
   isReady: boolean;
+  profiles: TerminalProfileDescriptor[];
+  defaultProfileId: string | null;
+  profileDiscoveryStatus: TerminalProfileDiscoveryStatus;
 };
 
 const initialState: TerminalState = {
   activeTerminalId: null,
   sessions: [],
   isReady: false,
+  profiles: [],
+  defaultProfileId: null,
+  profileDiscoveryStatus: "idle",
 };
 
 function resolveNextActiveTerminalId(
-  sessions: TerminalSessionMeta[],
+  sessions: TerminalMeta[],
   preferredTerminalId: string | null,
 ) {
-  if (
-    preferredTerminalId &&
-    sessions.some((session) => session.id === preferredTerminalId)
-  ) {
+  if (preferredTerminalId && sessions.some((session) => session.id === preferredTerminalId)) {
     return preferredTerminalId;
   }
 
   return sessions[0]?.id ?? null;
+}
+
+function resolveNextActiveAfterClose(state: TerminalState, terminalId: string) {
+  const closedIndex = state.sessions.findIndex((session) => session.id === terminalId);
+  const remainingSessions = state.sessions.filter((session) => session.id !== terminalId);
+
+  if (remainingSessions.length === 0) {
+    return null;
+  }
+
+  if (state.activeTerminalId !== terminalId) {
+    return resolveNextActiveTerminalId(remainingSessions, state.activeTerminalId);
+  }
+
+  const preferredIndex =
+    closedIndex === -1 || closedIndex >= remainingSessions.length
+      ? remainingSessions.length - 1
+      : closedIndex;
+
+  return remainingSessions[preferredIndex]?.id ?? remainingSessions[0]?.id ?? null;
 }
 
 const terminalSlice = createSlice({
@@ -40,7 +56,7 @@ const terminalSlice = createSlice({
     terminalSessionsLoaded(
       state,
       action: PayloadAction<{
-        terminals: TerminalSessionMeta[];
+        terminals: TerminalMeta[];
         activeTerminalId?: string | null;
       }>,
     ) {
@@ -54,13 +70,11 @@ const terminalSlice = createSlice({
     terminalSessionReady(
       state,
       action: PayloadAction<{
-        terminal: TerminalSessionMeta;
+        terminal: TerminalMeta;
       }>,
     ) {
       const nextTerminal = action.payload.terminal;
-      const existingIndex = state.sessions.findIndex(
-        (session) => session.id === nextTerminal.id,
-      );
+      const existingIndex = state.sessions.findIndex((session) => session.id === nextTerminal.id);
 
       if (existingIndex === -1) {
         state.sessions.push(nextTerminal);
@@ -71,33 +85,24 @@ const terminalSlice = createSlice({
       state.activeTerminalId = nextTerminal.id;
       state.isReady = true;
     },
-    terminalSessionActivated(
-      state,
-      action: PayloadAction<{ terminalId: string }>,
-    ) {
-      if (
-        !state.sessions.some(
-          (session) => session.id === action.payload.terminalId,
-        )
-      ) {
+    terminalSessionActivated(state, action: PayloadAction<{ terminalId: string }>) {
+      if (!state.sessions.some((session) => session.id === action.payload.terminalId)) {
         return;
       }
 
       state.activeTerminalId = action.payload.terminalId;
       state.isReady = true;
     },
-    terminalSessionClosed(
-      state,
-      action: PayloadAction<{ terminalId: string }>,
-    ) {
-      state.sessions = state.sessions.filter(
-        (session) => session.id !== action.payload.terminalId,
-      );
-      state.activeTerminalId = resolveNextActiveTerminalId(
-        state.sessions,
-        state.activeTerminalId,
-      );
+    terminalSessionClosed(state, action: PayloadAction<{ terminalId: string }>) {
+      const nextActiveTerminalId = resolveNextActiveAfterClose(state, action.payload.terminalId);
+      state.sessions = state.sessions.filter((session) => session.id !== action.payload.terminalId);
+      state.activeTerminalId = nextActiveTerminalId;
       state.isReady = Boolean(state.activeTerminalId);
+    },
+    terminalProfilesLoaded(state, action: PayloadAction<TerminalProfilesState>) {
+      state.profiles = action.payload.profiles;
+      state.defaultProfileId = action.payload.defaultProfileId;
+      state.profileDiscoveryStatus = action.payload.discoveryStatus;
     },
   },
 });
@@ -107,6 +112,7 @@ export const {
   terminalSessionReady,
   terminalSessionActivated,
   terminalSessionClosed,
+  terminalProfilesLoaded,
 } = terminalSlice.actions;
 
 export default terminalSlice.reducer;

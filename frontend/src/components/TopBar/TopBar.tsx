@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { IoIosSquareOutline } from "react-icons/io";
@@ -8,11 +15,19 @@ import { TfiLayoutLineSolid } from "react-icons/tfi";
 import { VscChevronDown, VscChromeClose, VscEllipsis } from "react-icons/vsc";
 import { selectIsAuthenticated } from "../../features/auth/authSelectors";
 import {
+  APP_COMMANDS,
+  APP_COMMAND_SHORTCUTS,
+} from "../../features/commands/appCommands";
+import {
   selectCloudActiveProjectId,
   selectCloudSelectedItemCount,
   selectCloudSelectedItemType,
 } from "../../features/cloud/cloudSelectors";
-import { requestExplorerAction, setWorkspaceSource } from "../../features/workspace/workspaceSlice";
+import {
+  requestExplorerAction,
+  setWorkspaceSource,
+} from "../../features/workspace/workspaceSlice";
+import { useAppCommandExecutor } from "../../hooks/useAppCommandExecutor";
 import { useDesktopActions } from "../../hooks/useDesktopActions";
 import { useRunActions } from "../../hooks/useRunActions";
 import { useWorkspaceActions } from "../../hooks/useWorkspaceActions";
@@ -78,7 +93,8 @@ function getAnchoredPanelStyle(
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
   const maxLeft = Math.max(VIEWPORT_GAP, viewportWidth - width - VIEWPORT_GAP);
-  const preferredLeft = align === "right" ? anchorRect.right - width : anchorRect.left;
+  const preferredLeft =
+    align === "right" ? anchorRect.right - width : anchorRect.left;
   const left = clamp(preferredLeft, VIEWPORT_GAP, maxLeft);
   const belowTop = anchorRect.bottom + OVERLAY_OFFSET;
   const maxTop = Math.max(VIEWPORT_GAP, viewportHeight - height - VIEWPORT_GAP);
@@ -94,10 +110,15 @@ function getAnchoredPanelStyle(
   };
 }
 
-function getSubmenuPanelStyle(anchorRect: DOMRect, width: number, height: number) {
+function getSubmenuPanelStyle(
+  anchorRect: DOMRect,
+  width: number,
+  height: number,
+) {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
-  const canOpenRight = anchorRect.right + OVERLAY_OFFSET + width <= viewportWidth - VIEWPORT_GAP;
+  const canOpenRight =
+    anchorRect.right + OVERLAY_OFFSET + width <= viewportWidth - VIEWPORT_GAP;
   const preferredLeft = canOpenRight
     ? anchorRect.right + OVERLAY_OFFSET
     : anchorRect.left - width - OVERLAY_OFFSET;
@@ -131,7 +152,9 @@ function MenuPanel({
       {sections.map((section, sectionIndex) => (
         <div
           key={section.id}
-          className={sectionIndex > 0 ? "mt-1 border-t border-default pt-1" : ""}
+          className={
+            sectionIndex > 0 ? "mt-1 border-t border-default pt-1" : ""
+          }
         >
           {section.title ? (
             <div className="px-3 pb-1 pt-1 text-[11px] uppercase tracking-[0.18em] text-muted">
@@ -177,7 +200,8 @@ function OverflowPanel({
   onOpenSubmenu: (menuId: string, anchorRect: DOMRect) => void;
   onSelect: (item: MenuItem) => void;
 }) {
-  const submenuConfig = hiddenMenus.find((menu) => menu.id === submenuState?.menuId) ?? null;
+  const submenuConfig =
+    hiddenMenus.find((menu) => menu.id === submenuState?.menuId) ?? null;
   const submenuStyle =
     submenuConfig && submenuState
       ? getSubmenuPanelStyle(
@@ -204,13 +228,22 @@ function OverflowPanel({
                 : "text-secondary hover:bg-hover hover:text-primary"
             }`}
             onMouseEnter={(event) => {
-              onOpenSubmenu(menu.id, event.currentTarget.getBoundingClientRect());
+              onOpenSubmenu(
+                menu.id,
+                event.currentTarget.getBoundingClientRect(),
+              );
             }}
             onFocus={(event) => {
-              onOpenSubmenu(menu.id, event.currentTarget.getBoundingClientRect());
+              onOpenSubmenu(
+                menu.id,
+                event.currentTarget.getBoundingClientRect(),
+              );
             }}
             onClick={(event) => {
-              onOpenSubmenu(menu.id, event.currentTarget.getBoundingClientRect());
+              onOpenSubmenu(
+                menu.id,
+                event.currentTarget.getBoundingClientRect(),
+              );
             }}
             role="menuitem"
             aria-haspopup="menu"
@@ -223,7 +256,11 @@ function OverflowPanel({
       </div>
 
       {submenuConfig && submenuStyle ? (
-        <MenuPanel sections={submenuConfig.sections} style={submenuStyle} onSelect={onSelect} />
+        <MenuPanel
+          sections={submenuConfig.sections}
+          style={submenuStyle}
+          onSelect={onSelect}
+        />
       ) : null}
     </>
   );
@@ -250,14 +287,19 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
     "terminal",
     "run",
   ]);
-  const [overflowSubmenu, setOverflowSubmenu] = useState<OverflowSubmenuState | null>(null);
+  const [overflowSubmenu, setOverflowSubmenu] =
+    useState<OverflowSubmenuState | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const source = useAppSelector((state) => state.workspace.source);
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
   const selectedPath = useAppSelector((state) => state.workspace.selectedPath);
-  const selectionCount = useAppSelector((state) => state.workspace.selectionCount);
-  const activeSearchQuery = useAppSelector((state) => state.workspace.searchQuery);
+  const selectionCount = useAppSelector(
+    (state) => state.workspace.selectionCount,
+  );
+  const activeSearchQuery = useAppSelector(
+    (state) => state.workspace.searchQuery,
+  );
   const selectedCloudItemType = useAppSelector(selectCloudSelectedItemType);
   const selectedCloudItemCount = useAppSelector(selectCloudSelectedItemCount);
   const activeCloudProjectId = useAppSelector(selectCloudActiveProjectId);
@@ -266,24 +308,37 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
     (state) => state.panel.isVisible && state.panel.activeTab === "terminal",
   );
   const isTerminalReady = useAppSelector((state) => state.terminal.isReady);
-  const activeTerminalId = useAppSelector((state) => state.terminal.activeTerminalId);
+  const activeTerminalId = useAppSelector(
+    (state) => state.terminal.activeTerminalId,
+  );
   const terminalSessions = useAppSelector((state) => state.terminal.sessions);
+  const terminalProfiles = useAppSelector((state) => state.terminal.profiles);
+  const defaultTerminalProfileId = useAppSelector(
+    (state) => state.terminal.defaultProfileId,
+  );
+  const terminalProfileDiscoveryStatus = useAppSelector(
+    (state) => state.terminal.profileDiscoveryStatus,
+  );
   const currentRunSession = useAppSelector((state) => state.run.currentSession);
   const isRunning = Boolean(
     currentRunSession &&
-      ["preparing", "materializing", "building", "running"].includes(currentRunSession.status),
+    ["preparing", "materializing", "building", "running"].includes(
+      currentRunSession.status,
+    ),
   );
   const {
     activateTerminal,
     clearTerminal,
+    closeTerminal,
     createTerminal,
     focusTerminal,
     interruptTerminal,
     openTerminal,
-    toggleTerminal,
+    setDefaultTerminalProfile,
   } = useDesktopActions();
-  const { activeFile, openFolder, saveActiveFile } = useWorkspaceActions();
-  const { openRunConfigurationDialog, rerun, runSelectedConfiguration, stopRun } = useRunActions();
+  const executeCommand = useAppCommandExecutor();
+  const { activeFile } = useWorkspaceActions();
+  const { openRunConfigurationDialog, rerun } = useRunActions();
 
   const closeMenus = useCallback(() => {
     setOpenMenuId(null);
@@ -305,22 +360,31 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
         (selectedCloudItemType === "project" ||
           selectedCloudItemType === "folder" ||
           selectedCloudItemType === "file")
-      : selectionCount === 1 && Boolean(selectedPath && selectedPath !== rootPath);
+      : selectionCount === 1 &&
+        Boolean(selectedPath && selectedPath !== rootPath);
   const canDeleteSelectedNode =
     source === "cloud"
       ? selectedCloudItemCount > 0 &&
         (selectedCloudItemType === "project" ||
           selectedCloudItemType === "folder" ||
           selectedCloudItemType === "file")
-      : selectionCount > 0 && Boolean(selectedPath && selectedPath !== rootPath);
+      : selectionCount > 0 &&
+        Boolean(selectedPath && selectedPath !== rootPath);
   const canCreateFile =
-    source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
+    source === "cloud"
+      ? isAuthenticated && Boolean(activeCloudProjectId)
+      : Boolean(rootPath);
   const canCreateFolder =
-    source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
+    source === "cloud"
+      ? isAuthenticated && Boolean(activeCloudProjectId)
+      : Boolean(rootPath);
   const canCreateProject = isAuthenticated;
-  const canRefreshExplorer = source === "cloud" ? isAuthenticated : Boolean(rootPath);
+  const canRefreshExplorer =
+    source === "cloud" ? isAuthenticated : Boolean(rootPath);
   const canCollapseExplorer =
-    source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
+    source === "cloud"
+      ? isAuthenticated && Boolean(activeCloudProjectId)
+      : Boolean(rootPath);
   const hasTerminalSession = Boolean(activeTerminalId);
   const hasRunnableFile = ["py", "cpp", "cc", "cxx"].includes(
     activeFile?.extension?.toLowerCase() ?? "",
@@ -328,13 +392,36 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
   const hasRunnableProjectContext =
     source === "cloud" ? Boolean(activeCloudProjectId) : Boolean(rootPath);
   const canRunActiveTarget = Boolean(
-    !isRunning && (hasRunnableProjectContext || (activeFile && hasRunnableFile)),
+    !isRunning &&
+    (hasRunnableProjectContext || (activeFile && hasRunnableFile)),
   );
 
   const handleOpenCloudProjectDraft = useCallback(() => {
     dispatch(setWorkspaceSource("cloud"));
     dispatch(requestExplorerAction("create-project"));
   }, [dispatch]);
+
+  const terminalCreateProfileItems = useMemo(
+    () =>
+      terminalProfiles.map((profile) => ({
+        id: `terminal-create-profile-${profile.id}`,
+        label: profile.label,
+        disabled: !profile.isAvailable,
+        onSelect: () => createTerminal(profile.id),
+      })),
+    [createTerminal, terminalProfiles],
+  );
+
+  const terminalDefaultProfileItems = useMemo(
+    () =>
+      terminalProfiles.map((profile) => ({
+        id: `terminal-default-profile-${profile.id}`,
+        label: `${profile.id === defaultTerminalProfileId ? "● " : ""}${profile.label}`,
+        disabled: !profile.isAvailable,
+        onSelect: () => setDefaultTerminalProfile(profile.id),
+      })),
+    [defaultTerminalProfileId, setDefaultTerminalProfile, terminalProfiles],
+  );
 
   const primaryMenus = useMemo<MenuConfig[]>(
     () => [
@@ -348,8 +435,10 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
               {
                 id: "open-folder",
                 label: "Открыть папку",
-                shortcut: "Ctrl+O",
-                onSelect: openFolder,
+                shortcut:
+                  APP_COMMAND_SHORTCUTS[APP_COMMANDS.WORKSPACE_OPEN_FOLDER],
+                onSelect: () =>
+                  executeCommand(APP_COMMANDS.WORKSPACE_OPEN_FOLDER),
               },
               {
                 id: "new-project",
@@ -359,24 +448,33 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
               },
               {
                 id: "new-file",
-                label: source === "cloud" ? "Новый облачный файл" : "Новый файл",
-                shortcut: "Ctrl+N",
+                label:
+                  source === "cloud" ? "Новый облачный файл" : "Новый файл",
+                shortcut:
+                  APP_COMMAND_SHORTCUTS[APP_COMMANDS.WORKSPACE_CREATE_FILE],
                 disabled: !canCreateFile,
-                onSelect: () => dispatch(requestExplorerAction("create-file")),
+                onSelect: () =>
+                  executeCommand(APP_COMMANDS.WORKSPACE_CREATE_FILE),
               },
               {
                 id: "new-folder",
                 label: "Новая папка",
-                shortcut: "Ctrl+Shift+N",
+                shortcut:
+                  APP_COMMAND_SHORTCUTS[APP_COMMANDS.WORKSPACE_CREATE_FOLDER],
                 disabled: !canCreateFolder,
-                onSelect: () => dispatch(requestExplorerAction("create-folder")),
+                onSelect: () =>
+                  executeCommand(APP_COMMANDS.WORKSPACE_CREATE_FOLDER),
               },
               {
                 id: "save-file",
                 label: "Сохранить",
-                shortcut: "Ctrl+S",
+                shortcut:
+                  APP_COMMAND_SHORTCUTS[
+                    APP_COMMANDS.WORKSPACE_SAVE_ACTIVE_FILE
+                  ],
                 disabled: !activeFile,
-                onSelect: saveActiveFile,
+                onSelect: () =>
+                  executeCommand(APP_COMMANDS.WORKSPACE_SAVE_ACTIVE_FILE),
               },
             ],
           },
@@ -414,14 +512,20 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
             items: [
               {
                 id: "open-search",
-                label: activeSearchQuery ? "Открыть поиск и фильтр" : "Открыть поиск",
+                label: activeSearchQuery
+                  ? "Открыть поиск и фильтр"
+                  : "Открыть поиск",
                 onSelect: openSearch,
               },
               {
                 id: "toggle-terminal",
-                label: isTerminalVisible ? "Скрыть терминал" : "Показать терминал",
-                shortcut: "Ctrl+J",
-                onSelect: () => (isTerminalVisible ? toggleTerminal() : openTerminal()),
+                label: isTerminalVisible
+                  ? "Скрыть терминал"
+                  : "Показать терминал",
+                shortcut:
+                  APP_COMMAND_SHORTCUTS[APP_COMMANDS.PANEL_TOGGLE_TERMINAL],
+                onSelect: () =>
+                  executeCommand(APP_COMMANDS.PANEL_TOGGLE_TERMINAL),
               },
               {
                 id: "open-visual-settings",
@@ -430,7 +534,10 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
               },
               {
                 id: "refresh-tree",
-                label: source === "cloud" ? "Обновить облачные проекты" : "Обновить проводник",
+                label:
+                  source === "cloud"
+                    ? "Обновить облачные проекты"
+                    : "Обновить проводник",
                 disabled: !canRefreshExplorer,
                 onSelect: () => dispatch(requestExplorerAction("refresh")),
               },
@@ -457,13 +564,18 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
               {
                 id: "terminal-new",
                 label: "Новый терминал",
-                onSelect: createTerminal,
+                shortcut: APP_COMMAND_SHORTCUTS[APP_COMMANDS.TERMINAL_CREATE],
+                onSelect: () => executeCommand(APP_COMMANDS.TERMINAL_CREATE),
               },
               {
                 id: "terminal-open",
-                label: isTerminalVisible ? "Показать терминал" : "Открыть терминал",
-                shortcut: "Ctrl+J",
-                onSelect: openTerminal,
+                label: isTerminalVisible
+                  ? "Показать терминал"
+                  : "Открыть терминал",
+                shortcut:
+                  APP_COMMAND_SHORTCUTS[APP_COMMANDS.PANEL_TOGGLE_TERMINAL],
+                onSelect: () =>
+                  isTerminalVisible ? focusTerminal() : openTerminal(),
               },
               {
                 id: "terminal-focus",
@@ -483,8 +595,38 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
                 disabled: !hasTerminalSession,
                 onSelect: () => interruptTerminal(activeTerminalId),
               },
+              {
+                id: "terminal-close-active",
+                label: "Закрыть активный терминал",
+                disabled: !hasTerminalSession,
+                onSelect: () =>
+                  activeTerminalId
+                    ? closeTerminal(activeTerminalId)
+                    : undefined,
+              },
             ],
           },
+          ...(terminalCreateProfileItems.length > 0
+            ? [
+                {
+                  id: "terminal-create-profiles",
+                  title: "Shell profiles",
+                  items: terminalCreateProfileItems,
+                },
+              ]
+            : []),
+          ...(terminalDefaultProfileItems.length > 0
+            ? [
+                {
+                  id: "terminal-default-profile",
+                  title:
+                    terminalProfileDiscoveryStatus === "loading"
+                      ? "Detecting shells..."
+                      : "Default profile",
+                  items: terminalDefaultProfileItems,
+                },
+              ]
+            : []),
           ...(terminalSessions.length > 1
             ? [
                 {
@@ -510,9 +652,15 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
               {
                 id: "run-active",
                 label: isRunning ? "Запуск уже выполняется" : "Запустить",
-                shortcut: "F5",
+                shortcut:
+                  APP_COMMAND_SHORTCUTS[
+                    isRunning ? APP_COMMANDS.RUN_STOP : APP_COMMANDS.RUN_START
+                  ],
                 disabled: !isRunning && !canRunActiveTarget,
-                onSelect: () => (isRunning ? stopRun() : runSelectedConfiguration()),
+                onSelect: () =>
+                  executeCommand(
+                    isRunning ? APP_COMMANDS.RUN_STOP : APP_COMMANDS.RUN_START,
+                  ),
               },
               {
                 id: "rerun-active",
@@ -542,10 +690,11 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
       canRenameSelectedNode,
       canRefreshExplorer,
       canRunActiveTarget,
-      createTerminal,
       clearTerminal,
+      closeTerminal,
       currentRunSession?.canRerun,
       dispatch,
+      executeCommand,
       handleOpenCloudProjectDraft,
       hasTerminalSession,
       isRunning,
@@ -556,16 +705,15 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
       interruptTerminal,
       openRunConfigurationDialog,
       onOpenVisualSettings,
-      openFolder,
       openSearch,
       openTerminal,
       rerun,
-      runSelectedConfiguration,
-      saveActiveFile,
+      setDefaultTerminalProfile,
       source,
-      stopRun,
+      terminalCreateProfileItems,
+      terminalDefaultProfileItems,
+      terminalProfileDiscoveryStatus,
       terminalSessions,
-      toggleTerminal,
     ],
   );
 
@@ -583,7 +731,10 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
 
-      if (menuRootRef.current?.contains(target) || overlayRootRef.current?.contains(target)) {
+      if (
+        menuRootRef.current?.contains(target) ||
+        overlayRootRef.current?.contains(target)
+      ) {
         return;
       }
 
@@ -733,7 +884,9 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
 
   const openTopLevelMenu = (menuId: string) => {
     closeSearch();
-    setOpenMenuId((currentMenuId) => (currentMenuId === menuId ? null : menuId));
+    setOpenMenuId((currentMenuId) =>
+      currentMenuId === menuId ? null : menuId,
+    );
     setOverflowSubmenu(null);
   };
 
@@ -757,7 +910,10 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
       );
 
       return createPortal(
-        <div ref={overlayRootRef} className="pointer-events-none fixed inset-0 z-[120]">
+        <div
+          ref={overlayRootRef}
+          className="pointer-events-none fixed inset-0 z-[120]"
+        >
           <OverflowPanel
             hiddenMenus={hiddenMenus}
             mainStyle={mainStyle}
@@ -775,7 +931,8 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
     }
 
     const anchorRef = triggerRefs.current[openMenuId];
-    const menuConfig = primaryMenus.find((menu) => menu.id === openMenuId) ?? null;
+    const menuConfig =
+      primaryMenus.find((menu) => menu.id === openMenuId) ?? null;
 
     if (!anchorRef || !menuConfig) {
       return null;
@@ -790,7 +947,10 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
     );
 
     return createPortal(
-      <div ref={overlayRootRef} className="pointer-events-none fixed inset-0 z-[120]">
+      <div
+        ref={overlayRootRef}
+        className="pointer-events-none fixed inset-0 z-[120]"
+      >
         <MenuPanel
           sections={menuConfig.sections}
           style={panelStyle}
@@ -815,7 +975,12 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
     }
 
     const panelWidth = Math.min(360, Math.max(280, window.innerWidth - 220));
-    const panelStyle = getAnchoredPanelStyle(triggerRect, panelWidth, 44, "right");
+    const panelStyle = getAnchoredPanelStyle(
+      triggerRect,
+      panelWidth,
+      44,
+      "right",
+    );
 
     return createPortal(
       <div className="pointer-events-none fixed inset-0 z-[130]">
@@ -881,7 +1046,10 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
       </div>
 
       <div className="flex h-full items-center justify-between gap-3">
-        <div ref={menuRootRef} className="flex min-w-0 flex-1 items-center gap-3 overflow-visible">
+        <div
+          ref={menuRootRef}
+          className="flex min-w-0 flex-1 items-center gap-3 overflow-visible"
+        >
           <button
             type="button"
             className="flex shrink-0 items-center"
@@ -889,10 +1057,17 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
             aria-label="Перейти в IDE"
             title="Cross++"
           >
-            <img src="/logo.svg" alt="Cross++" className="h-6 w-auto shrink-0" />
+            <img
+              src="/logo.svg"
+              alt="Cross++"
+              className="h-6 w-auto shrink-0"
+            />
           </button>
 
-          <div ref={menuViewportRef} className="min-w-0 flex-1 overflow-visible">
+          <div
+            ref={menuViewportRef}
+            className="min-w-0 flex-1 overflow-visible"
+          >
             <div className="flex items-center gap-1 overflow-visible">
               {visibleMenus.map((menu) => (
                 <button
@@ -902,7 +1077,9 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
                   }}
                   type="button"
                   className={`ui-control h-8 shrink-0 px-3 text-sm ${
-                    openMenuId === menu.id ? "border border-default bg-active text-primary" : ""
+                    openMenuId === menu.id
+                      ? "border border-default bg-active text-primary"
+                      : ""
                   }`}
                   onClick={() => openTopLevelMenu(menu.id)}
                   onMouseEnter={() => {
@@ -925,7 +1102,9 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
                   ref={overflowTriggerRef}
                   type="button"
                   className={`ui-control h-8 shrink-0 px-3 text-sm ${
-                    openMenuId === "overflow" ? "border border-default bg-active text-primary" : ""
+                    openMenuId === "overflow"
+                      ? "border border-default bg-active text-primary"
+                      : ""
                   }`}
                   onClick={() => openTopLevelMenu("overflow")}
                   onMouseEnter={() => {
@@ -951,7 +1130,9 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
             ref={searchTriggerRef}
             type="button"
             className={`ui-control flex h-8 w-8 items-center justify-center ${
-              isSearchOpen || activeSearchQuery ? "border border-default bg-active text-primary" : ""
+              isSearchOpen || activeSearchQuery
+                ? "border border-default bg-active text-primary"
+                : ""
             }`}
             onClick={() => {
               if (isSearchOpen) {
@@ -962,7 +1143,11 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
               openSearch();
             }}
             aria-label="Открыть поиск"
-            title={activeSearchQuery ? `Поиск: ${activeSearchQuery}` : "Открыть поиск"}
+            title={
+              activeSearchQuery
+                ? `Поиск: ${activeSearchQuery}`
+                : "Открыть поиск"
+            }
           >
             <IoSearchOutline className="h-4 w-4" />
           </button>
@@ -978,7 +1163,10 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
               icon={IoIosSquareOutline}
               onClick={() => window.electronAPI.toggleMaximizeWindow()}
             />
-            <TopBarIcon icon={RxCross1} onClick={() => window.electronAPI.closeWindow()} />
+            <TopBarIcon
+              icon={RxCross1}
+              onClick={() => window.electronAPI.closeWindow()}
+            />
           </div>
         </div>
       </div>

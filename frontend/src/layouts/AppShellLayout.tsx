@@ -14,6 +14,7 @@ import {
 } from "../features/terminal/terminalConsoleStore";
 import {
   terminalSessionClosed,
+  terminalProfilesLoaded,
   terminalSessionsLoaded,
 } from "../features/terminal/terminalSlice";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
@@ -40,6 +41,9 @@ export default function AppShellLayout() {
         dispatch(terminalSessionClosed({ terminalId: payload.terminalId }));
       }
     });
+    const unsubscribeTerminalProfiles = window.electronAPI.onTerminalProfilesUpdated((payload) => {
+      dispatch(terminalProfilesLoaded(payload));
+    });
     const unsubscribeRunData = window.electronAPI.onRunData((payload) => {
       appendRunConsoleChunk(payload);
     });
@@ -64,6 +68,13 @@ export default function AppShellLayout() {
       .catch(() => undefined);
 
     void window.electronAPI
+      .listTerminalProfiles()
+      .then((result) => {
+        dispatch(terminalProfilesLoaded(result));
+      })
+      .catch(() => undefined);
+
+    void window.electronAPI
       .getCurrentRunSession()
       .then((result) => {
         if (!result.session) {
@@ -81,6 +92,7 @@ export default function AppShellLayout() {
     return () => {
       unsubscribeTerminalData();
       unsubscribeTerminalStatus();
+      unsubscribeTerminalProfiles();
       unsubscribeRunData();
       unsubscribeRunSession();
     };

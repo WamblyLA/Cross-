@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   moveFileSystemItems: (sourcePaths, targetDirectory) =>
     ipcRenderer.invoke("file:move-many", sourcePaths, targetDirectory),
   ensureTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:ensure", terminalId),
-  createTerminalSession: () => ipcRenderer.invoke("terminal:create"),
+  createTerminalSession: (options) => ipcRenderer.invoke("terminal:create", options),
   listTerminalSessions: () => ipcRenderer.invoke("terminal:list"),
   activateTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:activate", terminalId),
   closeTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:close", terminalId),
@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   clearTerminal: (terminalId) => ipcRenderer.invoke("terminal:clear", terminalId ?? null),
   printTerminalMessage: (text, terminalId) =>
     ipcRenderer.invoke("terminal:message", terminalId ?? null, text),
+  listTerminalProfiles: () => ipcRenderer.invoke("terminal:list-profiles"),
+  setDefaultTerminalProfile: (profileId) =>
+    ipcRenderer.invoke("terminal:set-default-profile", profileId),
   listRunConfigurations: (workspaceDescriptor) =>
     ipcRenderer.invoke("run:list-configurations", workspaceDescriptor),
   createRunConfiguration: (workspaceDescriptor, configurationInput) =>
@@ -73,6 +76,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
     const listener = (_, payload) => callback(payload);
     ipcRenderer.on("terminal:status", listener);
     return () => ipcRenderer.removeListener("terminal:status", listener);
+  },
+  onTerminalProfilesUpdated: (callback) => {
+    const listener = (_, payload) => callback(payload);
+    ipcRenderer.on("terminal:profiles-updated", listener);
+    return () => ipcRenderer.removeListener("terminal:profiles-updated", listener);
+  },
+  onAppCommand: (callback) => {
+    const listener = (_, payload) => callback(payload);
+    ipcRenderer.on("app:command", listener);
+    return () => ipcRenderer.removeListener("app:command", listener);
   },
   onRunData: (callback) => {
     const listener = (_, payload) => callback(payload);

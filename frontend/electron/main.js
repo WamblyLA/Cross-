@@ -1,13 +1,17 @@
-import { spawnSync } from "child_process";
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import fsSync from "fs";
 import fs from "fs/promises";
 import { createRequire } from "module";
 import path from "path";
 import { fileURLToPath } from "url";
+import { registerWindowCommandRouting } from "./commands/registerWindowCommandRouting.js";
 import { startFolderWatcher } from "./folderWatcher.js";
 import { registerNotebookKernelIpc } from "./notebook/ipc/registerNotebookKernelIpc.js";
 import { createRunSubsystem } from "./run/index.js";
+import { createTerminalPreferencesStore } from "./terminal/terminalPreferencesStore.js";
+import { createTerminalProfileService } from "./terminal/terminalProfileService.js";
+import { createTerminalSessionService } from "./terminal/terminalSessionService.js";
+import { registerTerminalIpc } from "./terminal/registerTerminalIpc.js";
 
 const require = createRequire(import.meta.url);
 
@@ -23,20 +27,26 @@ try {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const CLEAR_TERMINAL_SEQUENCE = "\u001b[2J\u001b[3J\u001b[H";
-const DEFAULT_TERMINAL_COLS = 120;
-const DEFAULT_TERMINAL_ROWS = 30;
-
 let mainWindow = null;
 let currentWatcher = null;
 let watchedRootPath = null;
-let terminalSessions = new Map();
-let terminalOrder = [];
-let defaultShellTerminalId = null;
-let terminalSize = {
-  cols: DEFAULT_TERMINAL_COLS,
-  rows: DEFAULT_TERMINAL_ROWS,
-};
+
+function sendToRenderer(channel, payload) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(channel, payload);
+}
+
+function getInitialTerminalCwd() {
+  if (watchedRootPath && fsSync.existsSync(watchedRootPath)) {
+    return watchedRootPath;
+  }
+
+  return process.cwd();
+}
+
 const notebookKernelIpc = registerNotebookKernelIpc({
   app,
   ipcMain,
@@ -46,6 +56,20 @@ const runSubsystem = createRunSubsystem({
   app,
   nodePty,
   nodePtyLoadError,
+  sendToRenderer,
+});
+const terminalPreferencesStore = createTerminalPreferencesStore({ app });
+const terminalProfileService = createTerminalProfileService({
+  preferencesStore: terminalPreferencesStore,
+  onProfilesChanged(snapshot) {
+    sendToRenderer("terminal:profiles-updated", snapshot);
+  },
+});
+const terminalSessionService = createTerminalSessionService({
+  nodePty,
+  nodePtyLoadError,
+  profileService: terminalProfileService,
+  getInitialTerminalCwd,
   sendToRenderer,
 });
 
@@ -70,14 +94,8 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
-}
 
-function sendToRenderer(channel, payload) {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return;
-  }
-
-  mainWindow.webContents.send(channel, payload);
+  registerWindowCommandRouting(mainWindow, sendToRenderer);
 }
 
 function sortEntries(entries) {
@@ -205,8 +223,7 @@ async function resolveAvailableTargetPath(targetDirectory, entryName) {
   let suffixIndex = 0;
 
   while (true) {
-    const suffix =
-      suffixIndex === 0 ? " copy" : ` copy ${suffixIndex + 1}`;
+    const suffix = suffixIndex === 0 ? " copy" : ` copy ${suffixIndex + 1}`;
     const candidateName = `${stem}${suffix}${ext}`;
     const candidatePath = path.join(targetDirectory, candidateName);
 
@@ -280,436 +297,14 @@ async function moveFileSystemEntry(sourcePath, targetDirectory) {
   }
 }
 
-function getInitialTerminalCwd() {
-  if (watchedRootPath && fsSync.existsSync(watchedRootPath)) {
-    return watchedRootPath;
-  }
-
-  return process.cwd();
-}
-
-function getShellCandidate() {
-  if (process.platform === "win32") {
-    const powershellExists = spawnSync("where.exe", ["powershell.exe"], {
-      encoding: "utf-8",
-      windowsHide: true,
-    });
-
-    if (powershellExists.status === 0) {
-      return {
-        command: "powershell.exe",
-        args: ["-NoLogo"],
-        kind: "shell",
-        shellType: "powershell",
-        label: "PowerShell",
-      };
-    }
-
-    return {
-      command: "cmd.exe",
-      args: [],
-      kind: "shell",
-      shellType: "cmd",
-      label: "Command Prompt",
-    };
-  }
-
-  const shellCommand = process.env.SHELL || "/bin/bash";
-
-  return {
-    command: shellCommand,
-    args: [],
-    kind: "shell",
-    shellType: "posix",
-    label: path.basename(shellCommand),
-  };
-}
-
-function buildNodePtyUnavailableError() {
-  const baseMessage =
-    "node-pty не удалось загрузить для Electron. Выполните npm run rebuild:native -w ./frontend";
-  const details = nodePtyLoadError instanceof Error ? nodePtyLoadError.message : null;
-
-  return new Error(details ? `${baseMessage} Подробности: ${details}` : baseMessage);
-}
-
-function createTerminalId(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createSpawnId() {
-  return createTerminalId("spawn");
-}
-
-function resolveExecutablePath(command) {
-  if (!command) {
-    return null;
-  }
-
-  if (path.isAbsolute(command) && fsSync.existsSync(command)) {
-    return command;
-  }
-
-  const pathEntries = (process.env.PATH ?? "")
-    .split(path.delimiter)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
-  const extensions =
-    process.platform === "win32"
-      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM")
-          .split(";")
-          .map((extension) => extension.trim().toLowerCase())
-          .filter(Boolean)
-      : [""];
-
-  for (const entry of pathEntries) {
-    const directCandidate = path.join(entry, command);
-
-    if (fsSync.existsSync(directCandidate)) {
-      return directCandidate;
-    }
-
-    for (const extension of extensions) {
-      const candidatePath = path.join(entry, `${command}${extension}`);
-
-      if (fsSync.existsSync(candidatePath)) {
-        return candidatePath;
-      }
-    }
-  }
-
-  return null;
-}
-
-function buildTerminalMeta(session) {
-  return {
-    id: session.id,
-    title: session.title,
-    shellLabel: session.label,
-    kind: "shell",
-  };
-}
-
-function emitTerminalData(terminalId, text) {
-  if (!text) {
-    return;
-  }
-
-  sendToRenderer("terminal:data", {
-    terminalId,
-    text,
-  });
-}
-
-function emitTerminalStatus(payload) {
-  sendToRenderer("terminal:status", payload);
-}
-
-function getTerminalSession(terminalId) {
-  if (!terminalId) {
-    return null;
-  }
-
-  return terminalSessions.get(terminalId) ?? null;
-}
-
-function ensureShellTerminal() {
-  const defaultShellSession = getTerminalSession(defaultShellTerminalId);
-
-  if (defaultShellSession) {
-    return {
-      terminal: buildTerminalMeta(defaultShellSession),
-    };
-  }
-
-  return {
-    terminal: createShellSession(),
-  };
-}
-
-function requireTerminalSession(terminalId) {
-  const session = getTerminalSession(terminalId);
-
-  if (!session) {
-    throw new Error("Терминал был закрыт. Откройте его заново.");
-  }
-
-  return session;
-}
-
-function pickNextDefaultShellTerminal() {
-  const nextShellSession = terminalOrder
-    .map((terminalId) => terminalSessions.get(terminalId) ?? null)
-    .find((session) => session?.mode === "shell");
-
-  defaultShellTerminalId = nextShellSession?.id ?? null;
-}
-
-function removeTerminalSessionState(terminalId) {
-  terminalSessions.delete(terminalId);
-  terminalOrder = terminalOrder.filter((id) => id !== terminalId);
-
-  if (defaultShellTerminalId === terminalId) {
-    pickNextDefaultShellTerminal();
-  }
-}
-
-function handleTerminalExit(terminalId, spawnId, event) {
-  const session = getTerminalSession(terminalId);
-
-  if (!session || session.disposed || session.spawnId !== spawnId) {
-    return;
-  }
-
-  const exitCode = Number.isInteger(event?.exitCode) ? event.exitCode : 0;
-
-  session.pty = null;
-  removeTerminalSessionState(terminalId);
-
-  emitTerminalStatus({
-    type: "closed",
-    terminalId,
-  });
-}
-
-function disposePty(session) {
-  if (!session?.pty) {
-    return;
-  }
-
-  try {
-    session.pty.kill();
-  } catch {
-    // DONE
-  }
-
-  session.pty = null;
-}
-
-function resizePty(session, cols, rows) {
-  if (!session?.pty) {
-    return;
-  }
-
-  try {
-    session.pty.resize(cols, rows);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : `${error ?? ""}`;
-    const normalizedMessage = message.toLowerCase();
-
-    if (
-      normalizedMessage.includes("already exited") ||
-      normalizedMessage.includes("cannot resize") ||
-      normalizedMessage.includes("closed")
-    ) {
-      session.pty = null;
-      return;
-    }
-
-    throw error;
-  }
-}
-
-function disposeTerminalSession(terminalId, { notifyRenderer = true } = {}) {
-  const session = getTerminalSession(terminalId);
-
-  if (!session) {
-    return;
-  }
-
-  session.disposed = true;
-
-  disposePty(session);
-  removeTerminalSessionState(terminalId);
-
-  if (notifyRenderer) {
-    emitTerminalStatus({
-      type: "closed",
-      terminalId,
-    });
-  }
-}
-
-function emitTerminalChunk(terminalId, text) {
-  if (!text) {
-    return;
-  }
-
-  emitTerminalData(terminalId, text);
-}
-
-function handleTerminalChunk(session, chunk) {
-  emitTerminalChunk(session.id, chunk);
-}
-
-function createPtySession({
-  terminalId = createTerminalId("terminal"),
-  mode,
-  title,
-  command,
-  args,
-  cwd,
-  label,
-  shellType = null,
-}) {
-  if (!nodePty) {
-    throw buildNodePtyUnavailableError();
-  }
-
-  const existingSession = getTerminalSession(terminalId);
-  const session =
-    existingSession ??
-    {
-      id: terminalId,
-      mode,
-      title,
-      label,
-      shellType,
-      pty: null,
-      spawnId: null,
-      disposed: false,
-    };
-
-  if (existingSession?.pty) {
-    disposePty(existingSession);
-  }
-
-  const pty = nodePty.spawn(command, args, {
-    cwd,
-    cols: terminalSize.cols,
-    rows: terminalSize.rows,
-    env: {
-      ...process.env,
-      TERM: process.platform === "win32" ? "xterm" : "xterm-256color",
-    },
-    name: process.platform === "win32" ? "xterm" : "xterm-256color",
-    useConpty: process.platform === "win32",
-  });
-  const spawnId = createSpawnId();
-  session.mode = mode;
-  session.title = title;
-  session.label = label;
-  session.shellType = shellType;
-  session.pty = pty;
-  session.spawnId = spawnId;
-  session.disposed = false;
-
-  pty.onData((chunk) => {
-    const currentSession = getTerminalSession(terminalId);
-
-    if (!currentSession || currentSession.spawnId !== spawnId) {
-      return;
-    }
-
-    handleTerminalChunk(currentSession, chunk);
-  });
-
-  pty.onExit((event) => {
-    handleTerminalExit(terminalId, spawnId, event);
-  });
-
-  terminalSessions.set(terminalId, session);
-
-  if (!terminalOrder.includes(terminalId)) {
-    terminalOrder.push(terminalId);
-  }
-
-  return session;
-}
-
-function createShellSession() {
-  const candidate = getShellCandidate();
-  const terminalId = createTerminalId("terminal");
-  const shellIndex =
-    terminalOrder.filter((terminalIdValue) => {
-      const session = terminalSessions.get(terminalIdValue);
-      return session?.mode === "shell";
-    }).length + 1;
-  const title = shellIndex === 1 ? "Terminal" : `Terminal ${shellIndex}`;
-  const session = createPtySession({
-    terminalId,
-    mode: "shell",
-    title,
-    command: candidate.command,
-    args: candidate.args,
-    cwd: getInitialTerminalCwd(),
-    label: candidate.label,
-    shellType: candidate.shellType,
-  });
-
-  if (!defaultShellTerminalId) {
-    defaultShellTerminalId = session.id;
-  }
-
-  return buildTerminalMeta(session);
-}
-
-function listShellSessions() {
-  return terminalOrder
-    .map((terminalId) => terminalSessions.get(terminalId) ?? null)
-    .filter((session) => session?.mode === "shell")
-    .map((session) => buildTerminalMeta(session));
-}
-
-function getActiveShellTerminalId() {
-  const activeSession = getTerminalSession(defaultShellTerminalId);
-
-  if (activeSession?.mode === "shell") {
-    return activeSession.id;
-  }
-
-  return listShellSessions()[0]?.id ?? null;
-}
-
-function buildShellSessionListPayload() {
-  return {
-    terminals: listShellSessions(),
-    activeTerminalId: getActiveShellTerminalId(),
-  };
-}
-
-function activateShellTerminalSession(terminalId) {
-  const session = requireTerminalSession(terminalId);
-
-  if (session.mode !== "shell") {
-    throw new Error("Можно активировать только обычные терминальные сессии.");
-  }
-
-  defaultShellTerminalId = session.id;
-  return buildShellSessionListPayload();
-}
-
-function ensureTerminalSession(terminalId = null) {
-  if (terminalId) {
-    return {
-      terminal: buildTerminalMeta(requireTerminalSession(terminalId)),
-    };
-  }
-
-  return ensureShellTerminal();
-}
-
-function interruptTerminalSession(terminalId) {
-  const session = requireTerminalSession(terminalId);
-
-  if (!session.pty) {
-    return {
-      success: true,
-      terminal: buildTerminalMeta(session),
-    };
-  }
-
-  session.pty.write("\u0003");
-
-  return {
-    success: true,
-    terminal: buildTerminalMeta(session),
-  };
-}
-
 app.whenReady().then(() => {
   createWindow();
+  registerTerminalIpc({
+    ipcMain,
+    terminalSessionService,
+    terminalProfileService,
+  });
+  void terminalProfileService.startDiscovery();
 
   ipcMain.handle("window:minimize", () => {
     mainWindow?.minimize();
@@ -760,7 +355,6 @@ app.whenReady().then(() => {
 
   ipcMain.handle("file:write", async (_, filePath, content) => {
     await fs.writeFile(filePath, content ?? "", "utf-8");
-
     return { success: true };
   });
 
@@ -824,7 +418,7 @@ app.whenReady().then(() => {
     }
 
     if (!targetDirectory || !fsSync.existsSync(targetDirectory)) {
-      throw new Error("Целевая папка для вставки не найдена.");
+      throw new Error("Target folder was not found.");
     }
 
     const createdPaths = await withWorkspaceWatcherPausedForPaths(
@@ -836,7 +430,7 @@ app.whenReady().then(() => {
           const resolvedSourcePath = path.resolve(sourcePath);
 
           if (isPathInsideRoot(targetDirectory, resolvedSourcePath)) {
-            throw new Error("Нельзя вставить папку в саму себя или во вложенную папку.");
+            throw new Error("Cannot copy a folder into itself or one of its descendants.");
           }
 
           results.push(await copyFileSystemEntry(resolvedSourcePath, targetDirectory));
@@ -855,7 +449,7 @@ app.whenReady().then(() => {
     }
 
     if (!targetDirectory || !fsSync.existsSync(targetDirectory)) {
-      throw new Error("Целевая папка для вставки не найдена.");
+      throw new Error("Target folder was not found.");
     }
 
     const movedPaths = await withWorkspaceWatcherPausedForPaths(
@@ -867,7 +461,7 @@ app.whenReady().then(() => {
           const resolvedSourcePath = path.resolve(sourcePath);
 
           if (isPathInsideRoot(targetDirectory, resolvedSourcePath)) {
-            throw new Error("Нельзя переместить папку в саму себя или во вложенную папку.");
+            throw new Error("Cannot move a folder into itself or one of its descendants.");
           }
 
           results.push(await moveFileSystemEntry(resolvedSourcePath, targetDirectory));
@@ -878,82 +472,6 @@ app.whenReady().then(() => {
     );
 
     return { success: true, paths: movedPaths };
-  });
-
-  ipcMain.handle("terminal:create", async () => {
-    const terminal = createShellSession();
-    defaultShellTerminalId = terminal.id;
-
-    return {
-      terminal,
-    };
-  });
-
-  ipcMain.handle("terminal:ensure", async (_, terminalId) => {
-    return ensureTerminalSession(terminalId ?? null);
-  });
-
-  ipcMain.handle("terminal:list", async () => {
-    return buildShellSessionListPayload();
-  });
-
-  ipcMain.handle("terminal:activate", async (_, terminalId) => {
-    return activateShellTerminalSession(terminalId);
-  });
-
-  ipcMain.handle("terminal:close", async (_, terminalId) => {
-    disposeTerminalSession(terminalId);
-
-    return { success: true };
-  });
-
-  ipcMain.handle("terminal:write", async (_, terminalId, data) => {
-    const session = requireTerminalSession(terminalId);
-
-    if (session?.pty) {
-      session.pty.write(data);
-    }
-
-    return {
-      success: true,
-      terminal: buildTerminalMeta(session),
-    };
-  });
-
-  ipcMain.handle("terminal:resize", async (_, terminalId, cols, rows) => {
-    const session = requireTerminalSession(terminalId);
-    const nextCols = Number.isFinite(cols) && cols > 0 ? Math.floor(cols) : terminalSize.cols;
-    const nextRows = Number.isFinite(rows) && rows > 0 ? Math.floor(rows) : terminalSize.rows;
-
-    terminalSize = {
-      cols: nextCols,
-      rows: nextRows,
-    };
-
-    resizePty(session, nextCols, nextRows);
-
-    return { success: true };
-  });
-
-  ipcMain.handle("terminal:interrupt", async (_, terminalId) => {
-    return interruptTerminalSession(terminalId);
-  });
-
-  ipcMain.handle("terminal:clear", async (_, terminalId) => {
-    const session = requireTerminalSession(terminalId);
-    emitTerminalData(session.id, CLEAR_TERMINAL_SEQUENCE);
-
-    return {
-      success: true,
-      terminal: buildTerminalMeta(session),
-    };
-  });
-
-  ipcMain.handle("terminal:message", async (_, terminalId, text) => {
-    const session = requireTerminalSession(terminalId);
-    emitTerminalData(session.id, `${text.endsWith("\n") ? text : `${text}\r\n`}`);
-
-    return { success: true };
   });
 
   ipcMain.handle("run:list-configurations", async (_, workspaceDescriptor) => {
@@ -1025,10 +543,7 @@ app.on("before-quit", async () => {
   await closeFolderWatcher();
   await notebookKernelIpc.dispose();
   runSubsystem.dispose();
-
-  for (const terminalId of [...terminalOrder]) {
-    disposeTerminalSession(terminalId, { notifyRenderer: false });
-  }
+  terminalSessionService.disposeAllSessions();
 });
 
 app.on("window-all-closed", () => {
@@ -1036,4 +551,3 @@ app.on("window-all-closed", () => {
     app.quit();
   }
 });
-

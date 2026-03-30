@@ -1,13 +1,21 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { useEffect, useMemo, useRef } from "react";
-import { VscClearAll, VscChromeClose, VscDebugPause } from "react-icons/vsc";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  VscAdd,
+  VscChevronDown,
+  VscChromeClose,
+  VscClearAll,
+  VscClose,
+  VscDebugPause,
+} from "react-icons/vsc";
 import { hideBottomPanel } from "../../features/panel/panelSlice";
 import { useTerminalConsoleChunks } from "../../features/terminal/terminalConsoleStore";
 import { useDesktopActions } from "../../hooks/useDesktopActions";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import type { ThemeName } from "../../styles/tokens";
+import FloatingMenu, { type MenuSection } from "../../ui/FloatingMenu";
 import { getConsoleTheme } from "../BottomPanel/consoleTheme";
 
 type TerminalPanelProps = {
@@ -21,10 +29,22 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
   const fitAddonRef = useRef<FitAddon | null>(null);
   const activeTerminalIdRef = useRef<string | null>(null);
   const renderedChunkCountRef = useRef(0);
+  const [profileMenuAnchorRect, setProfileMenuAnchorRect] = useState<DOMRect | null>(null);
 
-  const { clearTerminal, ensureTerminalSession, interruptTerminal } = useDesktopActions();
+  const {
+    activateTerminal,
+    clearTerminal,
+    closeTerminal,
+    createTerminal,
+    ensureTerminalSession,
+    interruptTerminal,
+    setDefaultTerminalProfile,
+  } = useDesktopActions();
   const activeTerminalId = useAppSelector((state) => state.terminal.activeTerminalId);
   const terminalSessions = useAppSelector((state) => state.terminal.sessions);
+  const terminalProfiles = useAppSelector((state) => state.terminal.profiles);
+  const defaultProfileId = useAppSelector((state) => state.terminal.defaultProfileId);
+  const profileDiscoveryStatus = useAppSelector((state) => state.terminal.profileDiscoveryStatus);
   const activeTerminal = terminalSessions.find((session) => session.id === activeTerminalId) ?? null;
   const isActive = useAppSelector(
     (state) => state.panel.isVisible && state.panel.activeTab === "terminal",
@@ -32,6 +52,49 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
   const terminalChunks = useTerminalConsoleChunks(activeTerminalId);
 
   const terminalTheme = useMemo(() => getConsoleTheme(theme), [theme]);
+
+  const profileMenuSections = useMemo<MenuSection[]>(
+    () => [
+      {
+        id: "terminal-create-profile",
+        title: profileDiscoveryStatus === "loading" ? "Detecting shells..." : "New Terminal",
+        items:
+          terminalProfiles.length > 0
+            ? terminalProfiles.map((profile) => ({
+                id: `terminal-create-${profile.id}`,
+                label: profile.label,
+                disabled: !profile.isAvailable,
+                onSelect: async () => {
+                  await createTerminal(profile.id);
+                },
+              }))
+            : [
+                {
+                  id: "terminal-profiles-empty",
+                  label: "Shell profiles are not available yet",
+                  disabled: true,
+                  onSelect: () => undefined,
+                },
+              ],
+      },
+      {
+        id: "terminal-default-profile",
+        title: "Default Profile",
+        items:
+          terminalProfiles.length > 0
+            ? terminalProfiles.map((profile) => ({
+                id: `terminal-default-${profile.id}`,
+                label: `${profile.id === defaultProfileId ? "● " : ""}${profile.label}`,
+                disabled: !profile.isAvailable,
+                onSelect: async () => {
+                  await setDefaultTerminalProfile(profile.id);
+                },
+              }))
+            : [],
+      },
+    ],
+    [createTerminal, defaultProfileId, profileDiscoveryStatus, setDefaultTerminalProfile, terminalProfiles],
+  );
 
   useEffect(() => {
     activeTerminalIdRef.current = activeTerminalId;
@@ -125,7 +188,7 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
   }, [terminalChunks]);
 
   useEffect(() => {
-    if (!isActive) {
+    if (!isActive || !activeTerminalId) {
       return;
     }
 
@@ -151,55 +214,128 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-11 items-center justify-between gap-3 border-b border-default px-3">
-        <div className="min-w-0">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted">Терминал</div>
-          <div className="truncate text-xs text-secondary">
-            {activeTerminal?.title ?? "Локальная shell-сессия внутри IDE"}
+      <div className="border-b border-default px-3 pb-2 pt-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted">Терминал</div>
+            <div className="truncate text-xs text-secondary">
+              {activeTerminal?.title ?? "Локальная shell-сессия внутри IDE"}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {activeTerminal?.shellLabel ? (
+              <span className="rounded-full border border-default px-2 py-1 text-[11px] text-muted">
+                {activeTerminal.shellLabel}
+              </span>
+            ) : null}
+
+            <button
+              type="button"
+              className="ui-control h-8 w-8"
+              onClick={() => {
+                void createTerminal();
+              }}
+              title="Новый терминал"
+            >
+              <VscAdd />
+            </button>
+
+            <button
+              type="button"
+              className="ui-control h-8 w-8"
+              onClick={(event) => {
+                setProfileMenuAnchorRect(event.currentTarget.getBoundingClientRect());
+              }}
+              title="Профили терминала"
+            >
+              <VscChevronDown />
+            </button>
+
+            <button
+              type="button"
+              className="ui-control h-8 w-8"
+              onClick={() => {
+                void interruptTerminal(activeTerminalId);
+              }}
+              title="Прервать терминал"
+              disabled={!activeTerminalId}
+            >
+              <VscDebugPause />
+            </button>
+
+            <button
+              type="button"
+              className="ui-control h-8 w-8"
+              onClick={() => {
+                terminalRef.current?.clear();
+                renderedChunkCountRef.current = 0;
+                void clearTerminal(activeTerminalId);
+              }}
+              title="Очистить терминал"
+              disabled={!activeTerminalId}
+            >
+              <VscClearAll />
+            </button>
+
+            <button
+              type="button"
+              className="ui-control h-8 w-8"
+              onClick={() => dispatch(hideBottomPanel())}
+              title="Скрыть нижнюю панель"
+            >
+              <VscChromeClose />
+            </button>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          {activeTerminal?.shellLabel ? (
-            <span className="rounded-full border border-default px-2 py-1 text-[11px] text-muted">
-              {activeTerminal.shellLabel}
-            </span>
+        <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+          {terminalSessions.map((session) => {
+            const isCurrent = session.id === activeTerminalId;
+
+            return (
+              <div
+                key={session.id}
+                className={`group flex shrink-0 items-center gap-2 rounded-[10px] border px-3 py-2 text-sm transition-colors ${
+                  isCurrent
+                    ? "border-default bg-active text-primary"
+                    : "border-transparent bg-editor text-secondary hover:border-default hover:text-primary"
+                }`}
+              >
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void activateTerminal(session.id);
+                  }}
+                  title={session.title}
+                >
+                  <span className="max-w-[180px] truncate">{session.title}</span>
+                  <span className="text-[11px] text-muted">{session.shellLabel}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="rounded p-0.5 text-muted transition-colors hover:bg-hover hover:text-primary"
+                  onClick={() => {
+                    void closeTerminal(session.id);
+                  }}
+                  title="Закрыть терминал"
+                >
+                  <VscClose />
+                </button>
+              </div>
+            );
+          })}
+
+          {terminalSessions.length === 0 ? (
+            <div className="rounded-[10px] border border-dashed border-default px-3 py-2 text-sm text-muted">
+              {profileDiscoveryStatus === "loading"
+                ? "Detecting shells..."
+                : "Создайте первый терминал"}
+            </div>
           ) : null}
-
-          <button
-            type="button"
-            className="ui-control h-8 w-8"
-            onClick={() => {
-              void interruptTerminal(activeTerminalId);
-            }}
-            title="Прервать терминал"
-            disabled={!activeTerminalId}
-          >
-            <VscDebugPause />
-          </button>
-
-          <button
-            type="button"
-            className="ui-control h-8 w-8"
-            onClick={() => {
-              terminalRef.current?.clear();
-              renderedChunkCountRef.current = 0;
-              void clearTerminal(activeTerminalId);
-            }}
-            title="Очистить терминал"
-            disabled={!activeTerminalId}
-          >
-            <VscClearAll />
-          </button>
-
-          <button
-            type="button"
-            className="ui-control h-8 w-8"
-            onClick={() => dispatch(hideBottomPanel())}
-            title="Скрыть нижнюю панель"
-          >
-            <VscChromeClose />
-          </button>
         </div>
       </div>
 
@@ -209,6 +345,15 @@ export default function TerminalPanel({ theme }: TerminalPanelProps) {
           className="h-full w-full overflow-hidden rounded-[10px] border border-default bg-editor px-2 py-2"
         />
       </div>
+
+      {profileMenuAnchorRect ? (
+        <FloatingMenu
+          sections={profileMenuSections}
+          position={{ type: "anchor", rect: profileMenuAnchorRect, align: "right" }}
+          onClose={() => setProfileMenuAnchorRect(null)}
+          width={240}
+        />
+      ) : null}
     </div>
   );
 }

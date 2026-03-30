@@ -5,6 +5,7 @@ import {
   showBottomPanel,
 } from "../features/panel/panelSlice";
 import {
+  terminalProfilesLoaded,
   terminalSessionActivated,
   terminalSessionReady,
   terminalSessionsLoaded,
@@ -26,6 +27,13 @@ export function useDesktopActions() {
           activeTerminalId: payload.activeTerminalId ?? null,
         }),
       );
+    },
+    [dispatch],
+  );
+
+  const syncTerminalProfiles = useCallback(
+    (payload: TerminalProfilesState) => {
+      dispatch(terminalProfilesLoaded(payload));
     },
     [dispatch],
   );
@@ -53,18 +61,48 @@ export function useDesktopActions() {
     return result;
   }, [syncTerminalList]);
 
-  const createTerminal = useCallback(async () => {
-    const result = await window.electronAPI.createTerminalSession();
-
-    dispatch(
-      terminalSessionReady({
-        terminal: result.terminal,
-      }),
-    );
-    dispatch(showBottomPanel("terminal"));
-
+  const listTerminalProfiles = useCallback(async () => {
+    const result = await window.electronAPI.listTerminalProfiles();
+    syncTerminalProfiles(result);
     return result;
-  }, [dispatch]);
+  }, [syncTerminalProfiles]);
+
+  const setDefaultTerminalProfile = useCallback(
+    async (profileId: string) => {
+      const result = await window.electronAPI.setDefaultTerminalProfile(profileId);
+      syncTerminalProfiles(result);
+      return result;
+    },
+    [syncTerminalProfiles],
+  );
+
+  const createTerminal = useCallback(
+    async (profileId?: string | null) => {
+      const result = await window.electronAPI.createTerminalSession({
+        profileId: profileId ?? null,
+      });
+
+      syncTerminalList(result);
+      dispatch(
+        terminalSessionReady({
+          terminal: result.terminal,
+        }),
+      );
+      dispatch(showBottomPanel("terminal"));
+
+      return result;
+    },
+    [dispatch, syncTerminalList],
+  );
+
+  const closeTerminal = useCallback(
+    async (terminalId: string) => {
+      const result = await window.electronAPI.closeTerminalSession(terminalId);
+      syncTerminalList(result);
+      return result;
+    },
+    [syncTerminalList],
+  );
 
   const activateTerminal = useCallback(
     async (terminalId: string) => {
@@ -136,7 +174,10 @@ export function useDesktopActions() {
   return {
     ensureTerminalSession,
     listTerminalSessions,
+    listTerminalProfiles,
+    setDefaultTerminalProfile,
     createTerminal,
+    closeTerminal,
     activateTerminal,
     openTerminal,
     toggleTerminal,
