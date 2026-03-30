@@ -8,6 +8,7 @@ type CellEditorProps = {
   language: string;
   value: string;
   theme: ThemeName;
+  fontSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
   onChange: (nextValue: string) => void;
   onSaveRequest: () => Promise<void>;
@@ -26,6 +27,7 @@ export default function CellEditor({
   language,
   value,
   theme,
+  fontSize,
   beforeMount,
   onChange,
   onSaveRequest,
@@ -134,7 +136,7 @@ export default function CellEditor({
       theme={getMonacoThemeName(theme)}
       options={{
         minimap: { enabled: false },
-        fontSize: 14,
+        fontSize,
         lineNumbers,
         automaticLayout: true,
         scrollBeyondLastLine: false,

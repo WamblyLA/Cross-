@@ -1550,7 +1550,7 @@ export default function FileTree() {
   if (!rootPath) {
     return (
       <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted">
-        Папка пока не открыта. Используйте File -&gt; Открыть папку в верхнем меню.
+        Папка пока не открыта. Используйте Файл -&gt; Открыть папку в верхнем меню.
       </div>
     );
   }

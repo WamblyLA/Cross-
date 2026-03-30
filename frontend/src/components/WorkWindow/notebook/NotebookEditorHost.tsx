@@ -22,6 +22,8 @@ type NotebookEditorHostProps = {
   content: string;
   isDirty: boolean;
   theme: ThemeName;
+  fontSize: number;
+  tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
   runtimeContext:
     | {
@@ -56,6 +58,8 @@ export default function NotebookEditorHost({
   content,
   isDirty,
   theme,
+  fontSize,
+  tabSize,
   beforeMount,
   runtimeContext,
   onCommitContent,
@@ -458,13 +462,15 @@ export default function NotebookEditorHost({
             </div>
           </div>
         ) : (
-          <CellList
-            cells={document.cells}
-            editorLanguage={editorLanguage}
-            filePath={filePath}
-            theme={theme}
-            beforeMount={beforeMount}
-            cellExecutionState={execution.cellStates}
+            <CellList
+              cells={document.cells}
+              editorLanguage={editorLanguage}
+              filePath={filePath}
+              theme={theme}
+              fontSize={fontSize}
+              tabSize={tabSize}
+              beforeMount={beforeMount}
+              cellExecutionState={execution.cellStates}
             canExecuteCodeCells={!parseError && execution.canExecute && !execution.isRunningAnyCell}
             selectedCellId={selectedCellId}
             focusTargetCellId={focusTargetCellId}

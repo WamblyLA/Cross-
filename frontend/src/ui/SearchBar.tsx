@@ -47,7 +47,7 @@ export default function SearchBar({
           : "Фильтр по списку облачных проектов"
       : rootPath
         ? "Фильтр по локальному проекту"
-        : "Откройте локальную папку через меню File или Ctrl+O, чтобы фильтровать файлы");
+        : "Откройте локальную папку через меню Файл или Ctrl+O, чтобы фильтровать файлы");
 
   return (
     <div className={joinClasses("ui-field flex h-9 min-w-0 items-center gap-2 px-3", className)}>

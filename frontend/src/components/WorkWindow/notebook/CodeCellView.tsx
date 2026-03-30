@@ -11,6 +11,8 @@ type CodeCellViewProps = {
   editorLanguage: string;
   filePath: string;
   theme: ThemeName;
+  fontSize: number;
+  tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
   executionState: {
     isRunning: boolean;
@@ -57,6 +59,8 @@ export default function CodeCellView({
   editorLanguage,
   filePath,
   theme,
+  fontSize,
+  tabSize,
   beforeMount,
   executionState,
   canExecute,
@@ -133,6 +137,7 @@ export default function CodeCellView({
           language={editorLanguage}
           value={cell.source}
           theme={theme}
+          fontSize={fontSize}
           beforeMount={beforeMount}
           onChange={(nextValue) => onChangeSource(cell.localId, nextValue)}
           onSaveRequest={onSaveRequest}
@@ -142,7 +147,7 @@ export default function CodeCellView({
           focusToken={focusToken}
           lineNumbers="on"
           minHeight={160}
-          tabSize={4}
+          tabSize={tabSize}
         />
 
         <div className="mt-4">

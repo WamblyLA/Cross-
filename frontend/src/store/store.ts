@@ -5,6 +5,7 @@ import filesReducer from "../features/files/filesSlice";
 import panelReducer from "../features/panel/panelSlice";
 import runReducer from "../features/run/runSlice";
 import terminalReducer from "../features/terminal/terminalSlice";
+import visualSettingsReducer from "../features/visualSettings/visualSettingsSlice";
 import workspaceReducer from "../features/workspace/workspaceSlice";
 
 const store = configureStore({
@@ -15,6 +16,7 @@ const store = configureStore({
     panel: panelReducer,
     run: runReducer,
     terminal: terminalReducer,
+    visualSettings: visualSettingsReducer,
     workspace: workspaceReducer,
   },
 });

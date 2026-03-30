@@ -10,6 +10,8 @@ type CellListProps = {
   editorLanguage: string;
   filePath: string;
   theme: ThemeName;
+  fontSize: number;
+  tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
   cellExecutionState: Record<
     string,
@@ -39,6 +41,8 @@ export default function CellList({
   editorLanguage,
   filePath,
   theme,
+  fontSize,
+  tabSize,
   beforeMount,
   cellExecutionState,
   canExecuteCodeCells,
@@ -71,6 +75,8 @@ export default function CellList({
               editorLanguage={editorLanguage}
               filePath={filePath}
               theme={theme}
+              fontSize={fontSize}
+              tabSize={tabSize}
               beforeMount={beforeMount}
               executionState={
                 cellExecutionState[cell.localId] ?? {
@@ -100,6 +106,8 @@ export default function CellList({
               index={index}
               filePath={filePath}
               theme={theme}
+              fontSize={fontSize}
+              tabSize={tabSize}
               beforeMount={beforeMount}
               isSelected={isSelected}
               focusToken={focusToken}

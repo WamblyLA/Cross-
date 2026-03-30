@@ -22,6 +22,7 @@ export type CloudFileSummary = {
   projectId: string;
   folderId: string | null;
   name: string;
+  version?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -39,6 +40,7 @@ export type CloudProjectTree = {
 
 export type CloudFile = CloudFileSummary & {
   content: string;
+  version: number;
 };
 
 export type CloudRunSnapshotFolder = CloudFolderSummary & {

@@ -14,6 +14,8 @@ type MarkdownEditorProps = {
   content: string;
   isDirty: boolean;
   theme: ThemeName;
+  fontSize: number;
+  tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
   onCommitContent: (nextContent: string) => void;
   onMarkDirty: () => void;
@@ -41,6 +43,8 @@ export default function MarkdownEditor({
   content,
   isDirty,
   theme,
+  fontSize,
+  tabSize,
   beforeMount,
   onCommitContent,
   onMarkDirty,
@@ -139,13 +143,15 @@ export default function MarkdownEditor({
   const handleDraftChange = useCallback(
     (nextValue: string) => {
       setDraftContent(nextValue);
+      lastCommittedContentRef.current = nextValue;
+      onCommitContent(nextValue);
 
       if (!dirtyNotifiedRef.current) {
         dirtyNotifiedRef.current = true;
         onMarkDirty();
       }
     },
-    [onMarkDirty],
+    [onCommitContent, onMarkDirty],
   );
 
   const editorPane = (
@@ -160,14 +166,14 @@ export default function MarkdownEditor({
       theme={getMonacoThemeName(theme)}
       options={{
         minimap: { enabled: false },
-        fontSize: 14,
+        fontSize,
         lineNumbers: "on",
         automaticLayout: true,
         wordWrap: "on",
         scrollBeyondLastLine: false,
         smoothScrolling: true,
         renderWhitespace: "selection",
-        tabSize: 2,
+        tabSize,
         insertSpaces: true,
         padding: {
           top: 16,

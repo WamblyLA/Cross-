@@ -19,6 +19,7 @@ import {
 import { selectCloudActiveProjectId, selectCloudProjects } from "../features/cloud/cloudSelectors";
 import { selectCloudItem, setActiveProjectId } from "../features/cloud/cloudSlice";
 import {
+  applyCloudFileSavedSnapshot,
   clearLocalFiles,
   closeCloudFile,
   closeCloudFiles,
@@ -29,6 +30,10 @@ import {
   retargetCloudFiles,
   setActiveFile,
 } from "../features/files/filesSlice";
+import {
+  flushActiveCloudRealtimeUpdate,
+  isCloudRealtimeHandlingFile,
+} from "../features/cloud/realtime/cloudRealtimeClient";
 import { selectActiveFile, selectOpenedFiles } from "../features/files/filesSelectors";
 import { setRootPath, setWorkspaceSource } from "../features/workspace/workspaceSlice";
 import { normalizeApiError } from "../lib/api/errorNormalization";
@@ -72,17 +77,31 @@ export function useWorkspaceActions() {
     try {
       if (activeFile.kind === "local") {
         await window.electronAPI.writeFile(activeFile.path, activeFile.content);
+        dispatch(markFileSaved(activeFile.tabId));
       } else {
-        await dispatch(
-          saveCloudProjectFile({
-            projectId: activeFile.projectId,
-            fileId: activeFile.fileId,
-            content: activeFile.content,
-          }),
-        ).unwrap();
-      }
+        const savedViaRealtime = isCloudRealtimeHandlingFile(activeFile.fileId)
+          ? await flushActiveCloudRealtimeUpdate(activeFile.fileId)
+          : false;
 
-      dispatch(markFileSaved(activeFile.tabId));
+        if (!savedViaRealtime) {
+          const response = await dispatch(
+            saveCloudProjectFile({
+              projectId: activeFile.projectId,
+              fileId: activeFile.fileId,
+              content: activeFile.content,
+            }),
+          ).unwrap();
+
+          dispatch(
+            applyCloudFileSavedSnapshot({
+              fileId: response.file.id,
+              content: response.file.content,
+              version: response.file.version,
+              updatedAt: response.file.updatedAt,
+            }),
+          );
+        }
+      }
 
       return {
         ok: true,
@@ -157,6 +176,8 @@ export function useWorkspaceActions() {
           fileId: response.file.id,
           name: response.file.name,
           content: response.file.content,
+          version: response.file.version,
+          updatedAt: response.file.updatedAt,
         }),
       );
 
@@ -228,6 +249,8 @@ export function useWorkspaceActions() {
           fileId: response.file.id,
           name: response.file.name,
           content: response.file.content,
+          version: response.file.version,
+          updatedAt: response.file.updatedAt,
         }),
       );
 

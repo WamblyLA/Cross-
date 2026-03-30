@@ -1,5 +1,6 @@
 import { getBaseName, getExtension } from "../../utils/path";
 import { buildCloudEditorPath, buildCloudTabId } from "../cloud/cloudTypes";
+import type { CloudFileSyncStatus } from "../cloud/realtime/cloudRealtimeTypes";
 
 type BaseOpenedFile = {
   tabId: string;
@@ -19,6 +20,10 @@ export type CloudOpenedFile = BaseOpenedFile & {
   kind: "cloud";
   projectId: string;
   fileId: string;
+  version: number;
+  updatedAt: string | null;
+  syncStatus: CloudFileSyncStatus;
+  lastSyncedContent: string;
 };
 
 export type OpenedFile = LocalOpenedFile | CloudOpenedFile;
@@ -45,6 +50,8 @@ export function buildCloudOpenedFile(payload: {
   fileId: string;
   name: string;
   content: string;
+  version: number;
+  updatedAt?: string | null;
 }): CloudOpenedFile {
   return {
     kind: "cloud",
@@ -56,5 +63,9 @@ export function buildCloudOpenedFile(payload: {
     extension: getExtension(payload.name),
     content: payload.content,
     isDirty: false,
+    version: payload.version,
+    updatedAt: payload.updatedAt ?? null,
+    syncStatus: "offline",
+    lastSyncedContent: payload.content,
   };
 }

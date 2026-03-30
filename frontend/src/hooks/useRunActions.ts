@@ -1,8 +1,12 @@
 import { useCallback, useMemo, useRef } from "react";
 import * as cloudApi from "../features/cloud/cloudApi";
 import { selectCloudActiveProject } from "../features/cloud/cloudSelectors";
+import {
+  flushActiveCloudRealtimeUpdate,
+  isCloudRealtimeHandlingFile,
+} from "../features/cloud/realtime/cloudRealtimeClient";
 import { saveCloudProjectFile } from "../features/cloud/cloudThunks";
-import { markFileSaved } from "../features/files/filesSlice";
+import { applyCloudFileSavedSnapshot, markFileSaved } from "../features/files/filesSlice";
 import { selectActiveFile, selectOpenedFiles } from "../features/files/filesSelectors";
 import type { OpenedFile } from "../features/files/fileTypes";
 import { activateBottomPanelTab, showBottomPanel } from "../features/panel/panelSlice";
@@ -147,17 +151,31 @@ export function useRunActions() {
 
       if (file.kind === "local") {
         await window.electronAPI.writeFile(file.path, file.content);
+        dispatch(markFileSaved(file.tabId));
       } else {
-        await dispatch(
-          saveCloudProjectFile({
-            projectId: file.projectId,
-            fileId: file.fileId,
-            content: file.content,
-          }),
-        ).unwrap();
-      }
+        const savedViaRealtime = isCloudRealtimeHandlingFile(file.fileId)
+          ? await flushActiveCloudRealtimeUpdate(file.fileId)
+          : false;
 
-      dispatch(markFileSaved(file.tabId));
+        if (!savedViaRealtime) {
+          const response = await dispatch(
+            saveCloudProjectFile({
+              projectId: file.projectId,
+              fileId: file.fileId,
+              content: file.content,
+            }),
+          ).unwrap();
+
+          dispatch(
+            applyCloudFileSavedSnapshot({
+              fileId: response.file.id,
+              content: response.file.content,
+              version: response.file.version,
+              updatedAt: response.file.updatedAt,
+            }),
+          );
+        }
+      }
     },
     [dispatch],
   );

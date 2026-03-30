@@ -1,16 +1,13 @@
 import "dotenv/config";
+import { createServer } from "node:http";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import {
-  API_URL,
-  CORS_ORIGINS,
-  JSON_BODY_LIMIT,
-  PORT,
-} from "./config.js";
+import { API_URL, CORS_ORIGINS, JSON_BODY_LIMIT, PORT } from "./config.js";
 import { prisma } from "./lib/prisma.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
+import { setupWebSocketServer } from "./realtime/wsServer.js";
 import authRouter from "./routes/auth.js";
 import filesRouter from "./routes/files.js";
 import foldersRouter from "./routes/folders.js";
@@ -46,11 +43,15 @@ app.use("/api/projects", projectsRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-const server = app.listen(PORT, () => {
+const server = createServer(app);
+setupWebSocketServer(server);
+
+server.listen(PORT, () => {
   console.log(`Сервер запущен на порту ${PORT}`);
   console.log(`API: ${API_URL}`);
-  console.log(`Разрешённые origin: ${CORS_ORIGINS.join(", ")}`);
+  console.log(`Разрешенные origin: ${CORS_ORIGINS.join(", ")}`);
 });
+
 async function shutdown(signal: string) {
   console.log(`Получен сигнал ${signal}, завершаюсь`);
 

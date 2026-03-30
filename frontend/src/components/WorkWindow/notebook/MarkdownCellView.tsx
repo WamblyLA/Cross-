@@ -11,6 +11,8 @@ type MarkdownCellViewProps = {
   index: number;
   filePath: string;
   theme: ThemeName;
+  fontSize: number;
+  tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
   isSelected: boolean;
   focusToken: number;
@@ -29,6 +31,8 @@ export default function MarkdownCellView({
   index,
   filePath,
   theme,
+  fontSize,
+  tabSize,
   beforeMount,
   isSelected,
   focusToken,
@@ -153,6 +157,7 @@ export default function MarkdownCellView({
             language="markdown"
             value={cell.source}
             theme={theme}
+            fontSize={fontSize}
             beforeMount={beforeMount}
             onChange={(nextValue) => onChangeSource(cell.localId, nextValue)}
             onSaveRequest={onSaveRequest}
@@ -162,7 +167,7 @@ export default function MarkdownCellView({
             focusToken={focusToken}
             lineNumbers="off"
             minHeight={120}
-            tabSize={2}
+            tabSize={tabSize}
           />
         )}
       </div>

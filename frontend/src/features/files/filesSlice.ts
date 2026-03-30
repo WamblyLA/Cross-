@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { logout, restoreSession } from "../auth/authThunks";
 import { buildCloudEditorPath, buildCloudTabId } from "../cloud/cloudTypes";
+import type { CloudFileSyncStatus } from "../cloud/realtime/cloudRealtimeTypes";
 import {
   buildCloudOpenedFile,
   buildLocalOpenedFile,
@@ -33,6 +34,14 @@ function closeByPredicate(state: FilesState, predicate: (file: OpenedFile) => bo
   }
 }
 
+function findCloudFile(state: FilesState, fileId: string) {
+  const file = state.openedFiles.find(
+    (item) => item.kind === "cloud" && item.fileId === fileId,
+  );
+
+  return file?.kind === "cloud" ? file : null;
+}
+
 const filesSlice = createSlice({
   name: "files",
   initialState,
@@ -60,6 +69,8 @@ const filesSlice = createSlice({
         fileId: string;
         name: string;
         content: string;
+        version: number;
+        updatedAt?: string | null;
       }>,
     ) {
       const nextFile = buildCloudOpenedFile(action.payload);
@@ -89,6 +100,10 @@ const filesSlice = createSlice({
 
       existing.content = action.payload.content;
       existing.isDirty = true;
+
+      if (existing.kind === "cloud" && existing.syncStatus === "live") {
+        existing.syncStatus = "syncing";
+      }
     },
     markFileDirty(state, action: PayloadAction<string>) {
       const existing = state.openedFiles.find((file) => file.tabId === action.payload);
@@ -102,6 +117,122 @@ const filesSlice = createSlice({
 
       if (existing) {
         existing.isDirty = false;
+
+        if (existing.kind === "cloud") {
+          existing.lastSyncedContent = existing.content;
+        }
+      }
+    },
+    setCloudFileSyncStatus(
+      state,
+      action: PayloadAction<{
+        fileId: string;
+        syncStatus: CloudFileSyncStatus;
+      }>,
+    ) {
+      const existing = findCloudFile(state, action.payload.fileId);
+
+      if (!existing) {
+        return;
+      }
+
+      existing.syncStatus = action.payload.syncStatus;
+    },
+    setCloudFileJoinedVersion(
+      state,
+      action: PayloadAction<{
+        fileId: string;
+        version: number;
+      }>,
+    ) {
+      const existing = findCloudFile(state, action.payload.fileId);
+
+      if (!existing) {
+        return;
+      }
+
+      existing.version = action.payload.version;
+    },
+    applyCloudFileRealtimeAck(
+      state,
+      action: PayloadAction<{
+        fileId: string;
+        acceptedContent: string | null;
+        version: number;
+        updatedAt: string;
+      }>,
+    ) {
+      const existing = findCloudFile(state, action.payload.fileId);
+
+      if (!existing) {
+        return;
+      }
+
+      existing.version = action.payload.version;
+      existing.updatedAt = action.payload.updatedAt;
+
+      if (action.payload.acceptedContent !== null) {
+        existing.lastSyncedContent = action.payload.acceptedContent;
+
+        if (existing.content === action.payload.acceptedContent) {
+          existing.isDirty = false;
+        }
+      }
+
+      existing.syncStatus = existing.isDirty ? "syncing" : "live";
+    },
+    applyCloudFileRemoteUpdate(
+      state,
+      action: PayloadAction<{
+        fileId: string;
+        content: string;
+        version: number;
+        updatedAt: string;
+      }>,
+    ) {
+      const existing = findCloudFile(state, action.payload.fileId);
+
+      if (!existing) {
+        return;
+      }
+
+      existing.version = action.payload.version;
+      existing.updatedAt = action.payload.updatedAt;
+      existing.lastSyncedContent = action.payload.content;
+      existing.syncStatus = "live";
+
+      if (existing.content === action.payload.content) {
+        existing.isDirty = false;
+        return;
+      }
+
+      existing.content = action.payload.content;
+      existing.isDirty = false;
+    },
+    applyCloudFileSavedSnapshot(
+      state,
+      action: PayloadAction<{
+        fileId: string;
+        content: string;
+        version: number;
+        updatedAt: string;
+      }>,
+    ) {
+      const existing = findCloudFile(state, action.payload.fileId);
+
+      if (!existing) {
+        return;
+      }
+
+      existing.version = action.payload.version;
+      existing.updatedAt = action.payload.updatedAt;
+      existing.lastSyncedContent = action.payload.content;
+      existing.isDirty = false;
+
+      if (existing.syncStatus === "error") {
+        existing.syncStatus = "offline";
+      } else if (existing.syncStatus === "live" || existing.syncStatus === "syncing") {
+        existing.syncStatus = "live";
       }
     },
     renameFilePath(
@@ -303,6 +434,11 @@ export const {
   updateFileContent,
   markFileDirty,
   markFileSaved,
+  setCloudFileSyncStatus,
+  setCloudFileJoinedVersion,
+  applyCloudFileRealtimeAck,
+  applyCloudFileRemoteUpdate,
+  applyCloudFileSavedSnapshot,
   renameFilePath,
   renameCloudFileMetadata,
   retargetCloudFiles,

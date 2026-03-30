@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { RxCross1 } from "react-icons/rx";
 import { selectIsAuthenticated } from "../../features/auth/authSelectors";
 import { selectCloudActiveProject } from "../../features/cloud/cloudSelectors";
+import { useCloudRealtimeFile } from "../../features/cloud/realtime/useCloudRealtimeFile";
 import {
   closeFile,
   markFileDirty,
@@ -15,6 +16,7 @@ import {
   selectActiveTabId,
   selectOpenedFiles,
 } from "../../features/files/filesSelectors";
+import { selectCurrentVisualSettings } from "../../features/visualSettings/visualSettingsSelectors";
 import { useWorkspaceActions } from "../../hooks/useWorkspaceActions";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { registerMonacoThemes } from "../../styles/monacoTheme";
@@ -86,10 +88,13 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
   const openedFiles = useAppSelector(selectOpenedFiles);
   const activeTabId = useAppSelector(selectActiveTabId);
   const activeFile = useAppSelector(selectActiveFile);
+  const visualSettings = useAppSelector(selectCurrentVisualSettings);
   const { saveActiveFile } = useWorkspaceActions();
 
   const isNotebookFile = activeFile?.extension?.toLowerCase() === "ipynb";
   const isMarkdownFile = activeFile?.extension?.toLowerCase() === "md";
+
+  useCloudRealtimeFile(activeFile);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const previousNotebookTabIdsRef = useRef<Set<string>>(new Set());
@@ -252,7 +257,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         <div className="min-h-0 flex-1 bg-editor">
           <EmptyEditorState
             title="Откройте локальную папку"
-            description="Откройте проект через меню File или сочетанием Ctrl+O"
+            description="Откройте проект через меню Файл или сочетанием Ctrl+O"
           />
         </div>
       );
@@ -315,6 +320,8 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
               content={activeFile.content}
               isDirty={activeFile.isDirty}
               theme={theme}
+              fontSize={visualSettings.fontSize}
+              tabSize={visualSettings.tabSize}
               beforeMount={beforeMount}
               runtimeContext={
                 activeFile.kind === "local"
@@ -343,6 +350,8 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
               content={activeFile.content}
               isDirty={activeFile.isDirty}
               theme={theme}
+              fontSize={visualSettings.fontSize}
+              tabSize={visualSettings.tabSize}
               beforeMount={beforeMount}
               onCommitContent={handleCommitActiveFileContent}
               onMarkDirty={handleMarkActiveFileDirty}
@@ -360,14 +369,14 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
               theme={getMonacoThemeName(theme)}
               options={{
                 minimap: { enabled: false },
-                fontSize: 14,
+                fontSize: visualSettings.fontSize,
                 lineNumbers: "on",
                 automaticLayout: true,
                 wordWrap: "off",
                 scrollBeyondLastLine: true,
                 smoothScrolling: true,
                 renderWhitespace: "none",
-                tabSize: 4,
+                tabSize: visualSettings.tabSize,
                 insertSpaces: true,
               }}
             />

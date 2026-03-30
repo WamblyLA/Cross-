@@ -16,7 +16,6 @@ import { requestExplorerAction, setWorkspaceSource } from "../../features/worksp
 import { useDesktopActions } from "../../hooks/useDesktopActions";
 import { useRunActions } from "../../hooks/useRunActions";
 import { useWorkspaceActions } from "../../hooks/useWorkspaceActions";
-import type { ThemeName } from "../../styles/tokens";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import SearchBar from "../../ui/SearchBar";
 import TopBarAccountControls from "./TopBarAccountControls";
@@ -24,8 +23,7 @@ import TopBarIcon from "./TopBarIcon";
 import TopBarRunButton from "./TopBarRunButton";
 
 type TopBarProps = {
-  theme: ThemeName;
-  onToggleTheme: () => void;
+  onOpenVisualSettings: () => void;
 };
 
 type MenuItem = {
@@ -231,7 +229,7 @@ function OverflowPanel({
   );
 }
 
-export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
+export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const menuRootRef = useRef<HTMLDivElement | null>(null);
@@ -251,7 +249,6 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     "view",
     "terminal",
     "run",
-    "settings",
   ]);
   const [overflowSubmenu, setOverflowSubmenu] = useState<OverflowSubmenuState | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -339,9 +336,6 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
     dispatch(requestExplorerAction("create-project"));
   }, [dispatch]);
 
-  const settingsLabel =
-    theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему";
-
   const primaryMenus = useMemo<MenuConfig[]>(
     () => [
       {
@@ -428,6 +422,11 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
                 label: isTerminalVisible ? "Скрыть терминал" : "Показать терминал",
                 shortcut: "Ctrl+J",
                 onSelect: () => (isTerminalVisible ? toggleTerminal() : openTerminal()),
+              },
+              {
+                id: "open-visual-settings",
+                label: "Настройки внешнего вида",
+                onSelect: onOpenVisualSettings,
               },
               {
                 id: "refresh-tree",
@@ -530,22 +529,6 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
           },
         ],
       },
-      {
-        id: "settings",
-        label: "Настройки",
-        sections: [
-          {
-            id: "settings-main",
-            items: [
-              {
-                id: "toggle-theme",
-                label: settingsLabel,
-                onSelect: onToggleTheme,
-              },
-            ],
-          },
-        ],
-      },
     ],
     [
       activeFile,
@@ -572,14 +555,13 @@ export default function TopBar({ theme, onToggleTheme }: TopBarProps) {
       focusTerminal,
       interruptTerminal,
       openRunConfigurationDialog,
-      onToggleTheme,
+      onOpenVisualSettings,
       openFolder,
       openSearch,
       openTerminal,
       rerun,
       runSelectedConfiguration,
       saveActiveFile,
-      settingsLabel,
       source,
       stopRun,
       terminalSessions,

@@ -7,6 +7,8 @@ type NotebookEditorProps = {
   content: string;
   isDirty: boolean;
   theme: ThemeName;
+  fontSize: number;
+  tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
   runtimeContext:
     | {

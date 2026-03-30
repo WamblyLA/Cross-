@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import VisualSettingsDialog from "../components/settings/VisualSettingsDialog";
 import TopBar from "../components/TopBar/TopBar";
 import { selectIsAuthenticated } from "../features/auth/authSelectors";
 import { selectCloudProjectsStatus } from "../features/cloud/cloudSelectors";
@@ -17,21 +18,15 @@ import {
 } from "../features/terminal/terminalSlice";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-import type { ThemeName } from "../styles/tokens";
-
-type AppShellLayoutProps = {
-  theme: ThemeName;
-  onToggleTheme: () => void;
-};
-
 function isRunBusy(status: string) {
   return ["preparing", "materializing", "building", "running"].includes(status);
 }
 
-export default function AppShellLayout({ theme, onToggleTheme }: AppShellLayoutProps) {
+export default function AppShellLayout() {
   const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const cloudProjectsStatus = useAppSelector(selectCloudProjectsStatus);
+  const [isVisualSettingsOpen, setIsVisualSettingsOpen] = useState(false);
 
   useGlobalShortcuts();
 
@@ -99,10 +94,14 @@ export default function AppShellLayout({ theme, onToggleTheme }: AppShellLayoutP
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-app text-primary">
-      <TopBar theme={theme} onToggleTheme={onToggleTheme} />
+      <TopBar onOpenVisualSettings={() => setIsVisualSettingsOpen(true)} />
       <div className="min-h-0 flex-1">
         <Outlet />
       </div>
+      <VisualSettingsDialog
+        isOpen={isVisualSettingsOpen}
+        onClose={() => setIsVisualSettingsOpen(false)}
+      />
     </div>
   );
 }
