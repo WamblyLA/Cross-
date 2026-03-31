@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import queue
+import re
 import sys
 import threading
 import traceback
@@ -13,6 +14,8 @@ from jupyter_client.kernelspec import KernelSpecManager
 
 READY_TIMEOUT_SECONDS = 15
 MESSAGE_POLL_TIMEOUT_SECONDS = 0.2
+ANSI_ESCAPE_RE = re.compile(r"\x1B(?:\][^\x07]*(?:\x07|\x1b\\)|[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+MOJIBAKE_PAIR_RE = re.compile(r"[\u0420\u0421][\u0080-\u04ff]")
 
 
 def configure_stdio() -> None:
@@ -55,12 +58,38 @@ def send_event(event: dict[str, Any]) -> None:
     send_message({"type": "event", "event": event})
 
 
+def strip_ansi_sequences(value: str) -> str:
+    return ANSI_ESCAPE_RE.sub("", value)
+
+
+def maybe_fix_utf8_mojibake(value: str) -> str:
+    if not value:
+        return value
+
+    original_score = len(MOJIBAKE_PAIR_RE.findall(value))
+    if original_score < 2:
+        return value
+
+    try:
+        repaired = value.encode("cp1251").decode("utf-8")
+    except UnicodeError:
+        return value
+
+    repaired_score = len(MOJIBAKE_PAIR_RE.findall(repaired))
+    return repaired if repaired_score < original_score else value
+
+
+def sanitize_text_output(value: str) -> str:
+    without_ansi = strip_ansi_sequences(value).replace("\r\n", "\n")
+    return maybe_fix_utf8_mojibake(without_ansi)
+
+
 def normalize_text(value: Any) -> str:
     if isinstance(value, list):
-        return "".join(str(part) for part in value)
+        return sanitize_text_output("".join(str(part) for part in value))
     if value is None:
         return ""
-    return str(value)
+    return sanitize_text_output(str(value))
 
 
 def normalize_stream_output(content: dict[str, Any]) -> dict[str, Any]:
@@ -74,14 +103,14 @@ def normalize_stream_output(content: dict[str, Any]) -> dict[str, Any]:
 def normalize_error_output(content: dict[str, Any]) -> dict[str, Any]:
     traceback_lines = content.get("traceback")
     if isinstance(traceback_lines, list):
-        normalized_traceback = [str(line) for line in traceback_lines]
+        normalized_traceback = [sanitize_text_output(str(line)) for line in traceback_lines]
     else:
         normalized_traceback = []
 
     return {
         "output_type": "error",
-        "ename": str(content.get("ename") or "Error"),
-        "evalue": str(content.get("evalue") or ""),
+        "ename": sanitize_text_output(str(content.get("ename") or "Error")),
+        "evalue": sanitize_text_output(str(content.get("evalue") or "")),
         "traceback": normalized_traceback,
     }
 

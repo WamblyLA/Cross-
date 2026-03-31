@@ -9,6 +9,7 @@ import {
   type NotebookRecord,
   type ParsedNotebookDocument,
 } from "./types";
+import { sanitizeNotebookTextOutput } from "./notebookTextOutput";
 
 const DEFAULT_NBFORMAT = 4;
 const DEFAULT_NBFORMAT_MINOR = 5;
@@ -45,17 +46,17 @@ function normalizeOutput(output: unknown): NotebookOutput | null {
     return {
       output_type: "stream",
       name: output.name === "stderr" ? "stderr" : "stdout",
-      text: normalizeSource(output.text),
+      text: sanitizeNotebookTextOutput(normalizeSource(output.text)),
     };
   }
 
   if (output.output_type === "error") {
     return {
       output_type: "error",
-      ename: `${output.ename ?? "Ошибка"}`,
-      evalue: `${output.evalue ?? ""}`,
+      ename: sanitizeNotebookTextOutput(String(output.ename ?? "Error")),
+      evalue: sanitizeNotebookTextOutput(String(output.evalue ?? "")),
       traceback: Array.isArray(output.traceback)
-        ? output.traceback.map((line) => `${line ?? ""}`)
+        ? output.traceback.map((line) => sanitizeNotebookTextOutput(String(line ?? "")))
         : [],
     };
   }
@@ -175,7 +176,10 @@ export function parseNotebookContent(content: string): ParsedNotebookDocument {
   } catch (error) {
     return {
       document: createEmptyNotebookDocument(),
-      parseError: error instanceof Error ? error.message : "Некорректный JSON ноутбука.",
+      parseError:
+        error instanceof Error
+          ? error.message
+          : "Ошибка JSON ноутбука",
     };
   }
 }

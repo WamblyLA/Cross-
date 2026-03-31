@@ -2,6 +2,7 @@ import {
   createEmptyNotebookDocument as createEmptyDocumentState,
   createNotebookCellModel,
 } from "./notebookPersistence";
+import { sanitizeNotebookTextOutput } from "./notebookTextOutput";
 import type {
   EditableNotebookCellType,
   NotebookCellMode,
@@ -106,7 +107,7 @@ export function setNotebookCellMode(
             ...cell,
             mode,
           }
-      : cell,
+        : cell,
     ),
   };
 }
@@ -122,16 +123,16 @@ function cloneOutput(output: NotebookOutput): NotebookOutput {
     return {
       output_type: "stream",
       name: output.name,
-      text: output.text,
+      text: sanitizeNotebookTextOutput(output.text),
     };
   }
 
   if (output.output_type === "error") {
     return {
       output_type: "error",
-      ename: output.ename,
-      evalue: output.evalue,
-      traceback: [...output.traceback],
+      ename: sanitizeNotebookTextOutput(output.ename),
+      evalue: sanitizeNotebookTextOutput(output.evalue),
+      traceback: output.traceback.map((line) => sanitizeNotebookTextOutput(line)),
     };
   }
 

@@ -1,6 +1,6 @@
 import { Editor } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RxCross1 } from "react-icons/rx";
 import { selectIsAuthenticated } from "../../features/auth/authSelectors";
 import { selectCloudActiveProject } from "../../features/cloud/cloudSelectors";
@@ -23,6 +23,7 @@ import { registerMonacoThemes } from "../../styles/monacoTheme";
 import { getMonacoThemeName, type ThemeName } from "../../styles/tokens";
 import MarkdownEditor from "./MarkdownEditor";
 import NotebookEditor from "./NotebookEditor";
+import UnsavedFileCloseDialog from "./UnsavedFileCloseDialog";
 
 type WorkWindowProps = {
   theme: ThemeName;
@@ -98,6 +99,10 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const previousNotebookTabIdsRef = useRef<Set<string>>(new Set());
+  const [pendingCloseFile, setPendingCloseFile] = useState<{
+    tabId: string;
+    fileName: string;
+  } | null>(null);
 
   const handleSave = useCallback(async () => {
     const result = await saveActiveFile();
@@ -145,6 +150,18 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
 
     previousNotebookTabIdsRef.current = currentNotebookTabIds;
   }, [openedFiles]);
+
+  useEffect(() => {
+    if (!pendingCloseFile) {
+      return;
+    }
+
+    const fileStillOpen = openedFiles.some((file) => file.tabId === pendingCloseFile.tabId);
+
+    if (!fileStillOpen) {
+      setPendingCloseFile(null);
+    }
+  }, [openedFiles, pendingCloseFile]);
 
   const beforeMount = useCallback((monacoInstance: typeof monaco) => {
     registerMonacoThemes(monacoInstance);
@@ -217,6 +234,45 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
     },
     [activeFile, dispatch, saveActiveFile],
   );
+
+  const handleRequestCloseFile = useCallback(
+    (tabId: string) => {
+      const file = openedFiles.find((openedFile) => openedFile.tabId === tabId);
+
+      if (!file) {
+        return;
+      }
+
+      if (!file.isDirty) {
+        dispatch(closeFile(tabId));
+        return;
+      }
+
+      setPendingCloseFile({
+        tabId,
+        fileName: file.name,
+      });
+    },
+    [dispatch, openedFiles],
+  );
+
+  const handleCancelCloseFile = useCallback(() => {
+    setPendingCloseFile(null);
+  }, []);
+
+  const handleConfirmCloseFile = useCallback(() => {
+    if (!pendingCloseFile) {
+      return;
+    }
+
+    const fileStillOpen = openedFiles.some((file) => file.tabId === pendingCloseFile.tabId);
+
+    if (fileStillOpen) {
+      dispatch(closeFile(pendingCloseFile.tabId));
+    }
+
+    setPendingCloseFile(null);
+  }, [dispatch, openedFiles, pendingCloseFile]);
 
   if (!activeFile) {
     if (source === "cloud") {
@@ -299,7 +355,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
                 className="ui-control h-5 w-5 shrink-0"
                 onClick={(event) => {
                   event.stopPropagation();
-                  dispatch(closeFile(file.tabId));
+                  handleRequestCloseFile(file.tabId);
                 }}
                 title="Закрыть файл"
               >
@@ -388,6 +444,14 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
           />
         )}
       </div>
+
+      {pendingCloseFile ? (
+        <UnsavedFileCloseDialog
+          fileName={pendingCloseFile.fileName}
+          onConfirm={handleConfirmCloseFile}
+          onCancel={handleCancelCloseFile}
+        />
+      ) : null}
     </div>
   );
 }
