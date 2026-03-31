@@ -90,7 +90,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
   const activeTabId = useAppSelector(selectActiveTabId);
   const activeFile = useAppSelector(selectActiveFile);
   const visualSettings = useAppSelector(selectCurrentVisualSettings);
-  const { saveActiveFile } = useWorkspaceActions();
+  const { saveActiveFile, saveFileByTabId } = useWorkspaceActions();
 
   const isNotebookFile = activeFile?.extension?.toLowerCase() === "ipynb";
   const isMarkdownFile = activeFile?.extension?.toLowerCase() === "md";
@@ -187,29 +187,28 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
     [activeFile, dispatch],
   );
 
-  const handleCommitActiveFileContent = useCallback(
-    (nextContent: string) => {
-      if (!activeFile) {
-        return;
-      }
-
+  const handleCommitFileContent = useCallback(
+    (tabId: string, nextContent: string) => {
       dispatch(
         updateFileContent({
-          tabId: activeFile.tabId,
+          tabId,
           content: nextContent,
         }),
       );
     },
-    [activeFile, dispatch],
+    [dispatch],
   );
 
-  const handleMarkActiveFileDirty = useCallback(() => {
-    if (!activeFile || activeFile.isDirty) {
-      return;
-    }
+  const handleMarkFileDirty = useCallback(
+    (tabId: string, isDirty: boolean) => {
+      if (isDirty) {
+        return;
+      }
 
-    dispatch(markFileDirty(activeFile.tabId));
-  }, [activeFile, dispatch]);
+      dispatch(markFileDirty(tabId));
+    },
+    [dispatch],
+  );
 
   const handleSaveActiveFileContent = useCallback(
     async (nextContent?: string) => {
@@ -233,6 +232,27 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
       }
     },
     [activeFile, dispatch, saveActiveFile],
+  );
+  void handleSaveActiveFileContent;
+
+  const handleSaveFileContent = useCallback(
+    async (tabId: string, nextContent?: string) => {
+      if (nextContent !== undefined) {
+        dispatch(
+          updateFileContent({
+            tabId,
+            content: nextContent,
+          }),
+        );
+      }
+
+      const result = await saveFileByTabId(tabId);
+
+      if (!result.ok) {
+        throw new Error(result.message ?? "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ С„Р°Р№Р».");
+      }
+    },
+    [dispatch, saveFileByTabId],
   );
 
   const handleRequestCloseFile = useCallback(
@@ -372,6 +392,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         {activeFile ? (
           isNotebookFile ? (
             <NotebookEditor
+              key={activeFile.tabId}
               filePath={activeFile.editorPath}
               content={activeFile.content}
               isDirty={activeFile.isDirty}
@@ -396,12 +417,15 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
                       name: activeFile.name,
                     }
               }
-              onCommitContent={handleCommitActiveFileContent}
-              onMarkDirty={handleMarkActiveFileDirty}
-              onSaveContent={handleSaveActiveFileContent}
+              onCommitContent={(nextContent) =>
+                handleCommitFileContent(activeFile.tabId, nextContent)
+              }
+              onMarkDirty={() => handleMarkFileDirty(activeFile.tabId, activeFile.isDirty)}
+              onSaveContent={(nextContent) => handleSaveFileContent(activeFile.tabId, nextContent)}
             />
           ) : isMarkdownFile ? (
             <MarkdownEditor
+              key={activeFile.tabId}
               filePath={activeFile.editorPath}
               content={activeFile.content}
               isDirty={activeFile.isDirty}
@@ -409,9 +433,11 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
               fontSize={visualSettings.fontSize}
               tabSize={visualSettings.tabSize}
               beforeMount={beforeMount}
-              onCommitContent={handleCommitActiveFileContent}
-              onMarkDirty={handleMarkActiveFileDirty}
-              onSaveContent={handleSaveActiveFileContent}
+              onCommitContent={(nextContent) =>
+                handleCommitFileContent(activeFile.tabId, nextContent)
+              }
+              onMarkDirty={() => handleMarkFileDirty(activeFile.tabId, activeFile.isDirty)}
+              onSaveContent={(nextContent) => handleSaveFileContent(activeFile.tabId, nextContent)}
             />
           ) : (
             <Editor

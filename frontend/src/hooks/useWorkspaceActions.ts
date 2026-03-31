@@ -56,6 +56,71 @@ export function useWorkspaceActions() {
   const activeProjectId = useAppSelector(selectCloudActiveProjectId);
   const { runSelectedConfiguration } = useRunActions();
 
+  const saveOpenedFile = useCallback(
+    async (file: (typeof openedFiles)[number]) => {
+      if (file.kind === "local") {
+        await window.electronAPI.writeFile(file.path, file.content);
+        dispatch(markFileSaved(file.tabId));
+        return;
+      }
+
+      const savedViaRealtime = isCloudRealtimeHandlingFile(file.fileId)
+        ? await flushActiveCloudRealtimeUpdate(file.fileId)
+        : false;
+
+      if (savedViaRealtime) {
+        return;
+      }
+
+      const response = await dispatch(
+        saveCloudProjectFile({
+          projectId: file.projectId,
+          fileId: file.fileId,
+          content: file.content,
+        }),
+      ).unwrap();
+
+      dispatch(
+        applyCloudFileSavedSnapshot({
+          fileId: response.file.id,
+          content: response.file.content,
+          version: response.file.version,
+          updatedAt: response.file.updatedAt,
+        }),
+      );
+    },
+    [dispatch],
+  );
+
+  const saveFileByTabId = useCallback(
+    async (tabId: string) => {
+      const targetFile = openedFiles.find((file) => file.tabId === tabId);
+
+      if (!targetFile) {
+        return {
+          ok: false,
+          message: "Файл для сохранения больше не открыт.",
+        };
+      }
+
+      try {
+        await saveOpenedFile(targetFile);
+
+        return {
+          ok: true,
+        };
+      } catch (error) {
+        const apiError = normalizeApiError(error);
+
+        return {
+          ok: false,
+          message: apiError.message,
+        };
+      }
+    },
+    [openedFiles, saveOpenedFile],
+  );
+
   const openFolder = useCallback(async () => {
     try {
       const result = await window.electronAPI.openFolder();
@@ -82,47 +147,8 @@ export function useWorkspaceActions() {
       };
     }
 
-    try {
-      if (activeFile.kind === "local") {
-        await window.electronAPI.writeFile(activeFile.path, activeFile.content);
-        dispatch(markFileSaved(activeFile.tabId));
-      } else {
-        const savedViaRealtime = isCloudRealtimeHandlingFile(activeFile.fileId)
-          ? await flushActiveCloudRealtimeUpdate(activeFile.fileId)
-          : false;
-
-        if (!savedViaRealtime) {
-          const response = await dispatch(
-            saveCloudProjectFile({
-              projectId: activeFile.projectId,
-              fileId: activeFile.fileId,
-              content: activeFile.content,
-            }),
-          ).unwrap();
-
-          dispatch(
-            applyCloudFileSavedSnapshot({
-              fileId: response.file.id,
-              content: response.file.content,
-              version: response.file.version,
-              updatedAt: response.file.updatedAt,
-            }),
-          );
-        }
-      }
-
-      return {
-        ok: true,
-      };
-    } catch (error) {
-      const apiError = normalizeApiError(error);
-
-      return {
-        ok: false,
-        message: apiError.message,
-      };
-    }
-  }, [activeFile, dispatch]);
+    return saveFileByTabId(activeFile.tabId);
+  }, [activeFile, saveFileByTabId]);
 
   const runActivePythonFile = useCallback(async () => {
     return runSelectedConfiguration();
@@ -654,6 +680,7 @@ export function useWorkspaceActions() {
     activeCloudProject,
     openFolder,
     saveActiveFile,
+    saveFileByTabId,
     runActivePythonFile,
     refreshCloudProjects,
     openCloudProject,
