@@ -23,9 +23,6 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
     <section className="ui-panel h-full overflow-hidden">
       <div className="border-b border-default px-6 py-4">
         <h2 className="text-lg text-primary">Профиль</h2>
-        <p className="mt-1 text-sm leading-6 text-secondary">
-          TODO
-        </p>
       </div>
 
       <div className="flex flex-col gap-5 px-6 py-6">
