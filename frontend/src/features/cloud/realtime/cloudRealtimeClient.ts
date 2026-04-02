@@ -361,10 +361,13 @@ class CloudRealtimeClient {
 
   private handleWsError(payload: CloudRealtimeErrorPayload) {
     this.setStatus("error");
+    this.rejectAllPendingAcks(payload.message);
     this.emit({
       type: "ws_error",
       payload,
     });
+
+    this.closeSocket();
   }
 
   private shiftPendingAck(fileId: string) {

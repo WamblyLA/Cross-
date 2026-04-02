@@ -138,23 +138,47 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
 
     const file = await getOwnedRealtimeFileOrThrow(socket.userId, payload.fileId);
     assertRealtimeSupported(file.name);
+    const expectedVersion = payload.baseVersion ?? file.version;
 
-    const updatedFile = await prisma.file.update({
-      where: {
-        id: file.id,
-      },
-      data: {
-        content: payload.content,
-        version: {
-          increment: 1,
+    if (payload.baseVersion !== undefined && payload.baseVersion !== file.version) {
+      throw new AppError(
+        "Версия облачного файла устарела. Обновите файл и повторите попытку.",
+        409,
+      );
+    }
+
+    const updatedFile = await prisma.$transaction(async (tx) => {
+      const updateResult = await tx.file.updateMany({
+        where: {
+          id: file.id,
+          version: expectedVersion,
         },
-      },
-      select: {
-        id: true,
-        content: true,
-        version: true,
-        updatedAt: true,
-      },
+        data: {
+          content: payload.content,
+          version: {
+            increment: 1,
+          },
+        },
+      });
+
+      if (updateResult.count !== 1) {
+        throw new AppError(
+          "Версия облачного файла устарела. Обновите файл и повторите попытку.",
+          409,
+        );
+      }
+
+      return tx.file.findUniqueOrThrow({
+        where: {
+          id: file.id,
+        },
+        select: {
+          id: true,
+          content: true,
+          version: true,
+          updatedAt: true,
+        },
+      });
     });
 
     const updatedAt = updatedFile.updatedAt.toISOString();
