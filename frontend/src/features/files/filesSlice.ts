@@ -123,6 +123,25 @@ const filesSlice = createSlice({
         }
       }
     },
+    applyLocalFileSavedSnapshot(
+      state,
+      action: PayloadAction<{
+        path: string;
+        content: string;
+      }>,
+    ) {
+      const tabId = buildLocalTabId(action.payload.path);
+      const existing = state.openedFiles.find(
+        (file) => file.kind === "local" && file.tabId === tabId,
+      );
+
+      if (!existing || existing.kind !== "local") {
+        return;
+      }
+
+      existing.content = action.payload.content;
+      existing.isDirty = false;
+    },
     setCloudFileSyncStatus(
       state,
       action: PayloadAction<{
@@ -368,6 +387,12 @@ const filesSlice = createSlice({
         (file) => file.kind === "local" && isSameOrChildPath(file.path, action.payload),
       );
     },
+    closeLocalFileByPath(state, action: PayloadAction<string>) {
+      closeByPredicate(
+        state,
+        (file) => file.kind === "local" && file.path === action.payload,
+      );
+    },
     closeCloudFilesByProject(state, action: PayloadAction<string>) {
       closeByPredicate(
         state,
@@ -434,6 +459,7 @@ export const {
   updateFileContent,
   markFileDirty,
   markFileSaved,
+  applyLocalFileSavedSnapshot,
   setCloudFileSyncStatus,
   setCloudFileJoinedVersion,
   applyCloudFileRealtimeAck,
@@ -444,6 +470,7 @@ export const {
   retargetCloudFiles,
   closeFile,
   closeLocalFilesByPrefix,
+  closeLocalFileByPath,
   closeCloudFilesByProject,
   closeCloudFile,
   closeCloudFiles,

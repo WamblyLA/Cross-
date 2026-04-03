@@ -12,6 +12,7 @@ import authRouter from "./routes/auth.js";
 import filesRouter from "./routes/files.js";
 import foldersRouter from "./routes/folders.js";
 import meRouter from "./routes/me.js";
+import projectLinksRouter from "./routes/projectLinks.js";
 import projectsRouter from "./routes/projects.js";
 
 const app = express();
@@ -36,6 +37,7 @@ app.get("/api/health", (_, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/me", meRouter);
+app.use("/api/project-links", projectLinksRouter);
 app.use("/api/projects/:projectId/files", filesRouter);
 app.use("/api/projects/:projectId/folders", foldersRouter);
 app.use("/api/projects", projectsRouter);

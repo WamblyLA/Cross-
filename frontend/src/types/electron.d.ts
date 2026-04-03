@@ -45,6 +45,17 @@ declare global {
     terminalId: string;
   };
 
+  type LocalLinkBindingRecord = {
+    bindingId: string;
+    clientBindingKey: string;
+    projectId: string;
+    projectName: string;
+    localRootPath: string;
+    localRootLabel: string;
+    lastKnownState: string;
+    updatedAt: string;
+  };
+
   type RunWorkspaceDescriptor =
     | {
         scope: "local";
@@ -395,6 +406,15 @@ declare global {
         sourcePaths: string[],
         targetDirectory: string,
       ) => Promise<{ success: true; paths: string[] }>;
+      listLinkBindings: () => Promise<{
+        bindings: LocalLinkBindingRecord[];
+      }>;
+      saveLinkBinding: (binding: LocalLinkBindingRecord) => Promise<{
+        binding: LocalLinkBindingRecord;
+      }>;
+      removeLinkBinding: (bindingId: string) => Promise<{
+        success: true;
+      }>;
 
       ensureTerminalSession: (
         terminalId?: string | null,

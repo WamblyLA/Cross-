@@ -8,7 +8,7 @@ export type CloudFolderSummary = Pick<
 >;
 export type CloudFileSummary = Pick<
   File,
-  "id" | "projectId" | "folderId" | "name" | "createdAt" | "updatedAt"
+  "id" | "projectId" | "folderId" | "name" | "version" | "createdAt" | "updatedAt"
 >;
 
 export type CloudFolderTreeNode = CloudFolderSummary & {
@@ -28,7 +28,7 @@ export type CloudRunSnapshotFolder = CloudFolderSummary & {
 
 export type CloudRunSnapshotFile = Pick<
   File,
-  "id" | "projectId" | "folderId" | "name" | "content" | "createdAt" | "updatedAt"
+  "id" | "projectId" | "folderId" | "name" | "content" | "version" | "createdAt" | "updatedAt"
 > & {
   relativePath: string;
 };
@@ -222,6 +222,7 @@ export async function getOwnedProjectTree(
         projectId: true,
         folderId: true,
         name: true,
+        version: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -263,6 +264,7 @@ export async function getOwnedProjectRunSnapshot(
         folderId: true,
         name: true,
         content: true,
+        version: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -488,6 +490,7 @@ export async function moveOwnedFolder(
         projectId: true,
         folderId: true,
         name: true,
+        version: true,
         createdAt: true,
         updatedAt: true,
       },

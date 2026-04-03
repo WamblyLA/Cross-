@@ -134,9 +134,10 @@ export function updateProjectFile(
   payload: {
     name?: string;
     content?: string;
+    expectedVersion?: number;
   },
 ) {
-  return request<FileResponse, { name?: string; content?: string }>({
+  return request<FileResponse, { name?: string; content?: string; expectedVersion?: number }>({
     url: `/api/projects/${projectId}/files/${fileId}`,
     method: "PUT",
     body: payload,

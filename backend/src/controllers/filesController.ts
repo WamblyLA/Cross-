@@ -34,6 +34,7 @@ export async function getProjectFiles(req: Request, res: Response) {
       projectId: true,
       folderId: true,
       name: true,
+      version: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -81,13 +82,12 @@ export async function getProjectFile(req: Request, res: Response) {
   }
 
   const file = await getOwnedFileOrThrow(userId, projectId, id);
-
   res.json({ file });
 }
 
 export async function updateProjectFile(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFileParams;
-  const { name, content } = req.body as UpdateFileBody;
+  const { name, content, expectedVersion } = req.body as UpdateFileBody;
   const userId = req.userId;
 
   if (!userId) {
@@ -104,13 +104,47 @@ export async function updateProjectFile(req: Request, res: Response) {
     }
   }
 
-  const updatedFile = await prisma.file.update({
-    where: { id: file.id },
-    data: {
-      ...(name !== undefined ? { name } : {}),
-      ...(content !== undefined ? { content } : {}),
-    },
-  });
+  if (expectedVersion !== undefined && expectedVersion !== file.version) {
+    throw new AppError(
+      "Версия облачного файла устарела. Пересчитайте изменения и повторите попытку.",
+      409,
+    );
+  }
+
+  const updatedFile =
+    expectedVersion === undefined
+      ? await prisma.file.update({
+          where: { id: file.id },
+          data: {
+            ...(name !== undefined ? { name } : {}),
+            ...(content !== undefined ? { content } : {}),
+            ...(content !== undefined ? { version: { increment: 1 } } : {}),
+          },
+        })
+      : await prisma.$transaction(async (tx) => {
+          const updateResult = await tx.file.updateMany({
+            where: {
+              id: file.id,
+              version: expectedVersion,
+            },
+            data: {
+              ...(name !== undefined ? { name } : {}),
+              ...(content !== undefined ? { content } : {}),
+              ...(content !== undefined ? { version: { increment: 1 } } : {}),
+            },
+          });
+
+          if (updateResult.count !== 1) {
+            throw new AppError(
+              "Версия облачного файла устарела. Пересчитайте изменения и повторите попытку.",
+              409,
+            );
+          }
+
+          return tx.file.findUniqueOrThrow({
+            where: { id: file.id },
+          });
+        });
 
   res.json({ file: updatedFile });
 }
@@ -142,6 +176,5 @@ export async function moveProjectFile(req: Request, res: Response) {
   }
 
   const result = await moveOwnedFile(userId, projectId, id, targetProjectId, targetFolderId ?? null);
-
   res.json(result);
 }

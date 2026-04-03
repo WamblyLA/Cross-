@@ -322,7 +322,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         <div className="min-h-0 flex-1 bg-editor">
           <EmptyEditorState
             title="Выберите файл облачного проекта"
-            description={`Проект "${activeCloudProject.name}" уже открыт. Выберите файл в облачном проводнике или создайте новый файл внутри проекта.`}
+            description={`Выберите файл в облачном проводнике или создайте новый файл внутри проекта`}
           />
         </div>
       );

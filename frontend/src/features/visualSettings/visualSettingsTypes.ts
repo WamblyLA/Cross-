@@ -1,6 +1,11 @@
 import type { ApiError } from "../../lib/api/errorNormalization";
 import type { ThemeName } from "../../styles/tokens";
 
+export const FONT_SIZE_MIN = 10;
+export const FONT_SIZE_MAX = 32;
+export const TAB_SIZE_MIN = 2;
+export const TAB_SIZE_MAX = 8;
+
 export type VisualSettings = {
   theme: ThemeName;
   fontSize: number;

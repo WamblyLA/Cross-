@@ -18,6 +18,7 @@ import {
   terminalSessionsLoaded,
 } from "../features/terminal/terminalSlice";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
+import { useLinkedWorkspaceBootstrap } from "../hooks/useLinkedWorkspaceBootstrap";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 function isRunBusy(status: string) {
   return ["preparing", "materializing", "building", "running"].includes(status);
@@ -30,6 +31,7 @@ export default function AppShellLayout() {
   const [isVisualSettingsOpen, setIsVisualSettingsOpen] = useState(false);
 
   useGlobalShortcuts();
+  useLinkedWorkspaceBootstrap();
 
   useEffect(() => {
     const unsubscribeTerminalData = window.electronAPI.onTerminalData((payload) => {

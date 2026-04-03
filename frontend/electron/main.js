@@ -6,6 +6,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { registerWindowCommandRouting } from "./commands/registerWindowCommandRouting.js";
 import { startFolderWatcher } from "./folderWatcher.js";
+import { createLinkBindingStore } from "./linking/linkBindingStore.js";
+import { registerLinkingIpc } from "./linking/registerLinkingIpc.js";
 import { registerNotebookKernelIpc } from "./notebook/ipc/registerNotebookKernelIpc.js";
 import { createRunSubsystem } from "./run/index.js";
 import { createTerminalPreferencesStore } from "./terminal/terminalPreferencesStore.js";
@@ -59,6 +61,7 @@ const runSubsystem = createRunSubsystem({
   sendToRenderer,
 });
 const terminalPreferencesStore = createTerminalPreferencesStore({ app });
+const linkBindingStore = createLinkBindingStore({ app });
 const terminalProfileService = createTerminalProfileService({
   preferencesStore: terminalPreferencesStore,
   onProfilesChanged(snapshot) {
@@ -303,6 +306,10 @@ app.whenReady().then(() => {
     ipcMain,
     terminalSessionService,
     terminalProfileService,
+  });
+  registerLinkingIpc({
+    ipcMain,
+    linkBindingStore,
   });
   void terminalProfileService.startDiscovery();
 

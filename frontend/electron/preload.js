@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("file:copy-many", sourcePaths, targetDirectory),
   moveFileSystemItems: (sourcePaths, targetDirectory) =>
     ipcRenderer.invoke("file:move-many", sourcePaths, targetDirectory),
+  listLinkBindings: () => ipcRenderer.invoke("link:list-bindings"),
+  saveLinkBinding: (binding) => ipcRenderer.invoke("link:save-binding", binding),
+  removeLinkBinding: (bindingId) => ipcRenderer.invoke("link:remove-binding", bindingId),
   ensureTerminalSession: (terminalId) => ipcRenderer.invoke("terminal:ensure", terminalId),
   createTerminalSession: (options) => ipcRenderer.invoke("terminal:create", options),
   listTerminalSessions: () => ipcRenderer.invoke("terminal:list"),

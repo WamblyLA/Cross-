@@ -5,11 +5,13 @@ export type BottomPanelTabId = "terminal" | "run";
 type PanelState = {
   isVisible: boolean;
   activeTab: BottomPanelTabId;
+  height: number;
 };
 
 const initialState: PanelState = {
   isVisible: false,
   activeTab: "terminal",
+  height: 352,
 };
 
 const panelSlice = createSlice({
@@ -36,6 +38,9 @@ const panelSlice = createSlice({
       state.isVisible = true;
       state.activeTab = action.payload;
     },
+    setBottomPanelHeight(state, action: PayloadAction<number>) {
+      state.height = action.payload;
+    },
   },
 });
 
@@ -44,6 +49,7 @@ export const {
   hideBottomPanel,
   activateBottomPanelTab,
   toggleBottomPanelTab,
+  setBottomPanelHeight,
 } = panelSlice.actions;
 
 export default panelSlice.reducer;

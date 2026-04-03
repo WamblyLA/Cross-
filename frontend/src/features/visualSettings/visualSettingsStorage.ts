@@ -1,5 +1,9 @@
 import {
   DEFAULT_VISUAL_SETTINGS,
+  FONT_SIZE_MAX,
+  FONT_SIZE_MIN,
+  TAB_SIZE_MAX,
+  TAB_SIZE_MIN,
   type VisualSettings,
 } from "./visualSettingsTypes";
 import { isThemeName } from "../../styles/tokens";
@@ -10,16 +14,20 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-export function normalizeVisualSettings(value: Partial<VisualSettings> | null | undefined): VisualSettings {
+export function normalizeVisualSettings(
+  value: Partial<VisualSettings> | null | undefined,
+): VisualSettings {
   const rawFontSize = value?.fontSize;
   const rawTabSize = value?.tabSize;
   const theme = isThemeName(value?.theme) ? value.theme : DEFAULT_VISUAL_SETTINGS.theme;
-  const fontSize = typeof rawFontSize === "number" && Number.isFinite(rawFontSize)
-    ? clamp(Math.round(rawFontSize), 10, 32)
-    : DEFAULT_VISUAL_SETTINGS.fontSize;
-  const tabSize = typeof rawTabSize === "number" && Number.isFinite(rawTabSize)
-    ? clamp(Math.round(rawTabSize), 2, 8)
-    : DEFAULT_VISUAL_SETTINGS.tabSize;
+  const fontSize =
+    typeof rawFontSize === "number" && Number.isFinite(rawFontSize)
+      ? clamp(Math.round(rawFontSize), FONT_SIZE_MIN, FONT_SIZE_MAX)
+      : DEFAULT_VISUAL_SETTINGS.fontSize;
+  const tabSize =
+    typeof rawTabSize === "number" && Number.isFinite(rawTabSize)
+      ? clamp(Math.round(rawTabSize), TAB_SIZE_MIN, TAB_SIZE_MAX)
+      : DEFAULT_VISUAL_SETTINGS.tabSize;
 
   return {
     theme,

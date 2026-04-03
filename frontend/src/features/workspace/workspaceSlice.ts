@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { WorkspaceSource } from "../cloud/cloudTypes";
 import type { FsNodeType } from "../../utils/path";
+import type { WorkspaceMode } from "../sync/syncTypes";
 
 export type ExplorerActionType =
   | "create-file"
@@ -17,6 +18,8 @@ type ExplorerIntent = {
 };
 
 type WorkspaceState = {
+  mode: WorkspaceMode;
+  activeBindingId: string | null;
   source: WorkspaceSource;
   rootPath: string | null;
   selectedPath: string | null;
@@ -27,6 +30,8 @@ type WorkspaceState = {
 };
 
 const initialState: WorkspaceState = {
+  mode: "local",
+  activeBindingId: null,
   source: "local",
   rootPath: null,
   selectedPath: null,
@@ -40,12 +45,20 @@ const workspaceSlice = createSlice({
   name: "workspace",
   initialState,
   reducers: {
+    setWorkspaceMode(state, action: PayloadAction<WorkspaceMode>) {
+      state.mode = action.payload;
+    },
+    setActiveBindingId(state, action: PayloadAction<string | null>) {
+      state.activeBindingId = action.payload;
+    },
     setWorkspaceSource(state, action: PayloadAction<WorkspaceSource>) {
       state.source = action.payload;
       state.explorerIntent = null;
     },
     setRootPath(state, action: PayloadAction<string | null>) {
       state.source = "local";
+      state.mode = action.payload ? "local" : state.mode === "linked" ? "linked" : "local";
+      state.activeBindingId = action.payload ? state.activeBindingId : null;
       state.rootPath = action.payload;
       state.selectedPath = null;
       state.selectedType = null;
@@ -101,6 +114,8 @@ const workspaceSlice = createSlice({
 });
 
 export const {
+  setWorkspaceMode,
+  setActiveBindingId,
   setWorkspaceSource,
   setRootPath,
   selectNode,

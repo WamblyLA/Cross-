@@ -236,7 +236,7 @@ export default function MarkdownEditor({
           <div className="flex h-full min-h-0">
             <div className="min-w-0 flex-1">{editorPane}</div>
 
-            <ResizeableBlock minWidth={280} maxWidth={900} defaultWidth={520} direction="l">
+            <ResizeableBlock minSize={280} maxSize={900} defaultSize={520} direction="l">
               <div className="h-full min-h-0 border-l border-default bg-panel">{previewPane}</div>
             </ResizeableBlock>
           </div>

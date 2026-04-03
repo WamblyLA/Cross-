@@ -22,7 +22,7 @@ export type CloudFileSummary = {
   projectId: string;
   folderId: string | null;
   name: string;
-  version?: number;
+  version: number;
   createdAt: string;
   updatedAt: string;
 };

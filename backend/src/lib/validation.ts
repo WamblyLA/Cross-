@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS = {
 
 const idSchema = z.string().uuid("Некорректный UUID");
 const trimmedString = () => z.string().trim();
+const isoDateTimeSchema = z.string().datetime("Некорректная дата и время");
 const usernameRegex = /^[a-z0-9](?:[a-z0-9._-]{1,30}[a-z0-9])?$/;
 
 const usernameSchema = trimmedString()
@@ -20,9 +21,7 @@ const usernameSchema = trimmedString()
     "Имя пользователя может содержать только латиницу, цифры, точку, подчёркивание и дефис",
   );
 
-const emailSchema = trimmedString()
-  .toLowerCase()
-  .email("Некорректный email");
+const emailSchema = trimmedString().toLowerCase().email("Некорректный email");
 
 const passwordSchema = z
   .string()
@@ -83,36 +82,16 @@ export const loginBodySchema = z
 
 export type LoginBody = z.infer<typeof loginBodySchema>;
 
-export const createProjectBodySchema = z
-  .object({
-    name: projectNameSchema,
-  })
-  .strict();
-
+export const createProjectBodySchema = z.object({ name: projectNameSchema }).strict();
 export type CreateProjectBody = z.infer<typeof createProjectBodySchema>;
 
-export const updateProjectBodySchema = z
-  .object({
-    name: projectNameSchema,
-  })
-  .strict();
-
+export const updateProjectBodySchema = z.object({ name: projectNameSchema }).strict();
 export type UpdateProjectBody = z.infer<typeof updateProjectBodySchema>;
 
-export const projectParamsSchema = z
-  .object({
-    id: idSchema,
-  })
-  .strict();
-
+export const projectParamsSchema = z.object({ id: idSchema }).strict();
 export type ProjectParams = z.infer<typeof projectParamsSchema>;
 
-export const projectFilesParamsSchema = z
-  .object({
-    projectId: idSchema,
-  })
-  .strict();
-
+export const projectFilesParamsSchema = z.object({ projectId: idSchema }).strict();
 export type ProjectFilesParams = z.infer<typeof projectFilesParamsSchema>;
 
 export const fileParamsSchema = z
@@ -147,14 +126,19 @@ export const updateFileBodySchema = z
   .object({
     name: fileNameSchema.optional(),
     content: z.string().optional(),
+    expectedVersion: z.coerce.number().int().min(0).optional(),
   })
   .strict()
   .superRefine((data, ctx) => {
-    if (data.name === undefined && data.content === undefined) {
+    if (
+      data.name === undefined &&
+      data.content === undefined &&
+      data.expectedVersion === undefined
+    ) {
       ctx.addIssue({
         code: "custom",
         path: ["request"],
-        message: "Нужно передать хотя бы name или content",
+        message: "Нужно передать хотя бы name, content или expectedVersion",
       });
     }
   });
@@ -179,12 +163,7 @@ export const createFolderBodySchema = z
 
 export type CreateFolderBody = z.infer<typeof createFolderBodySchema>;
 
-export const updateFolderBodySchema = z
-  .object({
-    name: fileNameSchema,
-  })
-  .strict();
-
+export const updateFolderBodySchema = z.object({ name: fileNameSchema }).strict();
 export type UpdateFolderBody = z.infer<typeof updateFolderBodySchema>;
 
 export const moveFolderBodySchema = z
@@ -195,6 +174,43 @@ export const moveFolderBodySchema = z
   .strict();
 
 export type MoveFolderBody = z.infer<typeof moveFolderBodySchema>;
+
+export const projectLinkBodySchema = z
+  .object({
+    projectId: idSchema,
+    clientBindingKey: trimmedString()
+      .min(1, "Ключ связи обязателен")
+      .max(120, "Ключ связи слишком длинный"),
+    localRootLabel: trimmedString()
+      .min(1, "Подпись локальной папки обязательна")
+      .max(240, "Подпись локальной папки слишком длинная"),
+  })
+  .strict();
+
+export type CreateProjectLinkBody = z.infer<typeof projectLinkBodySchema>;
+
+export const projectLinkParamsSchema = z.object({ id: idSchema }).strict();
+export type ProjectLinkParams = z.infer<typeof projectLinkParamsSchema>;
+
+export const updateProjectLinkSyncSummaryBodySchema = z
+  .object({
+    lastSyncAt: isoDateTimeSchema.optional(),
+    lastSyncDirection: z.enum(["push", "pull"]).optional(),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.lastSyncAt === undefined && data.lastSyncDirection === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["request"],
+        message: "Нужно передать lastSyncAt или lastSyncDirection",
+      });
+    }
+  });
+
+export type UpdateProjectLinkSyncSummaryBody = z.infer<
+  typeof updateProjectLinkSyncSummaryBodySchema
+>;
 
 export const updateSettingsBodySchema = z
   .object({

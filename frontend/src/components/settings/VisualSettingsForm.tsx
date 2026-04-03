@@ -1,5 +1,11 @@
-import type { ReactNode } from "react";
-import type { VisualSettings } from "../../features/visualSettings/visualSettingsTypes";
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  FONT_SIZE_MAX,
+  FONT_SIZE_MIN,
+  TAB_SIZE_MAX,
+  TAB_SIZE_MIN,
+  type VisualSettings,
+} from "../../features/visualSettings/visualSettingsTypes";
 import type { ThemeName } from "../../styles/tokens";
 
 type VisualSettingsFormProps = {
@@ -8,6 +14,15 @@ type VisualSettingsFormProps = {
   value: VisualSettings;
   onChange: (nextPatch: Partial<VisualSettings>) => void;
   footer?: ReactNode;
+};
+
+type NumericFieldKey = "fontSize" | "tabSize";
+
+type NumericFieldConfig = {
+  key: NumericFieldKey;
+  fallbackValue: number;
+  rawValue: string;
+  applyRawValue: (nextValue: string) => void;
 };
 
 function FieldShell({
@@ -44,6 +59,46 @@ export default function VisualSettingsForm({
   onChange,
   footer,
 }: VisualSettingsFormProps) {
+  const [fontSizeInput, setFontSizeInput] = useState(() => String(value.fontSize));
+  const [tabSizeInput, setTabSizeInput] = useState(() => String(value.tabSize));
+
+  useEffect(() => {
+    setFontSizeInput(String(value.fontSize));
+  }, [value.fontSize]);
+
+  useEffect(() => {
+    setTabSizeInput(String(value.tabSize));
+  }, [value.tabSize]);
+
+  const commitIntegerField = ({
+    key,
+    fallbackValue,
+    rawValue,
+    applyRawValue,
+  }: NumericFieldConfig) => {
+    const parsedValue = parseIntegerInput(rawValue);
+
+    if (parsedValue === null) {
+      applyRawValue(String(fallbackValue));
+      return;
+    }
+
+    onChange({ [key]: parsedValue });
+  };
+
+  const handleIntegerFieldKeyDown = (
+    event: KeyboardEvent<HTMLInputElement>,
+    config: NumericFieldConfig,
+  ) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    commitIntegerField(config);
+    event.currentTarget.blur();
+  };
+
   return (
     <section className="ui-panel h-full overflow-hidden">
       <div className="border-b border-default px-6 py-4">
@@ -72,46 +127,62 @@ export default function VisualSettingsForm({
 
         <FieldShell
           label="Размер шрифта"
-          description="Используется в основных редакторах кода и markdown"
+          description="Используется в основных редакторах кода и Markdown"
         >
           <input
             type="number"
-            min={9}
-            max={32}
+            min={FONT_SIZE_MIN}
+            max={FONT_SIZE_MAX}
             step={1}
-            value={value.fontSize}
-            onChange={(event) => {
-              const parsedValue = parseIntegerInput(event.target.value);
-
-              if (parsedValue === null) {
-                return;
-              }
-
-              onChange({ fontSize: parsedValue });
-            }}
+            value={fontSizeInput}
+            onChange={(event) => setFontSizeInput(event.target.value)}
+            onBlur={() =>
+              commitIntegerField({
+                key: "fontSize",
+                fallbackValue: value.fontSize,
+                rawValue: fontSizeInput,
+                applyRawValue: setFontSizeInput,
+              })
+            }
+            onKeyDown={(event) =>
+              handleIntegerFieldKeyDown(event, {
+                key: "fontSize",
+                fallbackValue: value.fontSize,
+                rawValue: fontSizeInput,
+                applyRawValue: setFontSizeInput,
+              })
+            }
             className="ui-input px-3 py-2.5"
           />
         </FieldShell>
 
         <FieldShell
           label="Размер табуляции"
-          description="Влияет на основные редакторы кода и markdown-ячейки"
+          description="Влияет на основные редакторы кода и Markdown-ячейки"
         >
           <input
             type="number"
-            min={2}
-            max={8}
+            min={TAB_SIZE_MIN}
+            max={TAB_SIZE_MAX}
             step={1}
-            value={value.tabSize}
-            onChange={(event) => {
-              const parsedValue = parseIntegerInput(event.target.value);
-
-              if (parsedValue === null) {
-                return;
-              }
-
-              onChange({ tabSize: parsedValue });
-            }}
+            value={tabSizeInput}
+            onChange={(event) => setTabSizeInput(event.target.value)}
+            onBlur={() =>
+              commitIntegerField({
+                key: "tabSize",
+                fallbackValue: value.tabSize,
+                rawValue: tabSizeInput,
+                applyRawValue: setTabSizeInput,
+              })
+            }
+            onKeyDown={(event) =>
+              handleIntegerFieldKeyDown(event, {
+                key: "tabSize",
+                fallbackValue: value.tabSize,
+                rawValue: tabSizeInput,
+                applyRawValue: setTabSizeInput,
+              })
+            }
             className="ui-input px-3 py-2.5"
           />
         </FieldShell>
