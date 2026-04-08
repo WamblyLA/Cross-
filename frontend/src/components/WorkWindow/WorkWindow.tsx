@@ -249,7 +249,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
       const result = await saveFileByTabId(tabId);
 
       if (!result.ok) {
-        throw new Error(result.message ?? "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ С„Р°Р№Р».");
+        throw new Error(result.message ?? "Не удалось сохранить файл.");
       }
     },
     [dispatch, saveFileByTabId],

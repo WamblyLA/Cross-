@@ -55,6 +55,22 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
     debounceTimerRef.current = null;
   }, []);
 
+  const updateFileSyncStatus = useCallback(
+    (file: CloudOpenedFile | null, syncStatus: CloudFileSyncStatus) => {
+      if (!file || file.syncStatus === syncStatus) {
+        return;
+      }
+
+      dispatch(
+        setCloudFileSyncStatus({
+          fileId: file.fileId,
+          syncStatus,
+        }),
+      );
+    },
+    [dispatch],
+  );
+
   const flushPendingUpdate = useCallback(async () => {
     clearPendingDebounce();
 
@@ -66,12 +82,7 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
 
     if (file.content === file.lastSyncedContent) {
       if (cloudRealtimeClient.isLiveForFile(file.fileId)) {
-        dispatch(
-          setCloudFileSyncStatus({
-            fileId: file.fileId,
-            syncStatus: "live",
-          }),
-        );
+        updateFileSyncStatus(file, "live");
         return true;
       }
 
@@ -79,21 +90,11 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
     }
 
     if (!cloudRealtimeClient.isLiveForFile(file.fileId)) {
-      dispatch(
-        setCloudFileSyncStatus({
-          fileId: file.fileId,
-          syncStatus: cloudRealtimeClient.getStatus(),
-        }),
-      );
+      updateFileSyncStatus(file, cloudRealtimeClient.getStatus());
       return false;
     }
 
-    dispatch(
-      setCloudFileSyncStatus({
-        fileId: file.fileId,
-        syncStatus: "syncing",
-      }),
-    );
+    updateFileSyncStatus(file, "syncing");
 
     try {
       await cloudRealtimeClient.sendContentUpdate({
@@ -103,15 +104,10 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
       });
       return true;
     } catch {
-      dispatch(
-        setCloudFileSyncStatus({
-          fileId: file.fileId,
-          syncStatus: cloudRealtimeClient.getStatus(),
-        }),
-      );
+      updateFileSyncStatus(file, cloudRealtimeClient.getStatus());
       return false;
     }
-  }, [clearPendingDebounce, dispatch]);
+  }, [clearPendingDebounce, updateFileSyncStatus]);
 
   useEffect(() => {
     activeCloudFileRef.current = realtimeFile;
@@ -127,12 +123,7 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
             return;
           }
 
-          dispatch(
-            setCloudFileSyncStatus({
-              fileId: file.fileId,
-              syncStatus: toFileSyncStatus(event.payload.status, file),
-            }),
-          );
+          updateFileSyncStatus(file, toFileSyncStatus(event.payload.status, file));
           return;
         }
 
@@ -178,55 +169,50 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
             return;
           }
 
-          dispatch(
-            setCloudFileSyncStatus({
-              fileId: file.fileId,
-              syncStatus: "error",
-            }),
-          );
+          updateFileSyncStatus(file, "error");
         }
       }
     });
-  }, [dispatch]);
+  }, [dispatch, updateFileSyncStatus]);
 
   useEffect(() => {
-    activeCloudFileRef.current = realtimeFile;
-
     registerActiveCloudRealtimeBridge(
-      realtimeFile
+      realtimeFileId
         ? {
-            fileId: realtimeFile.fileId,
+            fileId: realtimeFileId,
             flushPendingUpdate,
             isRealtimeAvailable: () =>
-              cloudRealtimeClient.isLiveForFile(realtimeFile.fileId),
+              cloudRealtimeClient.isLiveForFile(realtimeFileId),
           }
         : null,
     );
 
-    if (!realtimeFile) {
+    if (!realtimeFileId) {
       clearPendingDebounce();
       cloudRealtimeClient.setActiveFile(null);
-      return;
+      return () => {
+        registerActiveCloudRealtimeBridge(null);
+      };
     }
 
-    dispatch(
-      setCloudFileSyncStatus({
-        fileId: realtimeFile.fileId,
-        syncStatus: toFileSyncStatus(
-          cloudRealtimeClient.getStatus(),
-          realtimeFile,
-        ),
-      }),
+    updateFileSyncStatus(
+      activeCloudFileRef.current,
+      toFileSyncStatus(cloudRealtimeClient.getStatus(), activeCloudFileRef.current),
     );
 
-    cloudRealtimeClient.setActiveFile(realtimeFile.fileId);
+    cloudRealtimeClient.setActiveFile(realtimeFileId);
 
     return () => {
-      void flushPendingUpdate();
+      clearPendingDebounce();
       registerActiveCloudRealtimeBridge(null);
       cloudRealtimeClient.setActiveFile(null);
     };
-  }, [realtimeFile, clearPendingDebounce, dispatch, flushPendingUpdate]);
+  }, [
+    clearPendingDebounce,
+    flushPendingUpdate,
+    realtimeFileId,
+    updateFileSyncStatus,
+  ]);
 
   useEffect(() => {
     const file = realtimeFile;
@@ -249,23 +235,13 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
       clearPendingDebounce();
 
       if (cloudRealtimeClient.isLiveForFile(file.fileId)) {
-        dispatch(
-          setCloudFileSyncStatus({
-            fileId: file.fileId,
-            syncStatus: "live",
-          }),
-        );
+        updateFileSyncStatus(file, "live");
       }
 
       return;
     }
 
-    dispatch(
-      setCloudFileSyncStatus({
-        fileId: file.fileId,
-        syncStatus: "syncing",
-      }),
-    );
+    updateFileSyncStatus(file, "syncing");
 
     clearPendingDebounce();
     debounceTimerRef.current = window.setTimeout(() => {
@@ -279,7 +255,7 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
     realtimeFileContent,
     realtimeFileLastSyncedContent,
     clearPendingDebounce,
-    dispatch,
     flushPendingUpdate,
+    updateFileSyncStatus,
   ]);
 }

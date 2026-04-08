@@ -1,4 +1,4 @@
-import { Editor } from "@monaco-editor/react";
+﻿import { Editor } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { VscCode, VscEye, VscSplitHorizontal } from "react-icons/vsc";
@@ -52,7 +52,7 @@ export default function MarkdownEditor({
 }: MarkdownEditorProps) {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const lastFilePathRef = useRef(filePath);
-  const lastCommittedContentRef = useRef(content);
+  const lastSyncedContentRef = useRef(content);
   const latestDraftContentRef = useRef(content);
   const dirtyNotifiedRef = useRef(isDirty);
 
@@ -68,47 +68,52 @@ export default function MarkdownEditor({
     latestDraftContentRef.current = draftContent;
   }, [draftContent]);
 
+  const syncDraftFromExternalContent = useCallback((nextContent: string, dirtyState: boolean) => {
+    lastSyncedContentRef.current = nextContent;
+    dirtyNotifiedRef.current = dirtyState;
+    setDraftContent(nextContent);
+  }, []);
+
   useEffect(() => {
     if (filePath !== lastFilePathRef.current) {
       lastFilePathRef.current = filePath;
-      lastCommittedContentRef.current = content;
-      dirtyNotifiedRef.current = isDirty;
-      setDraftContent(content);
+      syncDraftFromExternalContent(content, isDirty);
       logger.info("Открыт новый Markdown-файл.", { filePath });
       return;
     }
 
-    if (content !== lastCommittedContentRef.current) {
-      lastCommittedContentRef.current = content;
-      dirtyNotifiedRef.current = isDirty;
-      setDraftContent(content);
+    if (!dirtyNotifiedRef.current && content !== lastSyncedContentRef.current) {
+      syncDraftFromExternalContent(content, isDirty);
     }
-  }, [content, filePath, isDirty]);
+  }, [content, filePath, isDirty, syncDraftFromExternalContent]);
 
-  const commitDraft = useCallback(() => {
-    if (draftContent === lastCommittedContentRef.current) {
-      return draftContent;
-    }
+  const commitDraft = useCallback(
+    (nextContent = latestDraftContentRef.current) => {
+      if (nextContent === lastSyncedContentRef.current) {
+        return nextContent;
+      }
 
-    lastCommittedContentRef.current = draftContent;
-    onCommitContent(draftContent);
-    return draftContent;
-  }, [draftContent, onCommitContent]);
+      lastSyncedContentRef.current = nextContent;
+      onCommitContent(nextContent);
+      return nextContent;
+    },
+    [onCommitContent],
+  );
 
   const saveDraft = useCallback(async () => {
     const nextContent = commitDraft();
     await onSaveContent(nextContent);
-    dirtyNotifiedRef.current = false;
+    syncDraftFromExternalContent(nextContent, false);
     logger.info("Markdown-файл сохранён.", { filePath });
-  }, [commitDraft, filePath, onSaveContent]);
+  }, [commitDraft, filePath, onSaveContent, syncDraftFromExternalContent]);
 
   useEffect(() => {
     return () => {
-      if (latestDraftContentRef.current !== lastCommittedContentRef.current) {
-        onCommitContent(latestDraftContentRef.current);
+      if (latestDraftContentRef.current !== lastSyncedContentRef.current) {
+        commitDraft(latestDraftContentRef.current);
       }
     };
-  }, [onCommitContent]);
+  }, [commitDraft]);
 
   const handleMount = useCallback(
     (editor: Monaco.editor.IStandaloneCodeEditor, monacoInstance: typeof Monaco) => {
@@ -143,15 +148,25 @@ export default function MarkdownEditor({
   const handleDraftChange = useCallback(
     (nextValue: string) => {
       setDraftContent(nextValue);
-      lastCommittedContentRef.current = nextValue;
-      onCommitContent(nextValue);
 
-      if (!dirtyNotifiedRef.current) {
+      if (nextValue !== lastSyncedContentRef.current && !dirtyNotifiedRef.current) {
         dirtyNotifiedRef.current = true;
         onMarkDirty();
       }
     },
-    [onCommitContent, onMarkDirty],
+    [onMarkDirty],
+  );
+
+  const handleViewModeChange = useCallback(
+    (nextMode: MarkdownViewMode) => {
+      if (nextMode === viewMode) {
+        return;
+      }
+
+      commitDraft();
+      setViewMode(nextMode);
+    },
+    [commitDraft, viewMode],
   );
 
   const editorPane = (
@@ -194,14 +209,13 @@ export default function MarkdownEditor({
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-panel px-4 py-3">
         <div>
           <div className="text-sm text-primary">Редактор Markdown</div>
-          <div className="text-xs text-muted">Предпросмотр обновляется на лету во время ввода.</div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
             className={`ui-control h-9 px-3 ${viewMode === "code" ? "border-default bg-editor text-primary" : ""}`}
-            onClick={() => setViewMode("code")}
+            onClick={() => handleViewModeChange("code")}
           >
             <VscCode className="h-4 w-4" />
             <span>Code</span>
@@ -210,7 +224,7 @@ export default function MarkdownEditor({
           <button
             type="button"
             className={`ui-control h-9 px-3 ${viewMode === "split" ? "border-default bg-editor text-primary" : ""}`}
-            onClick={() => setViewMode("split")}
+            onClick={() => handleViewModeChange("split")}
           >
             <VscSplitHorizontal className="h-4 w-4" />
             <span>Split</span>
@@ -219,7 +233,7 @@ export default function MarkdownEditor({
           <button
             type="button"
             className={`ui-control h-9 px-3 ${viewMode === "preview" ? "border-default bg-editor text-primary" : ""}`}
-            onClick={() => setViewMode("preview")}
+            onClick={() => handleViewModeChange("preview")}
           >
             <VscEye className="h-4 w-4" />
             <span>Preview</span>

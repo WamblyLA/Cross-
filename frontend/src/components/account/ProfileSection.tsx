@@ -26,7 +26,7 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
       </div>
 
       <div className="flex flex-col gap-5 px-6 py-6">
-        <ReadOnlyField label="Username" value={user.username} />
+        <ReadOnlyField label="Имя" value={user.username} />
         <ReadOnlyField label="Email" value={user.email} />
       </div>
     </section>

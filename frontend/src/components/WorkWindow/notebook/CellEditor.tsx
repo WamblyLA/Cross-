@@ -69,7 +69,8 @@ export default function CellEditor({
       editorRef.current = editor;
 
       const syncHeight = () => {
-        setHeight(Math.max(minHeight, Math.min(editor.getContentHeight() + 4, 720)));
+        const nextHeight = Math.max(minHeight, Math.min(editor.getContentHeight() + 4, 720));
+        setHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
       };
 
       syncHeight();

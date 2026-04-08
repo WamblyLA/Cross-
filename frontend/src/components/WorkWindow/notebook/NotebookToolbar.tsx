@@ -1,4 +1,4 @@
-import { VscAdd, VscMarkdown } from "react-icons/vsc";
+﻿import { VscAdd, VscMarkdown } from "react-icons/vsc";
 import NotebookKernelControls from "./ui/NotebookKernelControls";
 
 type NotebookToolbarProps = {
@@ -69,7 +69,10 @@ export default function NotebookToolbar({
         <span>
           {isDirty ? "Есть несохранённые изменения" : "Все изменения сохранены"}
         </span>
-        {statusMessage ? <span>{statusMessage}</span> : null}
+      </div>
+
+      <div className="mt-2 min-h-[18px] text-xs text-secondary">
+        {statusMessage ? <span>{statusMessage}</span> : <span className="invisible">status</span>}
       </div>
 
       <div className="mt-3">

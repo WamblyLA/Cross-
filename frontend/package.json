@@ -25,6 +25,7 @@
     "crypto-browserify": "^3.12.1",
     "katex": "^0.16.44",
     "monaco-editor": "^0.54.0",
+    "node-pty": "^1.1.0",
     "plotly.js-dist-min": "^3.4.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
