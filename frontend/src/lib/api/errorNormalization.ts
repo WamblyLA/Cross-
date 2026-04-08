@@ -1,4 +1,4 @@
-import axios from "axios";
+﻿import axios from "axios";
 
 export type ApiErrorDetail = {
   path: string;
@@ -11,7 +11,7 @@ export type ApiError = {
   details: ApiErrorDetail[];
   isNetworkError: boolean;
   isTimeoutError: boolean;
-  originalError: unknown;
+  originalError: Record<string, unknown> | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -27,6 +27,31 @@ function toDetail(value: unknown): ApiErrorDetail | null {
     path: typeof value.path === "string" ? value.path : "",
     message: value.message,
   };
+}
+
+function serializeError(error: unknown): Record<string, unknown> | null {
+  if (axios.isAxiosError(error)) {
+    return {
+      name: error.name,
+      message: error.message,
+      code: error.code ?? null,
+      status: error.response?.status ?? null,
+      isAxiosError: true,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+
+  if (isRecord(error)) {
+    return error;
+  }
+
+  return error == null ? null : { value: String(error) };
 }
 
 export function createApiError(
@@ -82,18 +107,18 @@ export function normalizeApiError(error: unknown): ApiError {
       details,
       isNetworkError,
       isTimeoutError,
-      originalError: error,
+      originalError: serializeError(error),
     });
   }
 
   if (error instanceof Error) {
     return createApiError(error.message, {
-      originalError: error,
+      originalError: serializeError(error),
     });
   }
 
   return createApiError("Произошла непредвиденная ошибка.", {
-    originalError: error,
+    originalError: serializeError(error),
   });
 }
 
