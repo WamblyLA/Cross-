@@ -1,4 +1,4 @@
-import { resolveWsUrl } from "../../../config/runtime";
+import { resolveWsUrl } from "../../../config/api";
 import type {
   CloudRealtimeAckPayload,
   CloudRealtimeClientEvent,
@@ -420,3 +420,4 @@ export function isCloudRealtimeHandlingFile(fileId: string) {
       activeRealtimeBridge.isRealtimeAvailable(),
   );
 }
+

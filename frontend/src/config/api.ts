@@ -1,5 +1,11 @@
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:3000";
 
+type AppConfigBridge = {
+  getAppConfig?: () => {
+    apiBaseUrl: string | null;
+  };
+};
+
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, "");
 }
@@ -20,11 +26,18 @@ function toWsUrl(url: string) {
   return url;
 }
 
-export const API_BASE_URL = trimTrailingSlash(
-  import.meta.env.VITE_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL,
-);
+function readRuntimeApiBaseUrl() {
+  if (typeof window === "undefined") {
+    return null;
+  }
 
-export const WS_URL = import.meta.env.VITE_WS_URL?.trim() || toWsUrl(API_BASE_URL);
+  const bridge = (window as Window & { electronAPI?: AppConfigBridge }).electronAPI;
+  return bridge?.getAppConfig?.().apiBaseUrl?.trim() || null;
+}
+
+export const API_BASE_URL = trimTrailingSlash(readRuntimeApiBaseUrl() || DEFAULT_API_BASE_URL);
+
+export const WS_URL = toWsUrl(API_BASE_URL);
 
 export function resolveApiUrl(path: string) {
   if (isAbsoluteUrl(path)) {

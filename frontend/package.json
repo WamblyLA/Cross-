@@ -4,10 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n renderer,electron \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dev": "concurrently -k -n renderer,electron \"npm run dev:renderer\" \"npm run dev:electron:local\"",
     "dev:renderer": "vite",
-    "dev:electron": "wait-on http://127.0.0.1:4173 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:4173 electron ./electron/main.js",
-    "start": "electron ./electron/main.js",
+    "dev:electron": "npm run dev:electron:local",
+    "dev:electron:local": "wait-on http://127.0.0.1:4173 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:4173 CROSSPP_API_BASE_URL=http://127.0.0.1:3000 electron ./electron/main.js",
+    "dev:electron:cloud": "wait-on http://127.0.0.1:4173 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:4173 CROSSPP_API_BASE_URL=https://api.crosspp.ru electron ./electron/main.js",
+    "start": "concurrently -k -n renderer,electron \"npm run dev:renderer\" \"npm run dev:electron:cloud\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

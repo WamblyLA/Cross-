@@ -1,6 +1,17 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
+function getAppConfig() {
+  const apiBaseUrl = typeof process.env.CROSSPP_API_BASE_URL === "string"
+    ? process.env.CROSSPP_API_BASE_URL.trim() || null
+    : null;
+
+  return {
+    apiBaseUrl,
+  };
+}
+
 contextBridge.exposeInMainWorld("electronAPI", {
+  getAppConfig,
   minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
   toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggle-maximize"),
   closeWindow: () => ipcRenderer.invoke("window:close"),

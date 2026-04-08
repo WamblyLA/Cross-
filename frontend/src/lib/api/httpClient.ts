@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_BASE_URL } from "../../config/runtime";
+import { API_BASE_URL } from "../../config/api";
 import { normalizeApiError } from "./errorNormalization";
 
 const REQUEST_TIMEOUT_MS = 15000;
