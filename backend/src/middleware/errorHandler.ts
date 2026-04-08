@@ -12,7 +12,7 @@ export const notFoundHandler: RequestHandler = (req, _, next) => {
   next(new AppError(`Маршрут ${req.method} ${req.originalUrl} не найден`, 404));
 };
 
-export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (error, _req, res) => {
   if (error instanceof AppError) {
     res.status(error.statusCode).json({
       error: buildErrorPayload(error),
