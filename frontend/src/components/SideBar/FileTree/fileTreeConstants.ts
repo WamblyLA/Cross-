@@ -1,3 +1,0 @@
-export const FILE_TREE_INDENT_SIZE_PX = 16;
-export const FILE_TREE_ROW_BASE_PADDING_PX = 8;
-export const FILE_TREE_HOVER_EXPAND_DELAY_MS = 450;
