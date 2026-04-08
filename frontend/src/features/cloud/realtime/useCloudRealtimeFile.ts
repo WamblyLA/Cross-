@@ -41,6 +41,11 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
   const remoteAppliedContentRef = useRef<string | null>(null);
   const activeCloudFileRef = useRef<CloudOpenedFile | null>(null);
 
+  const realtimeFile = isRealtimeCloudFile(activeFile) ? activeFile : null;
+  const realtimeFileId = realtimeFile?.fileId ?? null;
+  const realtimeFileContent = realtimeFile?.content ?? null;
+  const realtimeFileLastSyncedContent = realtimeFile?.lastSyncedContent ?? null;
+
   const clearPendingDebounce = useCallback(() => {
     if (debounceTimerRef.current === null) {
       return;
@@ -109,8 +114,8 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
   }, [clearPendingDebounce, dispatch]);
 
   useEffect(() => {
-    activeCloudFileRef.current = isRealtimeCloudFile(activeFile) ? activeFile : null;
-  }, [activeFile]);
+    activeCloudFileRef.current = realtimeFile;
+  }, [realtimeFile]);
 
   useEffect(() => {
     return cloudRealtimeClient.subscribe((event) => {
@@ -130,6 +135,7 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
           );
           return;
         }
+
         case "joined":
           dispatch(
             setCloudFileJoinedVersion({
@@ -138,6 +144,7 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
             }),
           );
           return;
+
         case "ack":
           dispatch(
             applyCloudFileRealtimeAck({
@@ -148,6 +155,7 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
             }),
           );
           return;
+
         case "remote_update":
           if (activeCloudFileRef.current?.fileId === event.payload.fileId) {
             remoteAppliedContentRef.current = event.payload.content;
@@ -162,6 +170,7 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
             }),
           );
           return;
+
         case "ws_error": {
           const file = activeCloudFileRef.current;
 
@@ -181,21 +190,20 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
   }, [dispatch]);
 
   useEffect(() => {
-    const file = isRealtimeCloudFile(activeFile) ? activeFile : null;
-
-    activeCloudFileRef.current = file;
+    activeCloudFileRef.current = realtimeFile;
 
     registerActiveCloudRealtimeBridge(
-      file
+      realtimeFile
         ? {
-            fileId: file.fileId,
+            fileId: realtimeFile.fileId,
             flushPendingUpdate,
-            isRealtimeAvailable: () => cloudRealtimeClient.isLiveForFile(file.fileId),
+            isRealtimeAvailable: () =>
+              cloudRealtimeClient.isLiveForFile(realtimeFile.fileId),
           }
         : null,
     );
 
-    if (!file) {
+    if (!realtimeFile) {
       clearPendingDebounce();
       cloudRealtimeClient.setActiveFile(null);
       return;
@@ -203,28 +211,35 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
 
     dispatch(
       setCloudFileSyncStatus({
-        fileId: file.fileId,
-        syncStatus: toFileSyncStatus(cloudRealtimeClient.getStatus(), file),
+        fileId: realtimeFile.fileId,
+        syncStatus: toFileSyncStatus(
+          cloudRealtimeClient.getStatus(),
+          realtimeFile,
+        ),
       }),
     );
-    cloudRealtimeClient.setActiveFile(file.fileId);
+
+    cloudRealtimeClient.setActiveFile(realtimeFile.fileId);
 
     return () => {
       void flushPendingUpdate();
       registerActiveCloudRealtimeBridge(null);
       cloudRealtimeClient.setActiveFile(null);
     };
-  }, [activeFile?.kind === "cloud" ? activeFile.fileId : null, clearPendingDebounce, dispatch, flushPendingUpdate]);
+  }, [realtimeFile, clearPendingDebounce, dispatch, flushPendingUpdate]);
 
   useEffect(() => {
-    const file = isRealtimeCloudFile(activeFile) ? activeFile : null;
+    const file = realtimeFile;
 
     if (!file) {
       clearPendingDebounce();
       return;
     }
 
-    if (remoteAppliedContentRef.current !== null && file.content === remoteAppliedContentRef.current) {
+    if (
+      remoteAppliedContentRef.current !== null &&
+      file.content === remoteAppliedContentRef.current
+    ) {
       remoteAppliedContentRef.current = null;
       clearPendingDebounce();
       return;
@@ -259,9 +274,10 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
 
     return clearPendingDebounce;
   }, [
-    activeFile?.kind === "cloud" ? activeFile.fileId : null,
-    activeFile?.content,
-    activeFile?.kind === "cloud" ? activeFile.lastSyncedContent : null,
+    realtimeFile,
+    realtimeFileId,
+    realtimeFileContent,
+    realtimeFileLastSyncedContent,
     clearPendingDebounce,
     dispatch,
     flushPendingUpdate,

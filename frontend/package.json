@@ -20,6 +20,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "axios": "^1.12.2",
+    "chokidar": "^5.0.0",
     "crypto": "^1.0.1",
     "crypto-browserify": "^3.12.1",
     "katex": "^0.16.44",
