@@ -12,6 +12,7 @@ import { prisma } from "../lib/prisma.js";
 import type {
   LoginBody,
   RegisterBody,
+  UpdateProfileBody,
 } from "../lib/validation.js";
 
 function toPublicUser(user: { id: string; username: string; email: string }) {
@@ -27,7 +28,10 @@ export async function register(req: Request, res: Response) {
 
   const existingUsers = await prisma.user.findMany({
     where: {
-      OR: [{ username }, { email }],
+      OR: [
+        { username: { equals: username, mode: "insensitive" } },
+        { email },
+      ],
     },
     select: {
       username: true,
@@ -35,8 +39,8 @@ export async function register(req: Request, res: Response) {
     },
   });
 
-  if (existingUsers.some((user) => user.username === username)) {
-    throw new AppError("Имя пользователя уже занято", 409);
+  if (existingUsers.some((user) => user.username.toLowerCase() === username.toLowerCase())) {
+    throw new AppError("Имя уже занято", 409);
   }
 
   if (existingUsers.some((user) => user.email === email)) {
@@ -72,7 +76,10 @@ export async function login(req: Request, res: Response) {
 
   const user = await prisma.user.findFirst({
     where: {
-      OR: [{ email: login }, { username: login }],
+      OR: [
+        { email: login },
+        { username: { equals: login, mode: "insensitive" } },
+      ],
     },
     select: {
       id: true,
@@ -126,6 +133,41 @@ export async function me(req: Request, res: Response) {
   }
 
   res.json({ user });
+}
+
+export async function updateProfile(req: Request, res: Response) {
+  const userId = req.userId;
+  const { username } = req.body as UpdateProfileBody;
+
+  if (!userId) {
+    throw new AppError("Требуется авторизация", 401);
+  }
+
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      username: { equals: username, mode: "insensitive" },
+      NOT: { id: userId },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingUser) {
+    throw new AppError("Имя уже занято", 409);
+  }
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { username },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+    },
+  });
+
+  res.json({ user: toPublicUser(user) });
 }
 
 export async function logout(_: Request, res: Response) {

@@ -1,6 +1,13 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { createApiError, type ApiError } from "../../lib/api/errorNormalization";
-import { login, logout, register, restoreSession, updateSettings } from "./authThunks";
+import {
+  login,
+  logout,
+  register,
+  restoreSession,
+  updateProfile,
+  updateSettings,
+} from "./authThunks";
 import type { AuthState } from "./authTypes";
 
 const initialState: AuthState = {
@@ -118,6 +125,19 @@ const authSlice = createSlice({
       .addCase(logout.rejected, (state, action) => {
         state.authPending = false;
         state.actionError = resolveError(action.payload, "Не удалось выполнить выход.");
+      })
+      .addCase(updateProfile.pending, (state) => {
+        state.authPending = true;
+        state.actionError = null;
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.authPending = false;
+        state.user = action.payload;
+        state.actionError = null;
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.authPending = false;
+        state.actionError = resolveError(action.payload, "Не удалось сохранить профиль.");
       })
       .addCase(updateSettings.pending, (state) => {
         state.settingsPending = true;

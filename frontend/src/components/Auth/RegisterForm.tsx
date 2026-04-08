@@ -13,7 +13,11 @@ type RegisterFormValues = {
   passwordConfirm: string;
 };
 
-const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,30}[a-z0-9])?$/;
+const USERNAME_PATTERN = /^[\p{L}\p{N}]+(?:[ .'-][\p{L}\p{N}]+)*$/u;
+
+function normalizeUsername(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
 
 function isValidEmail(value: string) {
   return /\S+@\S+\.\S+/.test(value);
@@ -21,15 +25,16 @@ function isValidEmail(value: string) {
 
 function validateRegister(values: RegisterFormValues) {
   const errors: Partial<Record<keyof RegisterFormValues, string>> = {};
+  const normalizedUsername = normalizeUsername(values.username);
 
-  if (!values.username.trim()) {
-    errors.username = "Введите имя пользователя.";
-  } else if (values.username.trim().length < 3) {
+  if (!normalizedUsername) {
+    errors.username = "Введите имя.";
+  } else if (normalizedUsername.length < 3) {
     errors.username = "Используйте не менее 3 символов.";
-  } else if (values.username.trim().length > 32) {
+  } else if (normalizedUsername.length > 32) {
     errors.username = "Используйте не более 32 символов.";
-  } else if (!USERNAME_PATTERN.test(values.username.trim())) {
-    errors.username = "Используйте строчные латинские буквы, цифры, точку, подчёркивание или дефис.";
+  } else if (!USERNAME_PATTERN.test(normalizedUsername)) {
+    errors.username = "Используйте буквы, цифры, пробел, точку, апостроф или дефис.";
   }
 
   if (!values.email.trim()) {
@@ -88,24 +93,24 @@ export default function RegisterForm() {
 
     try {
       await register({
-        username: values.username.trim(),
+        username: normalizeUsername(values.username),
         email: values.email.trim(),
         password: values.password,
         passwordConfirm: values.passwordConfirm,
       }).unwrap();
     } catch {
-      // TODO
+      // Ошибка уже попадает в store.
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <InputField
-        label="Имя пользователя"
+        label="Имя"
         value={values.username}
         onChange={(username) => setValues((current) => ({ ...current, username }))}
         error={usernameError}
-        placeholder="Ivan Ivanov"
+        placeholder="Иван Иванов"
       />
 
       <InputField

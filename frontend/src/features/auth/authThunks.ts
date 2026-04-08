@@ -7,6 +7,7 @@ import type {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  UpdateProfilePayload,
   UpdateSettingsPayload,
 } from "./authTypes";
 
@@ -79,6 +80,18 @@ export const logout = createAsyncThunk<void, void, AuthThunkConfig>(
   async (_, { rejectWithValue }) => {
     try {
       await authApi.logout();
+    } catch (error) {
+      return rejectWithValue(normalizeApiError(error));
+    }
+  },
+);
+
+export const updateProfile = createAsyncThunk<AuthUser, UpdateProfilePayload, AuthThunkConfig>(
+  "auth/updateProfile",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const { user } = await authApi.updateProfile(payload);
+      return user;
     } catch (error) {
       return rejectWithValue(normalizeApiError(error));
     }

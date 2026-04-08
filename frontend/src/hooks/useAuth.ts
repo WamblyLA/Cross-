@@ -15,6 +15,7 @@ import {
   logout as logoutThunk,
   register as registerThunk,
   restoreSession as restoreSessionThunk,
+  updateProfile as updateProfileThunk,
   updateSettings as updateSettingsThunk,
 } from "../features/auth/authThunks";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -45,6 +46,8 @@ export function useAuth() {
     login: (payload: Parameters<typeof loginThunk>[0]) => dispatch(loginThunk(payload)),
     register: (payload: Parameters<typeof registerThunk>[0]) => dispatch(registerThunk(payload)),
     logout: () => dispatch(logoutThunk()),
+    updateProfile: (payload: Parameters<typeof updateProfileThunk>[0]) =>
+      dispatch(updateProfileThunk(payload)),
     updateSettings: (payload: Parameters<typeof updateSettingsThunk>[0]) =>
       dispatch(updateSettingsThunk(payload)),
     clearActionError: () => dispatch(clearActionError()),

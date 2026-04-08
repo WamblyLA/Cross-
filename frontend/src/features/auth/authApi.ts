@@ -4,6 +4,7 @@ import type {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  UpdateProfilePayload,
   UpdateSettingsPayload,
 } from "./authTypes";
 
@@ -47,6 +48,14 @@ export function logout() {
 export function fetchMe() {
   return request<MeResponse>({
     url: "/api/me",
+  });
+}
+
+export function updateProfile(payload: UpdateProfilePayload) {
+  return request<MeResponse, UpdateProfilePayload>({
+    url: "/api/me",
+    method: "PUT",
+    body: payload,
   });
 }
 

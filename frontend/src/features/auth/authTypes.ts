@@ -27,6 +27,10 @@ export type RegisterPayload = {
   passwordConfirm: string;
 };
 
+export type UpdateProfilePayload = {
+  username: string;
+};
+
 export type UpdateSettingsPayload = Partial<AuthSettings>;
 
 export type AuthState = {
