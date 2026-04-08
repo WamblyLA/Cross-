@@ -7,7 +7,7 @@ COPY prisma ./prisma
 COPY prisma.config.ts ./
 COPY tsconfig.json ./
 
-RUN npm install
+RUN bun install
 
 COPY src ./src
 
@@ -25,7 +25,7 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 
-RUN npm install --omit=dev
+RUN bun install --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/generated ./generated
