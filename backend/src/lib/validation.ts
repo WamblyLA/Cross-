@@ -10,15 +10,24 @@ export const DEFAULT_SETTINGS = {
 const idSchema = z.string().uuid("Некорректный UUID");
 const trimmedString = () => z.string().trim();
 const isoDateTimeSchema = z.string().datetime("Некорректная дата и время");
-const usernameRegex = /^[a-z0-9](?:[a-z0-9._-]{1,30}[a-z0-9])?$/;
+const usernameRegex = /^[\p{L}\p{N}]+(?:[ .'-][\p{L}\p{N}]+)*$/u;
 
-const usernameSchema = trimmedString()
-  .toLowerCase()
-  .min(3, "Имя пользователя должно быть не короче 3 символов")
-  .max(32, "Имя пользователя должно быть не длиннее 32 символов")
-  .regex(
-    usernameRegex,
-    "Имя пользователя может содержать только латиницу, цифры, точку, подчёркивание и дефис",
+function normalizeUsername(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+const usernameSchema = z
+  .string()
+  .transform(normalizeUsername)
+  .pipe(
+    z
+      .string()
+      .min(3, "Имя должно быть не короче 3 символов")
+      .max(32, "Имя должно быть не длиннее 32 символов")
+      .regex(
+        usernameRegex,
+        "Используйте буквы, цифры, пробел, точку, апостроф или дефис",
+      ),
   );
 
 const emailSchema = trimmedString().toLowerCase().email("Некорректный email");
@@ -66,6 +75,14 @@ export const registerBodySchema = z
   });
 
 export type RegisterBody = z.infer<typeof registerBodySchema>;
+
+export const updateProfileBodySchema = z
+  .object({
+    username: usernameSchema,
+  })
+  .strict();
+
+export type UpdateProfileBody = z.infer<typeof updateProfileBodySchema>;
 
 export const loginBodySchema = z
   .object({
