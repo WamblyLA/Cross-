@@ -1,10 +1,10 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import { createServer } from "node:http";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import { API_URL, CORS_ORIGINS, HOST, JSON_BODY_LIMIT, PORT } from "./config.js";
+import { API_URL, CORS_ORIGINS, HOST, IS_PROD, JSON_BODY_LIMIT, PORT } from "./config.js";
 import { prisma } from "./lib/prisma.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { setupWebSocketServer } from "./realtime/wsServer.js";
@@ -16,18 +16,26 @@ import projectLinksRouter from "./routes/projectLinks.js";
 import projectsRouter from "./routes/projects.js";
 
 const app = express();
+const allowedOrigins = new Set(CORS_ORIGINS);
+const corsOptions: cors.CorsOptions = {
+  credentials: true,
+  optionsSuccessStatus: 204,
+  origin(origin, callback) {
+    const isAllowed = !origin || allowedOrigins.has(origin);
+
+    if (!isAllowed && !IS_PROD) {
+      console.warn(`[cors] Blocked origin: ${origin}`);
+    }
+
+    callback(null, isAllowed);
+  },
+};
 
 app.disable("x-powered-by");
 
 app.use(helmet());
-app.use(
-  cors({
-    credentials: true,
-    origin(origin, callback) {
-      callback(null, !origin || CORS_ORIGINS.includes(origin));
-    },
-  }),
-);
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
 

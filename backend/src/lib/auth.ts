@@ -1,8 +1,9 @@
-import type { Response } from "express";
+﻿import type { Response } from "express";
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import {
   COOKIE_NAME,
-  IS_PROD,
+  COOKIE_SAME_SITE,
+  COOKIE_SECURE,
   JWT_EXPIRES_IN,
   JWT_SECRET,
 } from "../config.js";
@@ -64,8 +65,8 @@ export function verifyAuthToken(token: string) {
 export function setAuthCookie(res: Response, token: string) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: IS_PROD,
+    sameSite: COOKIE_SAME_SITE,
+    secure: COOKIE_SECURE,
     path: "/",
     maxAge: parseExpiresInToMs(JWT_EXPIRES_IN),
   });
@@ -74,8 +75,8 @@ export function setAuthCookie(res: Response, token: string) {
 export function clearAuthCookie(res: Response) {
   res.clearCookie(COOKIE_NAME, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: IS_PROD,
+    sameSite: COOKIE_SAME_SITE,
+    secure: COOKIE_SECURE,
     path: "/",
   });
 }
