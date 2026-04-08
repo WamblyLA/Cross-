@@ -4,7 +4,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import { API_URL, CORS_ORIGINS, JSON_BODY_LIMIT, PORT } from "./config.js";
+import { API_URL, CORS_ORIGINS, HOST, JSON_BODY_LIMIT, PORT } from "./config.js";
 import { prisma } from "./lib/prisma.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { setupWebSocketServer } from "./realtime/wsServer.js";
@@ -31,9 +31,12 @@ app.use(
 app.use(cookieParser());
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
-app.get("/api/health", (_, res) => {
+const healthHandler: express.RequestHandler = (_, res) => {
   res.json({ status: "ok" });
-});
+};
+
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
 
 app.use("/api/auth", authRouter);
 app.use("/api/me", meRouter);
@@ -48,10 +51,10 @@ app.use(errorHandler);
 const server = createServer(app);
 setupWebSocketServer(server);
 
-server.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Сервер запущен на ${HOST}:${PORT}`);
   console.log(`API: ${API_URL}`);
-  console.log(`Разрешенные origin: ${CORS_ORIGINS.join(", ")}`);
+  console.log(`Разрешённые origin: ${CORS_ORIGINS.join(", ")}`);
 });
 
 async function shutdown(signal: string) {

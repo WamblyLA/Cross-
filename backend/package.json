@@ -4,12 +4,14 @@
   "type": "module",
   "main": "dist/app.js",
   "scripts": {
-    "dev": "node --loader ../node_modules/ts-node/esm/transpile-only.mjs src/app.ts",
+    "dev": "node --loader ts-node/esm/transpile-only src/app.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "build": "tsc",
-    "start": "node dist/app.js"
+    "start": "node dist/app.js",
+    "start:docker": "prisma migrate deploy && node dist/app.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -22,6 +24,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3",
+    "prisma": "^6.19.0",
     "ws": "^8.18.3",
     "zod": "^4.3.6"
   },
@@ -33,7 +36,6 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^24.12.0",
     "@types/ws": "^8.5.13",
-    "prisma": "^6.19.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
