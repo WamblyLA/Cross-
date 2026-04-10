@@ -1,0 +1,9 @@
+node_modules
+.vscode
+dist
+coverage
+*.log
+.env
+.DS_Store
+docs
+generated
