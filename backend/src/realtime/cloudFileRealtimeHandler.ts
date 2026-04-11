@@ -3,6 +3,7 @@ import type WebSocket from "ws";
 import { isRealtimeSupportedCloudFileName } from "../lib/cloudFileSupport.js";
 import { AppError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
+import { getProjectAccess } from "../lib/projectAccess.js";
 import { FileRoomRegistry, type AuthenticatedWebSocket } from "./fileRoomRegistry.js";
 import {
   parseClientEnvelope,
@@ -13,11 +14,12 @@ import {
   type ServerEnvelope,
 } from "./protocol.js";
 
-type RealtimeOwnedFile = {
+type RealtimeFile = {
   id: string;
   projectId: string;
   name: string;
   version: number;
+  accessRole: "owner" | "editor" | "viewer";
 };
 
 function serialize(message: ServerEnvelope) {
@@ -44,7 +46,8 @@ function toWsError(error: unknown) {
   if (error instanceof AppError) {
     return {
       code:
-        error.statusCode === 401
+        error.code ??
+        (error.statusCode === 401
           ? "UNAUTHORIZED"
           : error.statusCode === 403
             ? "FORBIDDEN"
@@ -52,7 +55,7 @@ function toWsError(error: unknown) {
               ? "NOT_FOUND"
               : error.statusCode === 409
                 ? "CONFLICT"
-                : "BAD_REQUEST",
+                : "BAD_REQUEST"),
       message: error.message,
     };
   }
@@ -77,13 +80,10 @@ function toWsError(error: unknown) {
   };
 }
 
-async function getOwnedRealtimeFileOrThrow(userId: string, fileId: string): Promise<RealtimeOwnedFile> {
-  const file = await prisma.file.findFirst({
+async function getRealtimeFileOrThrow(userId: string, fileId: string): Promise<RealtimeFile> {
+  const file = await prisma.file.findUnique({
     where: {
       id: fileId,
-      project: {
-        ownerId: userId,
-      },
     },
     select: {
       id: true,
@@ -94,10 +94,19 @@ async function getOwnedRealtimeFileOrThrow(userId: string, fileId: string): Prom
   });
 
   if (!file) {
-    throw new AppError("Файл не найден", 404);
+    throw new AppError("Файл не найден", 404, undefined, "FILE_NOT_FOUND");
   }
 
-  return file;
+  const access = await getProjectAccess(userId, file.projectId);
+
+  if (!access) {
+    throw new AppError("Файл не найден", 404, undefined, "FILE_NOT_FOUND");
+  }
+
+  return {
+    ...file,
+    accessRole: access.role,
+  };
 }
 
 function assertRealtimeSupported(fileName: string) {
@@ -108,7 +117,7 @@ function assertRealtimeSupported(fileName: string) {
 
 export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
   async function handleJoinFile(socket: AuthenticatedWebSocket, payload: JoinFilePayload) {
-    const file = await getOwnedRealtimeFileOrThrow(socket.userId, payload.fileId);
+    const file = await getRealtimeFileOrThrow(socket.userId, payload.fileId);
     assertRealtimeSupported(file.name);
 
     registry.join(socket, file.id);
@@ -133,17 +142,24 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
     const activeFileId = registry.getActiveFileId(socket);
 
     if (activeFileId !== payload.fileId) {
-      throw new AppError("Сначала подключитесь к файлу", 409);
+      throw new AppError("Сначала подключитесь к файлу", 409, undefined, "CONFLICT");
     }
 
-    const file = await getOwnedRealtimeFileOrThrow(socket.userId, payload.fileId);
+    const file = await getRealtimeFileOrThrow(socket.userId, payload.fileId);
     assertRealtimeSupported(file.name);
+
+    if (file.accessRole === "viewer") {
+      throw new AppError("У вас только доступ для чтения этого файла", 403, undefined, "FORBIDDEN");
+    }
+
     const expectedVersion = payload.baseVersion ?? file.version;
 
     if (payload.baseVersion !== undefined && payload.baseVersion !== file.version) {
       throw new AppError(
         "Версия облачного файла устарела. Обновите файл и повторите попытку.",
         409,
+        undefined,
+        "CONFLICT",
       );
     }
 
@@ -161,12 +177,14 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
         },
       });
 
-      if (updateResult.count !== 1) {
-        throw new AppError(
-          "Версия облачного файла устарела. Обновите файл и повторите попытку.",
-          409,
-        );
-      }
+        if (updateResult.count !== 1) {
+          throw new AppError(
+            "Версия облачного файла устарела. Обновите файл и повторите попытку.",
+            409,
+            undefined,
+            "CONFLICT",
+          );
+        }
 
       return tx.file.findUniqueOrThrow({
         where: {

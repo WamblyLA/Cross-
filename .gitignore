@@ -37,4 +37,5 @@ mobile/.env.*
 *.sw?
 __pycache__
 docs
-cloc-by-file.txt
+cloc-by-file.csv
+EDA.ipynb

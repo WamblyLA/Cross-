@@ -1,5 +1,13 @@
-import type { File, Folder, Project } from "../../generated/prisma/index.js";
+import type { File, Folder } from "../../generated/prisma/index.js";
 import { AppError } from "./errors.js";
+import {
+  assertFolderInProject,
+  getProjectFileForAccess,
+  getProjectFolderForAccess,
+  projectAccessToSummary,
+  requireProjectReadAccess,
+  requireProjectWriteAccess,
+} from "./projectAccess.js";
 import { prisma } from "./prisma.js";
 
 export type CloudFolderSummary = Pick<
@@ -42,65 +50,6 @@ export type CloudProjectRunSnapshot = {
 
 function sortByName<T extends { name: string }>(items: T[]) {
   return [...items].sort((left, right) => left.name.localeCompare(right.name, "ru"));
-}
-
-export async function ensureOwnedProject(projectId: string, userId: string) {
-  const project = await prisma.project.findFirst({
-    where: {
-      id: projectId,
-      ownerId: userId,
-    },
-  });
-
-  if (!project) {
-    throw new AppError("Проект не найден", 404);
-  }
-
-  return project;
-}
-
-export async function getOwnedFolderOrThrow(userId: string, projectId: string, folderId: string) {
-  const folder = await prisma.folder.findFirst({
-    where: {
-      id: folderId,
-      projectId,
-      project: {
-        ownerId: userId,
-      },
-    },
-  });
-
-  if (!folder) {
-    throw new AppError("Папка не найдена", 404);
-  }
-
-  return folder;
-}
-
-export async function getOwnedFileOrThrow(userId: string, projectId: string, fileId: string) {
-  const file = await prisma.file.findFirst({
-    where: {
-      id: fileId,
-      projectId,
-      project: {
-        ownerId: userId,
-      },
-    },
-  });
-
-  if (!file) {
-    throw new AppError("Файл не найден", 404);
-  }
-
-  return file;
-}
-
-export async function assertFolderInProject(userId: string, projectId: string, folderId: string | null) {
-  if (!folderId) {
-    return null;
-  }
-
-  return getOwnedFolderOrThrow(userId, projectId, folderId);
 }
 
 export async function findSiblingFolder(projectId: string, parentId: string | null, name: string) {
@@ -196,11 +145,11 @@ export function buildProjectTree(
   };
 }
 
-export async function getOwnedProjectTree(
+export async function getProjectTreeForAccess(
   projectId: string,
   userId: string,
 ): Promise<CloudProjectTree> {
-  await ensureOwnedProject(projectId, userId);
+  await requireProjectReadAccess(userId, projectId);
 
   const [folders, files] = await Promise.all([
     prisma.folder.findMany({
@@ -237,11 +186,12 @@ function joinRelativePath(parentPath: string | null, name: string) {
   return parentPath ? `${parentPath}/${name}` : name;
 }
 
-export async function getOwnedProjectRunSnapshot(
+export async function getProjectRunSnapshotForAccess(
   projectId: string,
   userId: string,
 ): Promise<CloudProjectRunSnapshot> {
-  const project = await ensureOwnedProject(projectId, userId);
+  const access = await requireProjectReadAccess(userId, projectId);
+  const project = access.project;
 
   const [folders, files] = await Promise.all([
     prisma.folder.findMany({
@@ -371,17 +321,17 @@ export async function listDeletedFolderFileIds(projectId: string, folderId: stri
   return files.map((file) => file.id);
 }
 
-export async function moveOwnedFile(
+export async function moveProjectFileForAccess(
   userId: string,
   sourceProjectId: string,
   fileId: string,
   targetProjectId: string,
   targetFolderId: string | null,
 ) {
-  const file = await getOwnedFileOrThrow(userId, sourceProjectId, fileId);
+  const file = await getProjectFileForAccess(userId, sourceProjectId, fileId, "write");
 
-  await ensureOwnedProject(targetProjectId, userId);
-  await assertFolderInProject(userId, targetProjectId, targetFolderId);
+  await requireProjectWriteAccess(userId, targetProjectId);
+  await assertFolderInProject(userId, targetProjectId, targetFolderId, "write");
 
   if (file.projectId === targetProjectId && (file.folderId ?? null) === targetFolderId) {
     throw new AppError("Файл уже находится в выбранной папке", 409);
@@ -408,17 +358,17 @@ export async function moveOwnedFile(
   };
 }
 
-export async function moveOwnedFolder(
+export async function moveProjectFolderForAccess(
   userId: string,
   sourceProjectId: string,
   folderId: string,
   targetProjectId: string,
   targetParentId: string | null,
 ) {
-  const folder = await getOwnedFolderOrThrow(userId, sourceProjectId, folderId);
+  const folder = await getProjectFolderForAccess(userId, sourceProjectId, folderId, "write");
 
-  await ensureOwnedProject(targetProjectId, userId);
-  await assertFolderInProject(userId, targetProjectId, targetParentId);
+  await requireProjectWriteAccess(userId, targetProjectId);
+  await assertFolderInProject(userId, targetProjectId, targetParentId, "write");
 
   if (folder.projectId === targetProjectId && (folder.parentId ?? null) === targetParentId) {
     throw new AppError("Папка уже находится в выбранном месте", 409);
@@ -510,12 +460,6 @@ export async function moveOwnedFolder(
   };
 }
 
-export function projectToSummary(project: Project) {
-  return {
-    id: project.id,
-    ownerId: project.ownerId,
-    name: project.name,
-    createdAt: project.createdAt,
-    updatedAt: project.updatedAt,
-  };
+export function projectAccessToProjectSummary(projectAccess: Awaited<ReturnType<typeof requireProjectReadAccess>>) {
+  return projectAccessToSummary(projectAccess);
 }
