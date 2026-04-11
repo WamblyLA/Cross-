@@ -13,6 +13,7 @@ type CellListProps = {
   fontSize: number;
   tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
+  readOnly?: boolean;
   cellExecutionState: Record<
     string,
     {
@@ -44,6 +45,7 @@ export default function CellList({
   fontSize,
   tabSize,
   beforeMount,
+  readOnly = false,
   cellExecutionState,
   canExecuteCodeCells,
   selectedCellId,
@@ -85,6 +87,7 @@ export default function CellList({
                 }
               }
               canExecute={canExecuteCodeCells}
+              readOnly={readOnly}
               isSelected={isSelected}
               focusToken={focusToken}
               onSelect={onSelectCell}
@@ -109,6 +112,7 @@ export default function CellList({
               fontSize={fontSize}
               tabSize={tabSize}
               beforeMount={beforeMount}
+              readOnly={readOnly}
               isSelected={isSelected}
               focusToken={focusToken}
               onSelect={onSelectCell}
@@ -129,6 +133,7 @@ export default function CellList({
             cell={cell}
             index={index}
             isSelected={isSelected}
+            readOnly={readOnly}
             focusToken={focusToken}
             onSelect={onSelectCell}
             onMove={onMove}

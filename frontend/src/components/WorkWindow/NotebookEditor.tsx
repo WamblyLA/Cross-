@@ -6,6 +6,7 @@ type NotebookEditorProps = {
   filePath: string;
   content: string;
   isDirty: boolean;
+  readOnly?: boolean;
   theme: ThemeName;
   fontSize: number;
   tabSize: number;

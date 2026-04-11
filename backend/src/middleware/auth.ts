@@ -17,7 +17,7 @@ export function requireAuth(req: Request, _: Response, next: NextFunction) {
   const token = req.cookies?.[COOKIE_NAME] ?? extractBearerToken(req.headers.authorization);
 
   if (!token) {
-    next(new AppError("Требуется авторизация", 401));
+    next(new AppError("Требуется авторизация", 401, undefined, "UNAUTHORIZED"));
     return;
   }
 
@@ -26,6 +26,6 @@ export function requireAuth(req: Request, _: Response, next: NextFunction) {
     req.userId = payload.sub;
     next();
   } catch {
-    next(new AppError("Неверный или просроченный токен", 401));
+    next(new AppError("Неверный или просроченный токен", 401, undefined, "UNAUTHORIZED"));
   }
 }

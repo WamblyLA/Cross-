@@ -1,4 +1,6 @@
 export type WorkspaceSource = "local" | "cloud";
+export type CloudProjectAccessRole = "owner" | "editor" | "viewer";
+export type ProjectMemberRole = CloudProjectAccessRole;
 
 export type CloudProject = {
   id: string;
@@ -6,6 +8,8 @@ export type CloudProject = {
   name: string;
   createdAt: string;
   updatedAt: string;
+  accessRole: CloudProjectAccessRole;
+  isOwner: boolean;
 };
 
 export type CloudFolderSummary = {
@@ -41,6 +45,29 @@ export type CloudProjectTree = {
 export type CloudFile = CloudFileSummary & {
   content: string;
   version: number;
+  canWrite?: boolean;
+};
+
+export type ProjectMember = {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  role: ProjectMemberRole;
+  isOwner: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PendingProjectInvitation = {
+  id: string;
+  inviteeUserId: string;
+  username: string;
+  email: string;
+  role: Extract<ProjectMemberRole, "editor" | "viewer">;
+  status: "pending";
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type CloudRunSnapshotFolder = CloudFolderSummary & {

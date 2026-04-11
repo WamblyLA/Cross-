@@ -33,6 +33,8 @@ export function buildCloudExplorerContextMenuSections(
 
   if (contextMenu.kind === "project") {
     const { project } = contextMenu;
+    const canWriteProject = project.accessRole === "owner" || project.accessRole === "editor";
+    const canManageProject = project.accessRole === "owner";
 
     return [
       {
@@ -46,12 +48,19 @@ export function buildCloudExplorerContextMenuSections(
           {
             id: "cloud-project-new-file",
             label: "Новый файл",
+            disabled: !canWriteProject,
             onSelect: () => createRename.beginFileCreate(project.id, null),
           },
           {
             id: "cloud-project-new-folder",
             label: "Новая папка",
+            disabled: !canWriteProject,
             onSelect: () => createRename.beginFolderCreate(project.id, null),
+          },
+          {
+            id: "cloud-project-members",
+            label: "Участники проекта",
+            onSelect: () => state.openProjectMembers(project.id),
           },
         ],
       },
@@ -61,11 +70,13 @@ export function buildCloudExplorerContextMenuSections(
           {
             id: "cloud-project-rename",
             label: "Переименовать",
+            disabled: !canManageProject,
             onSelect: () => createRename.beginProjectRename(project.id, project.name),
           },
           {
             id: "cloud-project-delete",
             label: "Удалить",
+            disabled: !canManageProject,
             onSelect: () => createRename.beginProjectDelete(project.id, project.name),
           },
         ],
@@ -92,11 +103,13 @@ export function buildCloudExplorerContextMenuSections(
           {
             id: "cloud-folder-new-file",
             label: "Новый файл",
+            disabled: !state.canWriteActiveProject,
             onSelect: () => createRename.beginFileCreate(projectId, folder.id),
           },
           {
             id: "cloud-folder-new-folder",
             label: "Новая папка",
+            disabled: !state.canWriteActiveProject,
             onSelect: () => createRename.beginFolderCreate(projectId, folder.id),
           },
         ],
@@ -107,7 +120,7 @@ export function buildCloudExplorerContextMenuSections(
           {
             id: "cloud-folder-rename",
             label: "Переименовать",
-            disabled: useCurrentSelection,
+            disabled: useCurrentSelection || !state.canWriteActiveProject,
             onSelect: () =>
               createRename.beginFolderRename(
                 projectId,
@@ -119,6 +132,7 @@ export function buildCloudExplorerContextMenuSections(
           {
             id: "cloud-folder-delete",
             label: "Удалить",
+            disabled: !state.canWriteActiveProject,
             onSelect: () =>
               useCurrentSelection
                 ? createRename.beginSelectionDelete(
@@ -163,7 +177,9 @@ export function buildCloudExplorerContextMenuSections(
         {
           id: "cloud-file-rename",
           label: "Переименовать",
-          disabled: state.selectedItemCount > 1 && state.selectedItemKeySet.has(fileSelectionKey),
+          disabled:
+            !state.canWriteActiveProject ||
+            (state.selectedItemCount > 1 && state.selectedItemKeySet.has(fileSelectionKey)),
           onSelect: () =>
             createRename.beginFileRename(
               projectId,
@@ -175,6 +191,7 @@ export function buildCloudExplorerContextMenuSections(
         {
           id: "cloud-file-delete",
           label: "Удалить",
+          disabled: !state.canWriteActiveProject,
           onSelect: () =>
             state.selectedItemCount > 1 && state.selectedItemKeySet.has(fileSelectionKey)
               ? createRename.beginSelectionDelete(

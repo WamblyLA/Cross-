@@ -1,3 +1,8 @@
+import ProjectMembersDialog from "../components/CodeWithMe/ProjectMembersDialog";
+import {
+  ProjectMembersDialogProvider,
+  useProjectMembersDialog,
+} from "../components/CodeWithMe/ProjectMembersDialogContext";
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import VisualSettingsDialog from "../components/settings/VisualSettingsDialog";
@@ -5,6 +10,8 @@ import TopBar from "../components/TopBar/TopBar";
 import { selectIsAuthenticated } from "../features/auth/authSelectors";
 import { selectCloudProjectsStatus } from "../features/cloud/cloudSelectors";
 import { fetchProjects } from "../features/cloud/cloudThunks";
+import { selectNotificationsStatus } from "../features/notifications/notificationsSelectors";
+import { fetchNotifications } from "../features/notifications/notificationsThunks";
 import { showBottomPanel } from "../features/panel/panelSlice";
 import { appendRunConsoleChunk } from "../features/run/runConsoleStore";
 import { runSessionChanged } from "../features/run/runSlice";
@@ -25,10 +32,20 @@ function isRunBusy(status: string) {
 }
 
 export default function AppShellLayout() {
+  return (
+    <ProjectMembersDialogProvider>
+      <AppShellLayoutContent />
+    </ProjectMembersDialogProvider>
+  );
+}
+
+function AppShellLayoutContent() {
   const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const cloudProjectsStatus = useAppSelector(selectCloudProjectsStatus);
+  const notificationsStatus = useAppSelector(selectNotificationsStatus);
   const [isVisualSettingsOpen, setIsVisualSettingsOpen] = useState(false);
+  const { closeProjectMembers, isOpen, openProjectMembers, projectId } = useProjectMembersDialog();
 
   useGlobalShortcuts();
   useLinkedWorkspaceBootstrap();
@@ -106,12 +123,26 @@ export default function AppShellLayout() {
     }
   }, [cloudProjectsStatus, dispatch, isAuthenticated]);
 
+  useEffect(() => {
+    if (isAuthenticated && notificationsStatus === "idle") {
+      void dispatch(fetchNotifications());
+    }
+  }, [dispatch, isAuthenticated, notificationsStatus]);
+
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-app text-primary">
-      <TopBar onOpenVisualSettings={() => setIsVisualSettingsOpen(true)} />
+      <TopBar
+        onOpenProjectMembers={() => openProjectMembers(projectId)}
+        onOpenVisualSettings={() => setIsVisualSettingsOpen(true)}
+      />
       <div className="min-h-0 flex-1">
         <Outlet />
       </div>
+      <ProjectMembersDialog
+        isOpen={isOpen}
+        projectId={projectId}
+        onClose={closeProjectMembers}
+      />
       <VisualSettingsDialog
         isOpen={isVisualSettingsOpen}
         onClose={() => setIsVisualSettingsOpen(false)}

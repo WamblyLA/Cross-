@@ -6,6 +6,9 @@ import type {
   CloudFile,
   CloudFileSummary,
   CloudFolderSummary,
+  PendingProjectInvitation,
+  ProjectMember,
+  ProjectMemberRole,
   CloudProject,
   CloudProjectTree,
 } from "./cloudTypes";
@@ -237,6 +240,87 @@ export const moveCloudProjectFolder = createAsyncThunk<
       targetProjectId,
       targetParentId,
     });
+  } catch (error) {
+    return rejectWithValue(normalizeApiError(error));
+  }
+});
+
+export const fetchProjectMembers = createAsyncThunk<
+  { projectId: string; members: ProjectMember[]; pendingInvitations: PendingProjectInvitation[] },
+  { projectId: string },
+  CloudThunkConfig
+>("cloud/fetchProjectMembers", async ({ projectId }, { rejectWithValue }) => {
+  try {
+    const response = await cloudApi.listProjectMembers(projectId);
+    return {
+      projectId,
+      members: response.members,
+      pendingInvitations: response.pendingInvitations,
+    };
+  } catch (error) {
+    return rejectWithValue(normalizeApiError(error));
+  }
+});
+
+export const createCloudProjectInvitation = createAsyncThunk<
+  { projectId: string; invitation: PendingProjectInvitation },
+  { projectId: string; email: string; role: Extract<ProjectMemberRole, "editor" | "viewer"> },
+  CloudThunkConfig
+>("cloud/createProjectInvitation", async ({ projectId, email, role }, { rejectWithValue }) => {
+  try {
+    const response = await cloudApi.createProjectInvitation(projectId, { email, role });
+    return {
+      projectId,
+      invitation: response.invitation,
+    };
+  } catch (error) {
+    return rejectWithValue(normalizeApiError(error));
+  }
+});
+
+export const revokeCloudProjectInvitation = createAsyncThunk<
+  { projectId: string; invitationId: string },
+  { projectId: string; invitationId: string },
+  CloudThunkConfig
+>("cloud/revokeProjectInvitation", async ({ projectId, invitationId }, { rejectWithValue }) => {
+  try {
+    await cloudApi.revokeProjectInvitation(projectId, invitationId);
+    return {
+      projectId,
+      invitationId,
+    };
+  } catch (error) {
+    return rejectWithValue(normalizeApiError(error));
+  }
+});
+
+export const updateCloudProjectMemberRole = createAsyncThunk<
+  { projectId: string; member: ProjectMember },
+  { projectId: string; memberId: string; role: Extract<ProjectMemberRole, "editor" | "viewer"> },
+  CloudThunkConfig
+>("cloud/updateProjectMemberRole", async ({ projectId, memberId, role }, { rejectWithValue }) => {
+  try {
+    const response = await cloudApi.updateProjectMemberRole(projectId, memberId, { role });
+    return {
+      projectId,
+      member: response.member,
+    };
+  } catch (error) {
+    return rejectWithValue(normalizeApiError(error));
+  }
+});
+
+export const removeCloudProjectMember = createAsyncThunk<
+  { projectId: string; memberId: string },
+  { projectId: string; memberId: string },
+  CloudThunkConfig
+>("cloud/removeProjectMember", async ({ projectId, memberId }, { rejectWithValue }) => {
+  try {
+    await cloudApi.deleteProjectMember(projectId, memberId);
+    return {
+      projectId,
+      memberId,
+    };
   } catch (error) {
     return rejectWithValue(normalizeApiError(error));
   }

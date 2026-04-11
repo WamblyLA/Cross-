@@ -7,6 +7,11 @@ import type { useCloudExplorerState } from "./useCloudExplorerState";
 type CloudExplorerState = ReturnType<typeof useCloudExplorerState>;
 
 export function useCloudExplorerCreateRename(state: CloudExplorerState) {
+  const getProject = useCallback(
+    (projectId: string) => state.projects.find((project) => project.id === projectId) ?? null,
+    [state.projects],
+  );
+
   const beginProjectCreate = useCallback(() => {
     state.resetMessages();
     state.setDeleteTarget(null);
@@ -15,22 +20,36 @@ export function useCloudExplorerCreateRename(state: CloudExplorerState) {
 
   const beginProjectRename = useCallback(
     (projectId: string, name: string) => {
+      const project = getProject(projectId);
+
+      if (!project?.isOwner) {
+        state.setLocalError("У вас нет прав на изменение этого проекта.");
+        return;
+      }
+
       state.resetMessages();
       state.setDeleteTarget(null);
       state.setDraft({ kind: "project", mode: "rename", projectId, value: name });
       state.dispatch(selectCloudItem({ projectId, folderId: null, fileId: null, itemType: "project" }));
     },
-    [state],
+    [getProject, state],
   );
 
   const beginProjectDelete = useCallback(
     (projectId: string, name: string) => {
+      const project = getProject(projectId);
+
+      if (!project?.isOwner) {
+        state.setLocalError("У вас нет прав на изменение этого проекта.");
+        return;
+      }
+
       state.resetMessages();
       state.setDraft(null);
       state.setDeleteTarget({ kind: "project", projectId, name });
       state.dispatch(selectCloudItem({ projectId, folderId: null, fileId: null, itemType: "project" }));
     },
-    [state],
+    [getProject, state],
   );
 
   const beginFolderCreate = useCallback(
@@ -41,6 +60,11 @@ export function useCloudExplorerCreateRename(state: CloudExplorerState) {
 
       if (!projectId) {
         state.setLocalError("Сначала откройте облачный проект, чтобы создать папку.");
+        return;
+      }
+
+      if (getProject(projectId)?.accessRole === "viewer") {
+        state.setLocalError("У вас только доступ для чтения.");
         return;
       }
 
@@ -62,11 +86,16 @@ export function useCloudExplorerCreateRename(state: CloudExplorerState) {
         );
       }
     },
-    [state],
+    [getProject, state],
   );
 
   const beginFolderRename = useCallback(
     (projectId: string, folderId: string, parentId: string | null, name: string) => {
+      if (getProject(projectId)?.accessRole === "viewer") {
+        state.setLocalError("У вас только доступ для чтения.");
+        return;
+      }
+
       state.resetMessages();
       state.setDeleteTarget(null);
       state.setDraft({
@@ -79,17 +108,22 @@ export function useCloudExplorerCreateRename(state: CloudExplorerState) {
       });
       state.dispatch(selectCloudItem({ projectId, folderId, fileId: null, itemType: "folder" }));
     },
-    [state],
+    [getProject, state],
   );
 
   const beginFolderDelete = useCallback(
     (projectId: string, folderId: string, name: string) => {
+      if (getProject(projectId)?.accessRole === "viewer") {
+        state.setLocalError("У вас только доступ для чтения.");
+        return;
+      }
+
       state.resetMessages();
       state.setDraft(null);
       state.setDeleteTarget({ kind: "folder", projectId, folderId, name });
       state.dispatch(selectCloudItem({ projectId, folderId, fileId: null, itemType: "folder" }));
     },
-    [state],
+    [getProject, state],
   );
 
   const beginFileCreate = useCallback(
@@ -100,6 +134,11 @@ export function useCloudExplorerCreateRename(state: CloudExplorerState) {
 
       if (!projectId) {
         state.setLocalError("Сначала откройте облачный проект, чтобы создать файл.");
+        return;
+      }
+
+      if (getProject(projectId)?.accessRole === "viewer") {
+        state.setLocalError("У вас только доступ для чтения.");
         return;
       }
 
@@ -121,11 +160,16 @@ export function useCloudExplorerCreateRename(state: CloudExplorerState) {
         );
       }
     },
-    [state],
+    [getProject, state],
   );
 
   const beginFileRename = useCallback(
     (projectId: string, fileId: string, folderId: string | null, name: string) => {
+      if (getProject(projectId)?.accessRole === "viewer") {
+        state.setLocalError("У вас только доступ для чтения.");
+        return;
+      }
+
       state.resetMessages();
       state.setDeleteTarget(null);
       state.setDraft({
@@ -138,22 +182,32 @@ export function useCloudExplorerCreateRename(state: CloudExplorerState) {
       });
       state.dispatch(selectCloudItem({ projectId, folderId, fileId, itemType: "file" }));
     },
-    [state],
+    [getProject, state],
   );
 
   const beginFileDelete = useCallback(
     (projectId: string, fileId: string, name: string) => {
+      if (getProject(projectId)?.accessRole === "viewer") {
+        state.setLocalError("У вас только доступ для чтения.");
+        return;
+      }
+
       state.resetMessages();
       state.setDraft(null);
       state.setDeleteTarget({ kind: "file", projectId, fileId, name });
       state.dispatch(selectCloudItem({ projectId, folderId: null, fileId, itemType: "file" }));
     },
-    [state],
+    [getProject, state],
   );
 
   const beginSelectionDelete = useCallback(
     (items: CloudExplorerSelectionItem[]) => {
       if (items.length === 0) {
+        return;
+      }
+
+      if (getProject(items[0].projectId)?.accessRole === "viewer") {
+        state.setLocalError("У вас только доступ для чтения.");
         return;
       }
 
@@ -170,7 +224,7 @@ export function useCloudExplorerCreateRename(state: CloudExplorerState) {
         fileCount,
       });
     },
-    [state],
+    [getProject, state],
   );
 
   const handleDraftSubmit = useCallback(async () => {

@@ -5,6 +5,7 @@ type NotebookToolbarProps = {
   cellCount: number;
   isDirty: boolean;
   isBlocked: boolean;
+  readOnly?: boolean;
   statusMessage: string | null;
   execution: {
     kernels: NotebookKernelDescriptor[];
@@ -29,6 +30,7 @@ export default function NotebookToolbar({
   cellCount,
   isDirty,
   isBlocked,
+  readOnly = false,
   statusMessage,
   execution,
   onAddCodeCell,
@@ -46,17 +48,17 @@ export default function NotebookToolbar({
             type="button"
             className="ui-control h-9 px-3"
             onClick={onAddCodeCell}
-            disabled={isBlocked}
+            disabled={isBlocked || readOnly}
           >
             <VscAdd className="h-4 w-4" />
-            <span>Code</span>
+            <span>Код</span>
           </button>
 
           <button
             type="button"
             className="ui-control h-9 px-3"
             onClick={onAddMarkdownCell}
-            disabled={isBlocked}
+            disabled={isBlocked || readOnly}
           >
             <VscMarkdown className="h-4 w-4" />
             <span>Markdown</span>
@@ -67,7 +69,11 @@ export default function NotebookToolbar({
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-secondary">
         <span>{`${cellCount} ячеек`}</span>
         <span>
-          {isDirty ? "Есть несохранённые изменения" : "Все изменения сохранены"}
+          {readOnly
+            ? "Режим только чтения"
+            : isDirty
+              ? "Есть несохранённые изменения"
+              : "Все изменения сохранены"}
         </span>
       </div>
 
@@ -85,6 +91,7 @@ export default function NotebookToolbar({
           sessionDetail={execution.sessionDetail}
           canExecute={execution.canExecute}
           isRunningAnyCell={execution.isRunningAnyCell}
+          readOnly={readOnly}
           onRefresh={execution.onRefreshKernels}
           onSelectKernel={execution.onSelectKernel}
           onRunAll={execution.onRunAll}

@@ -20,6 +20,7 @@ export type CloudOpenedFile = BaseOpenedFile & {
   kind: "cloud";
   projectId: string;
   fileId: string;
+  canWrite: boolean;
   version: number;
   updatedAt: string | null;
   syncStatus: CloudFileSyncStatus;
@@ -50,6 +51,7 @@ export function buildCloudOpenedFile(payload: {
   fileId: string;
   name: string;
   content: string;
+  canWrite?: boolean;
   version: number;
   updatedAt?: string | null;
 }): CloudOpenedFile {
@@ -59,6 +61,7 @@ export function buildCloudOpenedFile(payload: {
     editorPath: buildCloudEditorPath(payload.projectId, payload.fileId, payload.name),
     projectId: payload.projectId,
     fileId: payload.fileId,
+    canWrite: payload.canWrite ?? true,
     name: payload.name,
     extension: getExtension(payload.name),
     content: payload.content,

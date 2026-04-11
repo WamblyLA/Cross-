@@ -9,7 +9,7 @@ import { TOP_BAR_STRINGS } from "./topBarStrings";
 
 type UseTopBarMenusParams = {
   source: WorkspaceSource;
-  activeFile: { extension?: string | null } | null;
+  activeFile: { extension?: string | null; kind?: "local" | "cloud"; canWrite?: boolean } | null;
   activeSearchQuery: string;
   activeTerminalId: string | null;
   activeCloudProjectId: string | null;
@@ -50,7 +50,6 @@ export function useTopBarMenus({
   activeFile,
   activeSearchQuery,
   activeTerminalId,
-  activeCloudProjectId,
   canCollapseExplorer,
   canCreateFile,
   canCreateFolder,
@@ -130,7 +129,7 @@ export function useTopBarMenus({
                   APP_COMMAND_SHORTCUTS[
                     APP_COMMANDS.WORKSPACE_SAVE_ACTIVE_FILE
                   ],
-                disabled: !activeFile,
+                disabled: !activeFile || (activeFile.kind === "cloud" && activeFile.canWrite === false),
                 onSelect: () =>
                   executeCommand(APP_COMMANDS.WORKSPACE_SAVE_ACTIVE_FILE),
               },
@@ -335,7 +334,6 @@ export function useTopBarMenus({
       },
     ],
     [
-      activeCloudProjectId,
       activeFile,
       activeSearchQuery,
       activeTerminalId,

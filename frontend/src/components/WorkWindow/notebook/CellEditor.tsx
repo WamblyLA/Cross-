@@ -84,14 +84,20 @@ export default function CellEditor({
           id: `${editorPath}-save`,
           label: "Сохранить файл",
           keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS],
-          run: async () => onSaveRequestRef.current(),
+          run: async () => {
+            if (!readOnly) {
+              await onSaveRequestRef.current();
+            }
+          },
         }),
         editor.addAction({
           id: `${editorPath}-run`,
           label: "Выполнить ячейку",
           keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter],
           run: () => {
-            onRunRequestRef.current?.();
+            if (!readOnly) {
+              onRunRequestRef.current?.();
+            }
           },
         }),
         editor.addAction({
@@ -99,12 +105,14 @@ export default function CellEditor({
           label: "Выполнить и перейти к следующей ячейке",
           keybindings: [monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.Enter],
           run: () => {
-            onRunAndAdvanceRequestRef.current?.();
+            if (!readOnly) {
+              onRunAndAdvanceRequestRef.current?.();
+            }
           },
         }),
       ];
     },
-    [editorPath, minHeight],
+    [editorPath, minHeight, readOnly],
   );
 
   useEffect(() => {

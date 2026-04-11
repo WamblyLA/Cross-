@@ -44,7 +44,8 @@ import {
 } from "../features/cloud/realtime/cloudRealtimeClient";
 import { selectActiveFile, selectOpenedFiles } from "../features/files/filesSelectors";
 import { setRootPath, setWorkspaceSource } from "../features/workspace/workspaceSlice";
-import { normalizeApiError } from "../lib/api/errorNormalization";
+import { createApiError, normalizeApiError } from "../lib/api/errorNormalization";
+import { getReadOnlyCloudMessage } from "../features/cloud/projectCollaborationMessages";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { useRunActions } from "./useRunActions";
 
@@ -56,12 +57,70 @@ export function useWorkspaceActions() {
   const activeProjectId = useAppSelector(selectCloudActiveProjectId);
   const { runSelectedConfiguration } = useRunActions();
 
+  const getCloudProject = useCallback(
+    (projectId: string) => projects.find((project) => project.id === projectId) ?? null,
+    [projects],
+  );
+
+  const assertCanWriteCloudProject = useCallback(
+    (projectId: string) => {
+      const project = getCloudProject(projectId);
+
+      if (!project) {
+        throw createApiError("Проект не найден.", {
+          code: "PROJECT_NOT_FOUND",
+          status: 404,
+        });
+      }
+
+      if (project.accessRole === "viewer") {
+        throw createApiError(getReadOnlyCloudMessage(), {
+          code: "FORBIDDEN",
+          status: 403,
+        });
+      }
+
+      return project;
+    },
+    [getCloudProject],
+  );
+
+  const assertCanManageOwnedCloudProject = useCallback(
+    (projectId: string) => {
+      const project = getCloudProject(projectId);
+
+      if (!project) {
+        throw createApiError("Проект не найден.", {
+          code: "PROJECT_NOT_FOUND",
+          status: 404,
+        });
+      }
+
+      if (!project.isOwner) {
+        throw createApiError("У вас нет прав на управление этим проектом.", {
+          code: "FORBIDDEN",
+          status: 403,
+        });
+      }
+
+      return project;
+    },
+    [getCloudProject],
+  );
+
   const saveOpenedFile = useCallback(
     async (file: (typeof openedFiles)[number]) => {
       if (file.kind === "local") {
         await window.electronAPI.writeFile(file.path, file.content);
         dispatch(markFileSaved(file.tabId));
         return;
+      }
+
+      if (!file.canWrite) {
+        throw createApiError(getReadOnlyCloudMessage(), {
+          code: "FORBIDDEN",
+          status: 403,
+        });
       }
 
       const savedViaRealtime = isCloudRealtimeHandlingFile(file.fileId)
@@ -210,6 +269,7 @@ export function useWorkspaceActions() {
           fileId: response.file.id,
           name: response.file.name,
           content: response.file.content,
+          canWrite: response.file.canWrite ?? getCloudProject(projectId)?.accessRole !== "viewer",
           version: response.file.version,
           updatedAt: response.file.updatedAt,
         }),
@@ -240,22 +300,25 @@ export function useWorkspaceActions() {
 
   const renameCloudProject = useCallback(
     async (projectId: string, name: string) => {
+      assertCanManageOwnedCloudProject(projectId);
       const response = await dispatch(renameCloudProjectThunk({ projectId, name })).unwrap();
       return response.project;
     },
-    [dispatch],
+    [assertCanManageOwnedCloudProject, dispatch],
   );
 
   const deleteWorkspaceCloudProject = useCallback(
     async (projectId: string) => {
+      assertCanManageOwnedCloudProject(projectId);
       await dispatch(deleteCloudProject({ projectId })).unwrap();
       dispatch(closeCloudFilesByProject(projectId));
     },
-    [dispatch],
+    [assertCanManageOwnedCloudProject, dispatch],
   );
 
   const createCloudFile = useCallback(
     async (projectId: string, name: string, content = "", folderId?: string | null) => {
+      assertCanWriteCloudProject(projectId);
       const response = await dispatch(
         createCloudProjectFileThunk({
           projectId,
@@ -283,6 +346,7 @@ export function useWorkspaceActions() {
           fileId: response.file.id,
           name: response.file.name,
           content: response.file.content,
+          canWrite: response.file.canWrite ?? true,
           version: response.file.version,
           updatedAt: response.file.updatedAt,
         }),
@@ -290,11 +354,12 @@ export function useWorkspaceActions() {
 
       return response.file;
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const renameCloudFile = useCallback(
     async (projectId: string, fileId: string, name: string) => {
+      assertCanWriteCloudProject(projectId);
       const response = await dispatch(
         renameCloudProjectFileThunk({
           projectId,
@@ -315,20 +380,22 @@ export function useWorkspaceActions() {
 
       return response.file;
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const deleteCloudWorkspaceFile = useCallback(
     async (projectId: string, fileId: string) => {
+      assertCanWriteCloudProject(projectId);
       await dispatch(deleteCloudProjectFile({ projectId, fileId })).unwrap();
       await dispatch(fetchProjectTree({ projectId })).unwrap();
       dispatch(closeCloudFile({ projectId, fileId }));
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const createCloudFolder = useCallback(
     async (projectId: string, name: string, parentId?: string | null) => {
+      assertCanWriteCloudProject(projectId);
       const response = await dispatch(
         createCloudProjectFolderThunk({
           projectId,
@@ -351,11 +418,12 @@ export function useWorkspaceActions() {
 
       return response.folder;
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const renameCloudFolder = useCallback(
     async (projectId: string, folderId: string, name: string) => {
+      assertCanWriteCloudProject(projectId);
       const response = await dispatch(
         renameCloudProjectFolderThunk({
           projectId,
@@ -368,11 +436,12 @@ export function useWorkspaceActions() {
 
       return response.folder;
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const deleteCloudFolder = useCallback(
     async (projectId: string, folderId: string) => {
+      assertCanWriteCloudProject(projectId);
       const response = await dispatch(
         deleteCloudProjectFolderThunk({
           projectId,
@@ -393,7 +462,7 @@ export function useWorkspaceActions() {
 
       return response;
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const moveCloudFile = useCallback(
@@ -403,6 +472,8 @@ export function useWorkspaceActions() {
       targetProjectId: string,
       targetFolderId: string | null,
     ) => {
+      assertCanWriteCloudProject(projectId);
+      assertCanWriteCloudProject(targetProjectId);
       const response = await dispatch(
         moveCloudProjectFileThunk({
           projectId,
@@ -450,7 +521,7 @@ export function useWorkspaceActions() {
 
       return response;
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const moveCloudFolder = useCallback(
@@ -460,6 +531,8 @@ export function useWorkspaceActions() {
       targetProjectId: string,
       targetParentId: string | null,
     ) => {
+      assertCanWriteCloudProject(projectId);
+      assertCanWriteCloudProject(targetProjectId);
       const response = await dispatch(
         moveCloudProjectFolderThunk({
           projectId,
@@ -505,7 +578,7 @@ export function useWorkspaceActions() {
 
       return response;
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const deleteCloudSelection = useCallback(
@@ -516,6 +589,7 @@ export function useWorkspaceActions() {
           Extract<CloudSelectionEntry, { itemType: "file" }>
       >,
     ) => {
+      assertCanWriteCloudProject(projectId);
       const deletedFileIds = new Set<string>();
 
       for (const item of items) {
@@ -557,7 +631,7 @@ export function useWorkspaceActions() {
         }),
       );
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const moveCloudSelection = useCallback(
@@ -570,6 +644,8 @@ export function useWorkspaceActions() {
       targetProjectId: string,
       targetFolderId: string | null,
     ) => {
+      assertCanWriteCloudProject(projectId);
+      assertCanWriteCloudProject(targetProjectId);
       const movedSelection: CloudSelectionEntry[] = [];
       const retargetedFiles: {
         sourceProjectId: string;
@@ -670,7 +746,7 @@ export function useWorkspaceActions() {
         }),
       );
     },
-    [dispatch],
+    [assertCanWriteCloudProject, dispatch],
   );
 
   const activeCloudProject = projects.find((project) => project.id === activeProjectId) ?? null;

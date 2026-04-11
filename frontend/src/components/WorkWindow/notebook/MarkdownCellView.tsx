@@ -14,6 +14,7 @@ type MarkdownCellViewProps = {
   fontSize: number;
   tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
+  readOnly?: boolean;
   isSelected: boolean;
   focusToken: number;
   onSelect: (localId: string) => void;
@@ -34,6 +35,7 @@ export default function MarkdownCellView({
   fontSize,
   tabSize,
   beforeMount,
+  readOnly = false,
   isSelected,
   focusToken,
   onSelect,
@@ -101,24 +103,27 @@ export default function MarkdownCellView({
             type="button"
             className={`ui-control h-8 px-3 ${!isPreview ? "border-default bg-editor text-primary" : ""}`}
             onClick={() => onChangeMode(cell.localId, "edit")}
+            disabled={readOnly}
           >
             <VscEdit className="h-4 w-4" />
-            <span>Edit</span>
+            <span>Редактирование</span>
           </button>
 
           <button
             type="button"
             className={`ui-control h-8 px-3 ${isPreview ? "border-default bg-editor text-primary" : ""}`}
             onClick={() => onChangeMode(cell.localId, "preview")}
+            disabled={readOnly}
           >
             <VscEye className="h-4 w-4" />
-            <span>Preview</span>
+            <span>Предпросмотр</span>
           </button>
 
           <button
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => onMove(cell.localId, -1)}
+            disabled={readOnly}
             title="Переместить вверх"
           >
             <VscChevronUp className="h-4 w-4" />
@@ -128,6 +133,7 @@ export default function MarkdownCellView({
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => onMove(cell.localId, 1)}
+            disabled={readOnly}
             title="Переместить вниз"
           >
             <VscChevronDown className="h-4 w-4" />
@@ -137,6 +143,7 @@ export default function MarkdownCellView({
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => onDelete(cell.localId)}
+            disabled={readOnly}
             title="Удалить ячейку"
           >
             <VscTrash className="h-4 w-4" />
@@ -168,6 +175,7 @@ export default function MarkdownCellView({
             lineNumbers="off"
             minHeight={120}
             tabSize={tabSize}
+            readOnly={readOnly}
           />
         )}
       </div>

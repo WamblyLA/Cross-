@@ -21,6 +21,7 @@ type NotebookEditorHostProps = {
   filePath: string;
   content: string;
   isDirty: boolean;
+  readOnly?: boolean;
   theme: ThemeName;
   fontSize: number;
   tabSize: number;
@@ -63,6 +64,7 @@ export default function NotebookEditorHost({
   filePath,
   content,
   isDirty,
+  readOnly = false,
   theme,
   fontSize,
   tabSize,
@@ -252,6 +254,11 @@ export default function NotebookEditorHost({
   }, []);
 
   const handleSaveNotebook = useCallback(async () => {
+    if (readOnly) {
+      setStatusMessage("У вас только доступ для чтения.");
+      return;
+    }
+
     if (parseError) {
       setStatusMessage(
         "Сначала исправьте некорректный JSON или создайте новый ноутбук.",
@@ -263,7 +270,7 @@ export default function NotebookEditorHost({
     await onSaveContent(serialized);
     dirtyNotifiedRef.current = false;
     setStatusMessage("Ноутбук сохранён.");
-  }, [commitCurrentDocument, onSaveContent, parseError]);
+  }, [commitCurrentDocument, onSaveContent, parseError, readOnly]);
 
   const handleAddCell = useCallback(
     (cellType: EditableNotebookCellType, afterIndex?: number) => {
@@ -271,6 +278,11 @@ export default function NotebookEditorHost({
         setStatusMessage(
           "Сначала создайте новый ноутбук, затем редактируйте ячейки.",
         );
+        return null;
+      }
+
+      if (readOnly) {
+        setStatusMessage("У вас только доступ для чтения.");
         return null;
       }
 
@@ -303,7 +315,7 @@ export default function NotebookEditorHost({
 
       return nextCell?.localId ?? null;
     },
-    [commitDocumentUpdate, focusCell, parseError, selectedCellId],
+    [commitDocumentUpdate, focusCell, parseError, readOnly, selectedCellId],
   );
 
   const focusNextCell = useCallback(
@@ -332,6 +344,11 @@ export default function NotebookEditorHost({
   const handleDeleteCell = useCallback(
     (localId: string) => {
       const currentIndex = getCellIndex(localId);
+      if (readOnly) {
+        setStatusMessage("У вас только доступ для чтения.");
+        return;
+      }
+
       const currentDocument = documentRef.current;
       const fallbackSelection =
         currentDocument.cells[currentIndex + 1]?.localId ??
@@ -343,11 +360,16 @@ export default function NotebookEditorHost({
       setSelectedCellId(fallbackSelection);
       setFocusTargetCellId(null);
     },
-    [commitDocumentUpdate, getCellIndex],
+    [commitDocumentUpdate, getCellIndex, readOnly],
   );
 
   const handleMoveCell = useCallback(
     (localId: string, direction: -1 | 1) => {
+      if (readOnly) {
+        setStatusMessage("У вас только доступ для чтения.");
+        return;
+      }
+
       commitDocumentUpdate((current) => moveNotebookCell(current, localId, direction));
       setSelectedCellId(localId);
       setStatusMessage(
@@ -356,28 +378,41 @@ export default function NotebookEditorHost({
           : "Ячейка перемещена вниз.",
       );
     },
-    [commitDocumentUpdate],
+    [commitDocumentUpdate, readOnly],
   );
 
   const handleCellSourceChange = useCallback(
     (localId: string, source: string) => {
+      if (readOnly) {
+        return;
+      }
+
       applyLocalDocumentUpdate((current) => updateNotebookCellSource(current, localId, source));
     },
-    [applyLocalDocumentUpdate],
+    [applyLocalDocumentUpdate, readOnly],
   );
 
   const handleCellModeChange = useCallback(
     (localId: string, mode: "edit" | "preview") => {
+      if (readOnly) {
+        return;
+      }
+
       setSelectedCellId(localId);
       commitDocumentUpdate(
         (current) => setNotebookCellMode(current, localId, mode),
         { markDirty: true },
       );
     },
-    [commitDocumentUpdate],
+    [commitDocumentUpdate, readOnly],
   );
 
   const handleResetNotebook = useCallback(() => {
+    if (readOnly) {
+      setStatusMessage("У вас только доступ для чтения.");
+      return;
+    }
+
     const nextDocument = createNotebookDocumentWithStarterCell("code");
     applyDocumentState(nextDocument, {
       markDirty: true,
@@ -386,7 +421,7 @@ export default function NotebookEditorHost({
     });
     setStatusMessage("Создан новый ноутбук из пустого шаблона.");
     focusCell(nextDocument.cells[0]?.localId ?? null);
-  }, [applyDocumentState, focusCell]);
+  }, [applyDocumentState, focusCell, readOnly]);
 
   const handleRunCodeCell = useCallback(
     (localId: string) => {
@@ -428,12 +463,13 @@ export default function NotebookEditorHost({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-editor">
-      <NotebookToolbar
-        cellCount={document.cells.length}
-        isDirty={isDirty}
-        isBlocked={Boolean(parseError)}
-        statusMessage={toolbarStatusMessage}
-        execution={{
+        <NotebookToolbar
+          cellCount={document.cells.length}
+          isDirty={isDirty}
+          isBlocked={Boolean(parseError)}
+          readOnly={readOnly}
+          statusMessage={toolbarStatusMessage}
+          execution={{
           kernels: execution.kernels,
           kernelsLoading: execution.kernelsLoading,
           kernelsError: execution.kernelsError,
@@ -514,15 +550,18 @@ export default function NotebookEditorHost({
           </div>
         ) : (
           <CellList
-            cells={document.cells}
-            editorLanguage={editorLanguage}
-            filePath={filePath}
-            theme={theme}
-            fontSize={fontSize}
-            tabSize={tabSize}
-            beforeMount={beforeMount}
-            cellExecutionState={execution.cellStates}
-            canExecuteCodeCells={!parseError && execution.canExecute && !execution.isRunningAnyCell}
+          cells={document.cells}
+          editorLanguage={editorLanguage}
+          filePath={filePath}
+          theme={theme}
+          fontSize={fontSize}
+          tabSize={tabSize}
+          beforeMount={beforeMount}
+          readOnly={readOnly}
+          cellExecutionState={execution.cellStates}
+          canExecuteCodeCells={
+            !readOnly && !parseError && execution.canExecute && !execution.isRunningAnyCell
+          }
             selectedCellId={selectedCellId}
             focusTargetCellId={focusTargetCellId}
             focusSequence={focusSequence}

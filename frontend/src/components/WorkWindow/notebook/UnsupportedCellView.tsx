@@ -6,6 +6,7 @@ type UnsupportedCellViewProps = {
   cell: NotebookCellModel;
   index: number;
   isSelected: boolean;
+  readOnly?: boolean;
   focusToken: number;
   onSelect: (localId: string) => void;
   onMove: (localId: string, direction: -1 | 1) => void;
@@ -16,6 +17,7 @@ export default function UnsupportedCellView({
   cell,
   index,
   isSelected,
+  readOnly = false,
   focusToken,
   onSelect,
   onMove,
@@ -56,6 +58,7 @@ export default function UnsupportedCellView({
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => onMove(cell.localId, -1)}
+            disabled={readOnly}
             title="Переместить вверх"
           >
             <VscChevronUp className="h-4 w-4" />
@@ -65,6 +68,7 @@ export default function UnsupportedCellView({
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => onMove(cell.localId, 1)}
+            disabled={readOnly}
             title="Переместить вниз"
           >
             <VscChevronDown className="h-4 w-4" />
@@ -74,6 +78,7 @@ export default function UnsupportedCellView({
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => onDelete(cell.localId)}
+            disabled={readOnly}
             title="Удалить ячейку"
           >
             <VscTrash className="h-4 w-4" />

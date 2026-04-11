@@ -10,6 +10,16 @@ export const selectCloudActiveProject = (state: StateType) =>
   state.cloud.projects.find((project) => project.id === state.cloud.activeProjectId) ?? null;
 export const selectCloudProjectById = (state: StateType, projectId: string | null) =>
   projectId ? state.cloud.projects.find((project) => project.id === projectId) ?? null : null;
+export const selectCloudActiveProjectAccessRole = (state: StateType) =>
+  selectCloudActiveProject(state)?.accessRole ?? null;
+export const selectCloudCanManageMembers = (state: StateType) =>
+  selectCloudActiveProject(state)?.accessRole === "owner";
+export const selectCloudCanWriteProject = (state: StateType) => {
+  const role = selectCloudActiveProject(state)?.accessRole;
+  return role === "owner" || role === "editor";
+};
+export const selectCloudCanManageStructure = (state: StateType) =>
+  selectCloudCanWriteProject(state);
 export const selectCloudActiveProjectTree = (state: StateType) =>
   state.cloud.activeProjectId ? state.cloud.treeByProjectId[state.cloud.activeProjectId] ?? null : null;
 export const selectCloudTreeForProject = (state: StateType, projectId: string | null) =>
@@ -36,16 +46,23 @@ export const selectCloudSelectedItemType = (state: StateType) => state.cloud.sel
 export const selectCloudSelectedItemCount = (state: StateType) => state.cloud.selectedItemCount;
 export const selectCloudCanRenameSingle = (state: StateType) =>
   state.cloud.selectedItemCount === 1 &&
+  (state.cloud.selectedItemType === "project"
+    ? selectCloudActiveProject(state)?.accessRole === "owner"
+    : selectCloudCanWriteProject(state)) &&
   (state.cloud.selectedItemType === "project" ||
     state.cloud.selectedItemType === "folder" ||
     state.cloud.selectedItemType === "file");
 export const selectCloudCanDeleteSelection = (state: StateType) =>
   state.cloud.selectedItemCount > 0 &&
+  (state.cloud.selectedItemType === "project"
+    ? selectCloudActiveProject(state)?.accessRole === "owner"
+    : selectCloudCanWriteProject(state)) &&
   (state.cloud.selectedItemType === "project" ||
     state.cloud.selectedItemType === "folder" ||
     state.cloud.selectedItemType === "file");
 export const selectCloudCanMoveSelection = (state: StateType) =>
   state.cloud.selectedItemCount > 0 &&
+  selectCloudCanWriteProject(state) &&
   (state.cloud.selectedItemType === "folder" || state.cloud.selectedItemType === "file");
 export const selectCloudProjectActionPending = (state: StateType) =>
   state.cloud.projectActionPending;

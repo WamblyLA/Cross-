@@ -13,6 +13,7 @@ type MarkdownEditorProps = {
   filePath: string;
   content: string;
   isDirty: boolean;
+  readOnly?: boolean;
   theme: ThemeName;
   fontSize: number;
   tabSize: number;
@@ -42,6 +43,7 @@ export default function MarkdownEditor({
   filePath,
   content,
   isDirty,
+  readOnly = false,
   theme,
   fontSize,
   tabSize,
@@ -101,11 +103,15 @@ export default function MarkdownEditor({
   );
 
   const saveDraft = useCallback(async () => {
+    if (readOnly) {
+      return;
+    }
+
     const nextContent = commitDraft();
     await onSaveContent(nextContent);
     syncDraftFromExternalContent(nextContent, false);
     logger.info("Markdown-файл сохранён.", { filePath });
-  }, [commitDraft, filePath, onSaveContent, syncDraftFromExternalContent]);
+  }, [commitDraft, filePath, onSaveContent, readOnly, syncDraftFromExternalContent]);
 
   useEffect(() => {
     return () => {
@@ -124,11 +130,13 @@ export default function MarkdownEditor({
         label: "Сохранить файл",
         keybindings: [monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS],
         run: async () => {
-          await saveDraft();
+          if (!readOnly) {
+            await saveDraft();
+          }
         },
       });
     },
-    [saveDraft],
+    [readOnly, saveDraft],
   );
 
   useEffect(() => {
@@ -147,6 +155,10 @@ export default function MarkdownEditor({
 
   const handleDraftChange = useCallback(
     (nextValue: string) => {
+      if (readOnly) {
+        return;
+      }
+
       setDraftContent(nextValue);
 
       if (nextValue !== lastSyncedContentRef.current && !dirtyNotifiedRef.current) {
@@ -154,7 +166,7 @@ export default function MarkdownEditor({
         onMarkDirty();
       }
     },
-    [onMarkDirty],
+    [onMarkDirty, readOnly],
   );
 
   const handleViewModeChange = useCallback(
@@ -184,6 +196,7 @@ export default function MarkdownEditor({
         fontSize,
         lineNumbers: "on",
         automaticLayout: true,
+        readOnly,
         wordWrap: "on",
         scrollBeyondLastLine: false,
         smoothScrolling: true,
@@ -208,7 +221,9 @@ export default function MarkdownEditor({
     <div className="flex h-full min-h-0 flex-col">
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-panel px-4 py-3">
         <div>
-          <div className="text-sm text-primary">Редактор Markdown</div>
+          <div className="text-sm text-primary">
+            {readOnly ? "Редактор Markdown (только чтение)" : "Редактор Markdown"}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -218,7 +233,7 @@ export default function MarkdownEditor({
             onClick={() => handleViewModeChange("code")}
           >
             <VscCode className="h-4 w-4" />
-            <span>Code</span>
+            <span>Код</span>
           </button>
 
           <button
@@ -227,7 +242,7 @@ export default function MarkdownEditor({
             onClick={() => handleViewModeChange("split")}
           >
             <VscSplitHorizontal className="h-4 w-4" />
-            <span>Split</span>
+            <span>Разделить</span>
           </button>
 
           <button
@@ -236,7 +251,7 @@ export default function MarkdownEditor({
             onClick={() => handleViewModeChange("preview")}
           >
             <VscEye className="h-4 w-4" />
-            <span>Preview</span>
+            <span>Предпросмотр</span>
           </button>
         </div>
       </div>

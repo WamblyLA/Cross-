@@ -19,6 +19,7 @@ type CodeCellViewProps = {
     lastStatus: NotebookExecutionStatus | null;
   };
   canExecute: boolean;
+  readOnly?: boolean;
   isSelected: boolean;
   focusToken: number;
   onSelect: (localId: string) => void;
@@ -64,6 +65,7 @@ export default function CodeCellView({
   beforeMount,
   executionState,
   canExecute,
+  readOnly = false,
   isSelected,
   focusToken,
   onSelect,
@@ -95,8 +97,8 @@ export default function CodeCellView({
               onSelect(cell.localId);
               onRunCell(cell.localId);
             }}
-            disabled={!canExecute || executionState.isRunning}
-            title="Run Cell"
+            disabled={readOnly || !canExecute || executionState.isRunning}
+            title="Запустить ячейку"
           >
             <VscPlay className="h-4 w-4" />
             <span>Запустить ячейку</span>
@@ -106,6 +108,7 @@ export default function CodeCellView({
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => onMove(cell.localId, -1)}
+            disabled={readOnly}
             title="Переместить вверх"
           >
             <VscChevronUp className="h-4 w-4" />
@@ -115,6 +118,7 @@ export default function CodeCellView({
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => onMove(cell.localId, 1)}
+            disabled={readOnly}
             title="Переместить вниз"
           >
             <VscChevronDown className="h-4 w-4" />
@@ -124,6 +128,7 @@ export default function CodeCellView({
             type="button"
             className="ui-control h-8 w-8"
             onClick={() => onDelete(cell.localId)}
+            disabled={readOnly}
             title="Удалить ячейку"
           >
             <VscTrash className="h-4 w-4" />
@@ -148,6 +153,7 @@ export default function CodeCellView({
           lineNumbers="on"
           minHeight={160}
           tabSize={tabSize}
+          readOnly={readOnly}
         />
 
         <div className="mt-4">

@@ -6,6 +6,7 @@ export type ApiErrorDetail = {
 };
 
 export type ApiError = {
+  code: string | null;
   message: string;
   status: number | null;
   details: ApiErrorDetail[];
@@ -59,6 +60,7 @@ export function createApiError(
   options: Partial<Omit<ApiError, "message">> = {},
 ): ApiError {
   return {
+    code: options.code ?? null,
     message,
     status: options.status ?? null,
     details: options.details ?? [],
@@ -87,6 +89,7 @@ export function normalizeApiError(error: unknown): ApiError {
           .map(toDetail)
           .filter((detail): detail is ApiErrorDetail => detail !== null)
       : [];
+    const code = typeof errorPayload?.code === "string" ? errorPayload.code : null;
     const isTimeoutError = error.code === "ECONNABORTED";
     const isNetworkError = !error.response;
 
@@ -103,6 +106,7 @@ export function normalizeApiError(error: unknown): ApiError {
     }
 
     return createApiError(message, {
+      code,
       status,
       details,
       isNetworkError,

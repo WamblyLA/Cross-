@@ -17,6 +17,7 @@ type NotebookKernelControlsProps = {
   sessionDetail: string | null;
   canExecute: boolean;
   isRunningAnyCell: boolean;
+  readOnly?: boolean;
   onRefresh: () => void;
   onSelectKernel: (kernelId: string) => void;
   onRunAll: () => void;
@@ -74,6 +75,7 @@ export default function NotebookKernelControls({
   sessionDetail,
   canExecute,
   isRunningAnyCell,
+  readOnly = false,
   onRefresh,
   onSelectKernel,
   onRunAll,
@@ -112,7 +114,7 @@ export default function NotebookKernelControls({
           type="button"
           className="ui-control h-auto min-h-9 w-full justify-between px-3 py-2 text-left"
           onClick={() => setIsSelectorOpen((current) => !current)}
-          disabled={kernelsLoading}
+          disabled={kernelsLoading || readOnly}
           title="Выбор ядра Jupyter"
         >
           <div className="min-w-0 flex-1">
@@ -172,6 +174,7 @@ export default function NotebookKernelControls({
         type="button"
         className="ui-control h-9 w-9"
         onClick={onRefresh}
+        disabled={readOnly}
         title="Обновить список ядер"
       >
         <VscRefresh className={`h-4 w-4 ${kernelsLoading ? "animate-spin" : ""}`} />
@@ -188,7 +191,7 @@ export default function NotebookKernelControls({
         type="button"
         className="ui-control h-9 px-3"
         onClick={onRunAll}
-        disabled={!canExecute || isRunningAnyCell}
+        disabled={readOnly || !canExecute || isRunningAnyCell}
         title="Выполнить весь ноутбук"
       >
         <VscRunAll className="h-4 w-4" />
@@ -199,7 +202,7 @@ export default function NotebookKernelControls({
         type="button"
         className="ui-control h-9 px-3"
         onClick={onInterrupt}
-        disabled={!isRunningAnyCell}
+        disabled={readOnly || !isRunningAnyCell}
         title="Прервать выполнение"
       >
         <VscDebugPause className="h-4 w-4" />
@@ -210,7 +213,7 @@ export default function NotebookKernelControls({
         type="button"
         className="ui-control h-9 px-3"
         onClick={onRestart}
-        disabled={!selectedKernelId || isRunningAnyCell}
+        disabled={readOnly || !selectedKernelId || isRunningAnyCell}
         title="Перезапустить ядро"
       >
         <VscDebugRestart className="h-4 w-4" />

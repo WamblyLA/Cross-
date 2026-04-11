@@ -17,6 +17,12 @@ export default function CloudProjectSection({
   controller,
   project,
 }: CloudProjectSectionProps) {
+  const roleLabel =
+    project.accessRole === "owner"
+      ? "Владелец"
+      : project.accessRole === "editor"
+        ? "Редактор"
+        : "Наблюдатель";
   const draft = controller.draft;
   const isActive = project.id === controller.activeProjectId;
   const isSelected = controller.selectedItemType === "project" && controller.selectedProjectId === project.id;
@@ -66,6 +72,9 @@ export default function CloudProjectSection({
               <FiCloud className="h-4 w-4" />
             </span>
             <span className="block min-w-0 flex-1 truncate text-sm">{project.name}</span>
+            <span className="rounded-full border border-default px-2 py-0.5 text-[10px] uppercase tracking-[0.08em] text-muted">
+              {roleLabel}
+            </span>
           </button>
         )}
       </div>

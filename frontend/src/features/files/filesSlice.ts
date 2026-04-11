@@ -69,6 +69,7 @@ const filesSlice = createSlice({
         fileId: string;
         name: string;
         content: string;
+        canWrite?: boolean;
         version: number;
         updatedAt?: string | null;
       }>,

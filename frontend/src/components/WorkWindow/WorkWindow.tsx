@@ -94,6 +94,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
 
   const isNotebookFile = activeFile?.extension?.toLowerCase() === "ipynb";
   const isMarkdownFile = activeFile?.extension?.toLowerCase() === "md";
+  const isCloudReadOnly = activeFile?.kind === "cloud" && !activeFile.canWrite;
 
   useCloudRealtimeFile(activeFile);
 
@@ -177,6 +178,10 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         return;
       }
 
+      if (activeFile.kind === "cloud" && !activeFile.canWrite) {
+        return;
+      }
+
       dispatch(
         updateFileContent({
           tabId: activeFile.tabId,
@@ -217,6 +222,10 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
       }
 
       if (nextContent !== undefined) {
+        if (activeFile.kind === "cloud" && !activeFile.canWrite) {
+          throw new Error("У вас только доступ для чтения.");
+        }
+
         dispatch(
           updateFileContent({
             tabId: activeFile.tabId,
@@ -238,6 +247,12 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
   const handleSaveFileContent = useCallback(
     async (tabId: string, nextContent?: string) => {
       if (nextContent !== undefined) {
+        const targetFile = openedFiles.find((file) => file.tabId === tabId);
+
+        if (targetFile?.kind === "cloud" && !targetFile.canWrite) {
+          throw new Error("У вас только доступ для чтения.");
+        }
+
         dispatch(
           updateFileContent({
             tabId,
@@ -389,6 +404,12 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
       </div>
 
       <div className="min-h-0 flex-1 border-t border-default">
+        {isCloudReadOnly ? (
+          <div className="border-b border-default bg-panel px-4 py-2 text-sm text-secondary">
+            У вас только доступ для чтения. Редактирование и сохранение отключены.
+          </div>
+        ) : null}
+
         {activeFile ? (
           isNotebookFile ? (
             <NotebookEditor
@@ -400,6 +421,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
               fontSize={visualSettings.fontSize}
               tabSize={visualSettings.tabSize}
               beforeMount={beforeMount}
+              readOnly={isCloudReadOnly}
               runtimeContext={
                 activeFile.kind === "local"
                   ? {
@@ -433,6 +455,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
               fontSize={visualSettings.fontSize}
               tabSize={visualSettings.tabSize}
               beforeMount={beforeMount}
+              readOnly={isCloudReadOnly}
               onCommitContent={(nextContent) =>
                 handleCommitFileContent(activeFile.tabId, nextContent)
               }
@@ -454,6 +477,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
                 fontSize: visualSettings.fontSize,
                 lineNumbers: "on",
                 automaticLayout: true,
+                readOnly: isCloudReadOnly,
                 wordWrap: "off",
                 scrollBeyondLastLine: true,
                 smoothScrolling: true,

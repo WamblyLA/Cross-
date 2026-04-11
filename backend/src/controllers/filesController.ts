@@ -1,12 +1,15 @@
 import type { Request, Response } from "express";
 import { AppError } from "../lib/errors.js";
 import {
-  assertFolderInProject,
-  ensureOwnedProject,
   findSiblingFile,
-  getOwnedFileOrThrow,
-  moveOwnedFile,
+  moveProjectFileForAccess,
 } from "../lib/cloudExplorer.js";
+import {
+  assertFolderInProject,
+  getProjectFileForAccess,
+  requireProjectReadAccess,
+  requireProjectWriteAccess,
+} from "../lib/projectAccess.js";
 import { prisma } from "../lib/prisma.js";
 import type {
   CreateFileBody,
@@ -16,15 +19,19 @@ import type {
   UpdateFileBody,
 } from "../lib/validation.js";
 
-export async function getProjectFiles(req: Request, res: Response) {
-  const { projectId } = req.params as ProjectFilesParams;
-  const userId = req.userId;
-
-  if (!userId) {
-    throw new AppError("Требуется авторизация", 401);
+function requireUserId(req: Request) {
+  if (!req.userId) {
+    throw new AppError("Требуется авторизация", 401, undefined, "UNAUTHORIZED");
   }
 
-  await ensureOwnedProject(projectId, userId);
+  return req.userId;
+}
+
+export async function getProjectFiles(req: Request, res: Response) {
+  const { projectId } = req.params as ProjectFilesParams;
+  const userId = requireUserId(req);
+
+  await requireProjectReadAccess(userId, projectId);
 
   const files = await prisma.file.findMany({
     where: { projectId },
@@ -46,19 +53,15 @@ export async function getProjectFiles(req: Request, res: Response) {
 export async function createFile(req: Request, res: Response) {
   const { projectId } = req.params as ProjectFilesParams;
   const { name, content, folderId } = req.body as CreateFileBody;
-  const userId = req.userId;
+  const userId = requireUserId(req);
 
-  if (!userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
-
-  await ensureOwnedProject(projectId, userId);
-  await assertFolderInProject(userId, projectId, folderId ?? null);
+  await requireProjectWriteAccess(userId, projectId);
+  await assertFolderInProject(userId, projectId, folderId ?? null, "write");
 
   const existingFile = await findSiblingFile(projectId, folderId ?? null, name);
 
   if (existingFile) {
-    throw new AppError("Файл с таким именем уже существует", 409);
+    throw new AppError("Файл с таким именем уже существует", 409, undefined, "CONFLICT");
   }
 
   const file = await prisma.file.create({
@@ -75,32 +78,30 @@ export async function createFile(req: Request, res: Response) {
 
 export async function getProjectFile(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFileParams;
-  const userId = req.userId;
+  const userId = requireUserId(req);
+  const file = await getProjectFileForAccess(userId, projectId, id);
+  const access = await requireProjectReadAccess(userId, projectId);
 
-  if (!userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
-
-  const file = await getOwnedFileOrThrow(userId, projectId, id);
-  res.json({ file });
+  res.json({
+    file: {
+      ...file,
+      canWrite: access.role !== "viewer",
+    },
+  });
 }
 
 export async function updateProjectFile(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFileParams;
   const { name, content, expectedVersion } = req.body as UpdateFileBody;
-  const userId = req.userId;
+  const userId = requireUserId(req);
 
-  if (!userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
-
-  const file = await getOwnedFileOrThrow(userId, projectId, id);
+  const file = await getProjectFileForAccess(userId, projectId, id, "write");
 
   if (name && name !== file.name) {
     const duplicate = await findSiblingFile(projectId, file.folderId ?? null, name);
 
     if (duplicate && duplicate.id !== file.id) {
-      throw new AppError("Файл с таким именем уже существует", 409);
+      throw new AppError("Файл с таким именем уже существует", 409, undefined, "CONFLICT");
     }
   }
 
@@ -108,6 +109,8 @@ export async function updateProjectFile(req: Request, res: Response) {
     throw new AppError(
       "Версия облачного файла устарела. Пересчитайте изменения и повторите попытку.",
       409,
+      undefined,
+      "CONFLICT",
     );
   }
 
@@ -138,6 +141,8 @@ export async function updateProjectFile(req: Request, res: Response) {
             throw new AppError(
               "Версия облачного файла устарела. Пересчитайте изменения и повторите попытку.",
               409,
+              undefined,
+              "CONFLICT",
             );
           }
 
@@ -146,18 +151,18 @@ export async function updateProjectFile(req: Request, res: Response) {
           });
         });
 
-  res.json({ file: updatedFile });
+  res.json({
+    file: {
+      ...updatedFile,
+      canWrite: true,
+    },
+  });
 }
 
 export async function deleteProjectFile(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFileParams;
-  const userId = req.userId;
-
-  if (!userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
-
-  const file = await getOwnedFileOrThrow(userId, projectId, id);
+  const userId = requireUserId(req);
+  const file = await getProjectFileForAccess(userId, projectId, id, "write");
 
   await prisma.file.delete({
     where: { id: file.id },
@@ -169,12 +174,14 @@ export async function deleteProjectFile(req: Request, res: Response) {
 export async function moveProjectFile(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFileParams;
   const { targetProjectId, targetFolderId } = req.body as MoveFileBody;
-  const userId = req.userId;
+  const userId = requireUserId(req);
+  const result = await moveProjectFileForAccess(
+    userId,
+    projectId,
+    id,
+    targetProjectId,
+    targetFolderId ?? null,
+  );
 
-  if (!userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
-
-  const result = await moveOwnedFile(userId, projectId, id, targetProjectId, targetFolderId ?? null);
   res.json(result);
 }

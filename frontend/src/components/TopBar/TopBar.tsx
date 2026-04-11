@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiUsers } from "react-icons/fi";
 import { IoIosSquareOutline } from "react-icons/io";
 import { IoSearchOutline } from "react-icons/io5";
 import { RxCross1 } from "react-icons/rx";
@@ -10,6 +11,7 @@ import {
   selectCloudActiveProjectId,
   selectCloudCanDeleteSelection,
   selectCloudCanRenameSingle,
+  selectCloudCanWriteProject,
 } from "../../features/cloud/cloudSelectors";
 import { requestExplorerAction, setWorkspaceSource } from "../../features/workspace/workspaceSlice";
 import { useAppCommandExecutor } from "../../hooks/useAppCommandExecutor";
@@ -21,6 +23,7 @@ import TopBarAccountControls from "./TopBarAccountControls";
 import TopBarIcon from "./TopBarIcon";
 import TopBarMenuBar from "./TopBarMenuBar";
 import { TopBarMenuPanel, TopBarOverflowPanel } from "./TopBarMenuPanels";
+import TopBarNotificationsInbox from "./TopBarNotificationsInbox";
 import TopBarRunButton from "./TopBarRunButton";
 import TopBarSearchOverlay from "./TopBarSearchOverlay";
 import {
@@ -34,10 +37,11 @@ import type { OverflowSubmenuState, TopBarMenuItem } from "./topBarMenuTypes";
 import { useTopBarMenus } from "./useTopBarMenus";
 
 type TopBarProps = {
+  onOpenProjectMembers: () => void;
   onOpenVisualSettings: () => void;
 };
 
-export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
+export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: TopBarProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const menuRootRef = useRef<HTMLDivElement | null>(null);
@@ -68,8 +72,12 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
   const selectionCount = useAppSelector((state) => state.workspace.selectionCount);
   const activeSearchQuery = useAppSelector((state) => state.workspace.searchQuery);
   const activeCloudProjectId = useAppSelector(selectCloudActiveProjectId);
+  const activeCloudProject = useAppSelector((state) =>
+    state.cloud.projects.find((project) => project.id === activeCloudProjectId) ?? null,
+  );
   const canRenameCloudSelection = useAppSelector(selectCloudCanRenameSingle);
   const canDeleteCloudSelection = useAppSelector(selectCloudCanDeleteSelection);
+  const canWriteCloudProject = useAppSelector(selectCloudCanWriteProject);
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const isTerminalVisible = useAppSelector(
     (state) => state.panel.isVisible && state.panel.activeTab === "terminal",
@@ -129,9 +137,13 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
       ? canDeleteCloudSelection
       : selectionCount > 0 && Boolean(selectedPath && selectedPath !== rootPath);
   const canCreateFile =
-    source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
+    source === "cloud"
+      ? isAuthenticated && Boolean(activeCloudProjectId) && canWriteCloudProject
+      : Boolean(rootPath);
   const canCreateFolder =
-    source === "cloud" ? isAuthenticated && Boolean(activeCloudProjectId) : Boolean(rootPath);
+    source === "cloud"
+      ? isAuthenticated && Boolean(activeCloudProjectId) && canWriteCloudProject
+      : Boolean(rootPath);
   const canCreateProject = isAuthenticated;
   const canRefreshExplorer = source === "cloud" ? isAuthenticated : Boolean(rootPath);
   const canCollapseExplorer =
@@ -501,7 +513,21 @@ export default function TopBar({ onOpenVisualSettings }: TopBarProps) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {source === "cloud" && activeCloudProject ? (
+            <button
+              type="button"
+              className="ui-control flex h-8 items-center gap-2 px-3 text-sm"
+              onClick={onOpenProjectMembers}
+              title="Участники проекта"
+            >
+              <FiUsers className="h-4 w-4" />
+              <span>Участники</span>
+            </button>
+          ) : null}
+
           <TopBarRunButton />
+
+          {isAuthenticated ? <TopBarNotificationsInbox /> : null}
 
           <button
             ref={searchTriggerRef}

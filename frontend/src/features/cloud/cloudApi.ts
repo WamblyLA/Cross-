@@ -4,9 +4,13 @@ import type {
   CloudProjectRunSnapshot,
   CloudFileSummary,
   CloudFolderSummary,
+  PendingProjectInvitation,
+  ProjectMember,
   CloudProject,
   CloudProjectTree,
+  ProjectMemberRole,
 } from "./cloudTypes";
+import type { NotificationItem } from "../notifications/notificationsTypes";
 
 type ProjectsResponse = {
   projects: CloudProject[];
@@ -30,6 +34,28 @@ type FilesResponse = {
 
 type FileResponse = {
   file: CloudFile;
+};
+
+type ProjectMembersResponse = {
+  members: ProjectMember[];
+  pendingInvitations: PendingProjectInvitation[];
+};
+
+type ProjectMemberResponse = {
+  member: ProjectMember;
+};
+
+type ProjectInvitationResponse = {
+  invitation: PendingProjectInvitation;
+};
+
+type NotificationsResponse = {
+  notifications: NotificationItem[];
+};
+
+type InvitationActionResponse = {
+  invitationId: string;
+  projectId: string;
 };
 
 type FolderResponse = {
@@ -97,6 +123,69 @@ export function renameProject(projectId: string, payload: { name: string }) {
 export function deleteProject(projectId: string) {
   return request<void>({
     url: `/api/projects/${projectId}`,
+    method: "DELETE",
+  });
+}
+
+export function listProjectMembers(projectId: string) {
+  return request<ProjectMembersResponse>({
+    url: `/api/projects/${projectId}/members`,
+  });
+}
+
+export function createProjectInvitation(
+  projectId: string,
+  payload: { email: string; role: Extract<ProjectMemberRole, "editor" | "viewer"> },
+) {
+  return request<ProjectInvitationResponse, { email: string; role: Extract<ProjectMemberRole, "editor" | "viewer"> }>({
+    url: `/api/projects/${projectId}/invitations`,
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function revokeProjectInvitation(projectId: string, invitationId: string) {
+  return request<void>({
+    url: `/api/projects/${projectId}/invitations/${invitationId}`,
+    method: "DELETE",
+  });
+}
+
+export function listNotifications() {
+  return request<NotificationsResponse>({
+    url: "/api/notifications",
+  });
+}
+
+export function acceptProjectInvitation(invitationId: string) {
+  return request<InvitationActionResponse>({
+    url: `/api/project-invitations/${invitationId}/accept`,
+    method: "POST",
+  });
+}
+
+export function declineProjectInvitation(invitationId: string) {
+  return request<InvitationActionResponse>({
+    url: `/api/project-invitations/${invitationId}/decline`,
+    method: "POST",
+  });
+}
+
+export function updateProjectMemberRole(
+  projectId: string,
+  memberId: string,
+  payload: { role: Extract<ProjectMemberRole, "editor" | "viewer"> },
+) {
+  return request<ProjectMemberResponse, { role: Extract<ProjectMemberRole, "editor" | "viewer"> }>({
+    url: `/api/projects/${projectId}/members/${memberId}`,
+    method: "PATCH",
+    body: payload,
+  });
+}
+
+export function deleteProjectMember(projectId: string, memberId: string) {
+  return request<void>({
+    url: `/api/projects/${projectId}/members/${memberId}`,
     method: "DELETE",
   });
 }

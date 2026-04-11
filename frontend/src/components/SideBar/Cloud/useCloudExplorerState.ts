@@ -33,6 +33,7 @@ import type { CloudSelectionEntry } from "../../../features/cloud/cloudSelection
 import { normalizeApiError } from "../../../lib/api/errorNormalization";
 import { useWorkspaceActions } from "../../../hooks/useWorkspaceActions";
 import { useAppDispatch, useAppSelector } from "../../../store/hooks";
+import { useProjectMembersDialog } from "../../CodeWithMe/ProjectMembersDialogContext";
 import {
   buildVisibleCloudSelectionItems,
   hasPrimaryModifier,
@@ -49,6 +50,7 @@ import { filterTree, isAuthError } from "./cloudExplorerUtils";
 
 export function useCloudExplorerState() {
   const dispatch = useAppDispatch();
+  const { openProjectMembers } = useProjectMembersDialog();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const searchQuery = useAppSelector((state) => state.workspace.searchQuery.trim());
   const explorerIntent = useAppSelector((state) => state.workspace.explorerIntent);
@@ -276,6 +278,7 @@ export function useCloudExplorerState() {
     explorerIntent,
     projects,
     projectsStatus,
+    activeProject: projects.find((project) => project.id === activeProjectId) ?? null,
     activeProjectId,
     activeProjectTree,
     activeProjectFilesStatus,
@@ -316,6 +319,12 @@ export function useCloudExplorerState() {
     selectedMovableItems,
     aggregatedError,
     authRecoveryRequired,
+    canManageMembers:
+      (projects.find((project) => project.id === activeProjectId)?.accessRole ?? null) === "owner",
+    canWriteActiveProject: (() => {
+      const role = projects.find((project) => project.id === activeProjectId)?.accessRole ?? null;
+      return role === "owner" || role === "editor";
+    })(),
     resetMessages,
     handleRefresh,
     commitSelection,
@@ -323,5 +332,6 @@ export function useCloudExplorerState() {
     handleProjectClick,
     handleOpenFile,
     toggleFolder,
+    openProjectMembers,
   };
 }

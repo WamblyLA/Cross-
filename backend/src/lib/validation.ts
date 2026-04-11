@@ -31,6 +31,9 @@ const usernameSchema = z
   );
 
 const emailSchema = trimmedString().toLowerCase().email("Некорректный email");
+const projectMemberRoleSchema = z.enum(["editor", "viewer"], {
+  message: "Поддерживаются только роли editor и viewer",
+});
 
 const passwordSchema = z
   .string()
@@ -110,6 +113,47 @@ export type ProjectParams = z.infer<typeof projectParamsSchema>;
 
 export const projectFilesParamsSchema = z.object({ projectId: idSchema }).strict();
 export type ProjectFilesParams = z.infer<typeof projectFilesParamsSchema>;
+
+export const projectMemberParamsSchema = z
+  .object({
+    projectId: idSchema,
+    id: idSchema,
+  })
+  .strict();
+
+export type ProjectMemberParams = z.infer<typeof projectMemberParamsSchema>;
+
+export const createProjectMemberBodySchema = z
+  .object({
+    email: emailSchema,
+    role: projectMemberRoleSchema,
+  })
+  .strict();
+
+export type CreateProjectMemberBody = z.infer<typeof createProjectMemberBodySchema>;
+
+export const createProjectInvitationBodySchema = createProjectMemberBodySchema;
+export type CreateProjectInvitationBody = z.infer<typeof createProjectInvitationBodySchema>;
+
+export const updateProjectMemberBodySchema = z
+  .object({
+    role: projectMemberRoleSchema,
+  })
+  .strict();
+
+export type UpdateProjectMemberBody = z.infer<typeof updateProjectMemberBodySchema>;
+
+export const projectInvitationParamsSchema = z
+  .object({
+    projectId: idSchema,
+    id: idSchema,
+  })
+  .strict();
+
+export type ProjectInvitationParams = z.infer<typeof projectInvitationParamsSchema>;
+
+export const invitationActionParamsSchema = z.object({ id: idSchema }).strict();
+export type InvitationActionParams = z.infer<typeof invitationActionParamsSchema>;
 
 export const fileParamsSchema = z
   .object({

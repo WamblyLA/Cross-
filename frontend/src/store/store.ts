@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "../features/auth/authSlice";
 import cloudReducer from "../features/cloud/cloudSlice";
 import filesReducer from "../features/files/filesSlice";
+import notificationsReducer from "../features/notifications/notificationsSlice";
 import panelReducer from "../features/panel/panelSlice";
 import runReducer from "../features/run/runSlice";
 import syncReducer from "../features/sync/syncSlice";
@@ -14,6 +15,7 @@ const store = configureStore({
     auth: authReducer,
     cloud: cloudReducer,
     files: filesReducer,
+    notifications: notificationsReducer,
     panel: panelReducer,
     run: runReducer,
     sync: syncReducer,
