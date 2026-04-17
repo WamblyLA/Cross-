@@ -13,7 +13,7 @@ export function NotebookMarkdownCell({
 }: NotebookMarkdownCellProps) {
   return (
     <Card>
-      <Text className="text-xs font-bold text-secondary">{`Markdown-ячейка ${index + 1}`}</Text>
+      <Text className="will-change-variable text-xs font-bold text-secondary">{`Markdown-ячейка ${index + 1}`}</Text>
       <MarkdownPreview content={source} scrollable={false} />
     </Card>
   );

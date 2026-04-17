@@ -26,8 +26,8 @@ export function FileInfoCard({
     <Card>
       <View className="gap-3">
         <View className="gap-1">
-          <Text className="text-lg font-extrabold text-primary">{fileName}</Text>
-          <Text className="text-xs text-secondary">
+          <Text className="will-change-variable text-lg font-extrabold text-primary">{fileName}</Text>
+          <Text className="will-change-variable text-xs text-secondary">
             {isDirty ? "Есть несохранённые изменения" : "Изменений нет"}
           </Text>
         </View>

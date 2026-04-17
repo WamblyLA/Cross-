@@ -31,7 +31,7 @@ export function MarkdownEditorPanel({
           >
             <Text
               className={cn(
-                "text-xs font-bold uppercase tracking-[2px]",
+                "will-change-variable text-xs font-bold uppercase tracking-[2px]",
                 mode === "edit" ? "text-primary" : "text-secondary",
               )}
             >
@@ -49,7 +49,7 @@ export function MarkdownEditorPanel({
         >
           <Text
             className={cn(
-              "text-xs font-bold uppercase tracking-[2px]",
+              "will-change-variable text-xs font-bold uppercase tracking-[2px]",
               mode === "preview" ? "text-primary" : "text-secondary",
             )}
           >

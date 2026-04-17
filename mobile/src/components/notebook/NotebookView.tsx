@@ -24,10 +24,6 @@ export function NotebookView({ content }: NotebookViewProps) {
 
   return (
     <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-      <InlineNotice
-        text="Notebook доступен только для просмотра."
-        tone="info"
-      />
 
       {document.parseError ? (
         <InlineNotice text={document.parseError} tone="warning" />

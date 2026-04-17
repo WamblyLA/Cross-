@@ -20,7 +20,7 @@ export function InlineNotice({ tone, text }: InlineNoticeProps) {
               : "border-warning bg-active",
       )}
     >
-      <Text className="text-sm leading-6 text-primary">{text}</Text>
+      <Text className="will-change-variable text-sm leading-6 text-primary">{text}</Text>
     </View>
   );
 }

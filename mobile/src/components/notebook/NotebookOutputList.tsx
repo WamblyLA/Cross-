@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 import { MonospaceBlock } from "../file/MonospaceBlock";
-import { MarkdownPreview } from "../markdown/MarkdownPreview";
 import type { NotebookOutput } from "../../types/notebook";
+import { NotebookRichOutputRenderer } from "./NotebookRichOutputRenderer";
 
 type NotebookOutputListProps = {
   outputs: NotebookOutput[];
@@ -18,7 +18,7 @@ export function NotebookOutputList({
 
   return (
     <View className="gap-2">
-      <Text className="text-xs font-bold text-secondary">Вывод</Text>
+      <Text className="will-change-variable text-xs font-bold text-secondary">Вывод</Text>
 
       {outputs.map((output, index) => {
         if (output.outputType === "stream") {
@@ -30,21 +30,20 @@ export function NotebookOutputList({
           return <MonospaceBlock compact key={`${output.outputType}-${index}`} text={text} />;
         }
 
-        if (output.mimeType === "text/markdown") {
+        if (output.outputType === "rich") {
           return (
-            <MarkdownPreview
-              content={output.text}
-              key={`${output.outputType}-${index}`}
-              scrollable={false}
+            <NotebookRichOutputRenderer
+              key={`${output.outputType}-${index}-${output.mimeType ?? "fallback"}`}
+              output={output}
             />
           );
         }
 
-        return <MonospaceBlock compact key={`${output.outputType}-${index}`} text={output.text} />;
+        return null;
       })}
 
       {hasUnsupportedOutputs ? (
-        <Text className="text-xs text-muted">Часть вывода показана в упрощённом виде.</Text>
+        <Text className="will-change-variable text-xs text-muted">Часть вывода показана в упрощённом виде.</Text>
       ) : null}
     </View>
   );

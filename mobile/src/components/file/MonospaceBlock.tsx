@@ -15,7 +15,7 @@ export function MonospaceBlock({ text, compact = false }: MonospaceBlockProps) {
       }
     >
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <Text className="font-mono text-sm leading-6 text-primary">{text || " "}</Text>
+        <Text className="will-change-variable font-mono text-sm leading-6 text-primary">{text || " "}</Text>
       </ScrollView>
     </View>
   );

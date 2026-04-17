@@ -38,7 +38,7 @@ export function ScreenContainer({
         )}
       >
         {content}
-        {footer ? <View className="bg-app px-4 pb-4">{footer}</View> : null}
+        {footer ? <View className="will-change-variable bg-app px-4 pb-4">{footer}</View> : null}
       </View>
     </SafeAreaView>
   );

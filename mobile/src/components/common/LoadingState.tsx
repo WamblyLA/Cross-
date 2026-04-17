@@ -11,7 +11,7 @@ export function LoadingState({ message }: LoadingStateProps) {
   return (
     <View className="flex-1 items-center justify-center gap-3 px-5">
       <ActivityIndicator color={tintColor} size="large" />
-      <Text className="text-center text-sm text-secondary">{message}</Text>
+      <Text className="will-change-variable text-center text-sm text-secondary">{message}</Text>
     </View>
   );
 }

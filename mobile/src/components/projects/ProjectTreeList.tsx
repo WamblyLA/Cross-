@@ -15,7 +15,7 @@ export function ProjectTreeList({
 }: ProjectTreeListProps) {
   return (
     <Card>
-      <Text className="text-lg font-extrabold text-primary">Файлы проекта</Text>
+      <Text className="will-change-variable text-lg font-extrabold text-primary">Файлы проекта</Text>
       <View className="gap-1">
         {items.map((item) => {
           const indent = item.level * 16;
@@ -28,8 +28,8 @@ export function ProjectTreeList({
                 onPress={() => onToggleFolder(item.folder.id)}
                 style={{ paddingLeft: 12 + indent }}
               >
-                <Text className="w-4 text-center text-secondary">{item.isExpanded ? "▾" : "▸"}</Text>
-                <Text className="text-sm font-bold text-primary">{item.folder.name}</Text>
+                <Text className="will-change-variable w-4 text-center text-secondary">{item.isExpanded ? "▾" : "▸"}</Text>
+                <Text className="will-change-variable text-sm font-bold text-primary">{item.folder.name}</Text>
               </Pressable>
             );
           }
@@ -41,8 +41,8 @@ export function ProjectTreeList({
               onPress={() => onOpenFile(item.file.id, item.file.name)}
               style={{ paddingLeft: 16 + indent }}
             >
-              <Text className="w-4 text-center text-accent">•</Text>
-              <Text className="text-sm text-primary">{item.file.name}</Text>
+              <Text className="will-change-variable w-4 text-center text-accent">•</Text>
+              <Text className="will-change-variable text-sm text-primary">{item.file.name}</Text>
             </Pressable>
           );
         })}

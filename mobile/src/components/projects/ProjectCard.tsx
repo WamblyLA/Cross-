@@ -16,8 +16,8 @@ export function ProjectCard({ project, onPress }: ProjectCardProps) {
       <Card>
         <View className="gap-3">
           <View className="gap-1">
-            <Text className="text-lg font-extrabold text-primary">{project.name}</Text>
-            <Text className="text-xs text-secondary">Обновлён {formatDateTime(project.updatedAt)}</Text>
+            <Text className="will-change-variable text-lg font-extrabold text-primary">{project.name}</Text>
+            <Text className="will-change-variable text-xs text-secondary">Обновлён {formatDateTime(project.updatedAt)}</Text>
           </View>
           <View className="flex-row flex-wrap gap-2">
             <Badge text={formatRoleLabel(project.accessRole)} tone="primary" />

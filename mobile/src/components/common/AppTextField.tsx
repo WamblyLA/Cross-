@@ -31,7 +31,7 @@ export function AppTextField({
 
   return (
     <View className="gap-2">
-      <Text className="text-sm text-secondary">{label}</Text>
+      <Text className="will-change-variable text-sm text-secondary">{label}</Text>
       <TextInput
         autoCapitalize={autoCapitalize}
         className={cn(
@@ -49,7 +49,7 @@ export function AppTextField({
         style={multiline ? { textAlignVertical: "top" } : undefined}
         value={value}
       />
-      {error ? <Text className="text-xs text-error">{error}</Text> : null}
+      {error ? <Text className="will-change-variable text-xs text-error">{error}</Text> : null}
     </View>
   );
 }

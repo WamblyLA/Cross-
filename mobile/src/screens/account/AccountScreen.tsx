@@ -60,24 +60,24 @@ export function AccountScreen() {
           <Card>
             <View className="gap-4">
               <View className="gap-1">
-                <Text className="text-xs font-bold uppercase tracking-[2.4px] text-muted">
+                <Text className="will-change-variable text-xs font-bold uppercase tracking-[2.4px] text-muted">
                   Профиль
                 </Text>
               </View>
 
               <View className="gap-1">
-                <Text className="text-xs font-bold text-secondary">Имя пользователя</Text>
-                <Text className="text-sm font-bold text-primary">{meQuery.data.username}</Text>
+                <Text className="will-change-variable text-xs font-bold text-secondary">Имя пользователя</Text>
+                <Text className="will-change-variable text-sm font-bold text-primary">{meQuery.data.username}</Text>
               </View>
 
               <View className="gap-1">
-                <Text className="text-xs font-bold text-secondary">Email</Text>
-                <Text className="text-sm font-bold text-primary">{meQuery.data.email}</Text>
+                <Text className="will-change-variable text-xs font-bold text-secondary">Email</Text>
+                <Text className="will-change-variable text-sm font-bold text-primary">{meQuery.data.email}</Text>
               </View>
 
               <View className="gap-1">
-                <Text className="text-xs font-bold text-secondary">ID</Text>
-                <Text selectable className="text-xs text-secondary">
+                <Text className="will-change-variable text-xs font-bold text-secondary">ID</Text>
+                <Text selectable className="will-change-variable text-xs text-secondary">
                   {meQuery.data.id}
                 </Text>
               </View>
@@ -87,7 +87,7 @@ export function AccountScreen() {
 
         <Card>
           <View className="gap-4">
-            <Text className="text-xs font-bold uppercase tracking-[2.4px] text-muted">
+            <Text className="will-change-variable text-xs font-bold uppercase tracking-[2.4px] text-muted">
               Тема
             </Text>
 
@@ -106,7 +106,7 @@ export function AccountScreen() {
               >
                 <Text
                   className={cn(
-                    "text-xs font-bold uppercase tracking-[2px]",
+                    "will-change-variable text-xs font-bold uppercase tracking-[2px]",
                     themeName === "dark" ? "text-primary" : "text-secondary",
                   )}
                 >
@@ -128,7 +128,7 @@ export function AccountScreen() {
               >
                 <Text
                   className={cn(
-                    "text-xs font-bold uppercase tracking-[2px]",
+                    "will-change-variable text-xs font-bold uppercase tracking-[2px]",
                     themeName === "light" ? "text-primary" : "text-secondary",
                   )}
                 >

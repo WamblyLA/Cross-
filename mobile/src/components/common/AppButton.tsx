@@ -51,7 +51,7 @@ export function AppButton({
     >
       <View className="flex-row items-center justify-center gap-2">
         {loading ? <ActivityIndicator color={spinnerColor} size="small" /> : leftIcon}
-        <Text className={cn("text-sm font-bold", textClassName)}>{title}</Text>
+        <Text className={cn("will-change-variable text-sm font-bold", textClassName)}>{title}</Text>
       </View>
     </Pressable>
   );

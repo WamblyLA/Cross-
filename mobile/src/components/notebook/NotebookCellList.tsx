@@ -31,8 +31,8 @@ export function NotebookCellList({ cells }: NotebookCellListProps) {
 
         return (
           <Card key={cell.id}>
-            <Text className="text-sm font-extrabold text-primary">{`Ячейка ${index + 1}`}</Text>
-            <Text className="text-sm leading-6 text-secondary">
+            <Text className="will-change-variable text-sm font-extrabold text-primary">{`Ячейка ${index + 1}`}</Text>
+            <Text className="will-change-variable text-sm leading-6 text-secondary">
               {`Тип "${cell.cellType}" пока не поддерживается в мобильном просмотре.`}
             </Text>
           </Card>

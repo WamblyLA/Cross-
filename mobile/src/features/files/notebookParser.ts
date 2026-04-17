@@ -1,4 +1,5 @@
 import type { NotebookCell, NotebookDocument, NotebookOutput } from "../../types/notebook";
+import { coerceMimeText, pickPreferredMimeType } from "./notebookMime";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -20,38 +21,6 @@ function sanitizeText(value: string) {
       "",
     )
     .replace(/\r\n/g, "\n");
-}
-
-function coerceMimeText(value: unknown) {
-  if (Array.isArray(value)) {
-    return value.map((part) => `${part ?? ""}`).join("");
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value == null) {
-    return "";
-  }
-
-  if (typeof value === "object") {
-    return JSON.stringify(value, null, 2);
-  }
-
-  return `${value}`;
-}
-
-function pickPreferredMimeType(data: Record<string, unknown>) {
-  const priority = ["text/markdown", "application/json", "text/plain"];
-
-  for (const mimeType of priority) {
-    if (data[mimeType] != null) {
-      return mimeType;
-    }
-  }
-
-  return Object.keys(data).find((key) => data[key] != null) ?? null;
 }
 
 function normalizeOutput(output: unknown): NotebookOutput | null {

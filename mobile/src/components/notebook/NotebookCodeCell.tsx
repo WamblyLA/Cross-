@@ -21,7 +21,7 @@ export function NotebookCodeCell({
 }: NotebookCodeCellProps) {
   return (
     <Card>
-      <Text className="mb-1 text-xs font-bold text-secondary">
+      <Text className="will-change-variable mb-1 text-xs font-bold text-secondary">
         {`Code-ячейка ${index + 1}${executionCount != null ? ` • In [${executionCount}]` : ""}`}
       </Text>
       <MonospaceBlock text={source} />

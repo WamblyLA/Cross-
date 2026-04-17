@@ -14,7 +14,7 @@ export function Badge({ text, tone = "muted" }: BadgeProps) {
         tone === "primary" ? "border-default bg-selection" : "border-default bg-active",
       )}
     >
-      <Text className={cn("text-xs font-bold", tone === "primary" ? "text-primary" : "text-secondary")}>
+      <Text className={cn("will-change-variable text-xs font-bold", tone === "primary" ? "text-primary" : "text-secondary")}>
         {text}
       </Text>
     </View>

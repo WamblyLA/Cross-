@@ -40,11 +40,11 @@ export function AuthFormLayout({
             <View className="min-h-full justify-center px-4 py-6">
               <View className="will-change-variable overflow-hidden rounded-md border border-default bg-panel">
                 <View className="will-change-variable gap-3 border-b border-default bg-active px-6 py-6">
-                  <Text className="text-xs font-bold uppercase tracking-[2.8px] text-muted">
+                  <Text className="will-change-variable text-xs font-bold uppercase tracking-[2.8px] text-muted">
                     Авторизация через облако
                   </Text>
-                  <Text className="text-3xl font-extrabold text-primary">{title}</Text>
-                  <Text className="text-sm leading-6 text-secondary">{subtitle}</Text>
+                  <Text className="will-change-variable text-3xl font-extrabold text-primary">{title}</Text>
+                  <Text className="will-change-variable text-sm leading-6 text-secondary">{subtitle}</Text>
                 </View>
 
                 <View className="gap-4 px-6 py-6">{children}</View>

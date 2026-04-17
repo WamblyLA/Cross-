@@ -14,10 +14,10 @@ export function NotebookRawFallback({
   return (
     <View className="flex-1">
       <Card>
-        <Text className="text-lg font-extrabold text-primary">
+        <Text className="will-change-variable text-lg font-extrabold text-primary">
           Notebook отображается в упрощённом режиме
         </Text>
-        <Text className="text-sm leading-6 text-secondary">{reason}</Text>
+        <Text className="will-change-variable text-sm leading-6 text-secondary">{reason}</Text>
         <MonospaceBlock text={content} />
       </Card>
     </View>
