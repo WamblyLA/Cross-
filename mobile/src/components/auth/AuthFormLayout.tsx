@@ -1,8 +1,6 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTheme } from "../../hooks/useTheme";
-import { cn } from "../../lib/utils/cn";
 
 type AuthFormLayoutProps = PropsWithChildren<{
   title: string;
@@ -16,16 +14,9 @@ export function AuthFormLayout({
   footer,
   children,
 }: AuthFormLayoutProps) {
-  const { themeName } = useTheme();
-
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-      <View
-        className={cn(
-          "theme-root will-change-variable flex-1 bg-app",
-          themeName === "dark" ? "theme-dark" : "theme-light",
-        )}
-      >
+      <View className="flex-1 bg-app">
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           className="flex-1"

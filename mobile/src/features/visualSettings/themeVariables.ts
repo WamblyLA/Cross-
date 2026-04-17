@@ -1,12 +1,36 @@
-import type { ThemeName } from "../../types/visualSettings";
+import type { ThemeName, VisualSettings } from "../../types/visualSettings";
 
 export const DEFAULT_VISUAL_SETTINGS = {
   theme: "dark",
   fontSize: 14,
   tabSize: 4,
-} as const;
+} satisfies VisualSettings;
 
-export const THEME_VARIABLES: Record<ThemeName, Record<string, string>> = {
+export type ThemeVariableName =
+  | "--bg-app"
+  | "--bg-chrome"
+  | "--bg-panel"
+  | "--bg-editor"
+  | "--bg-input"
+  | "--bg-hover"
+  | "--bg-active"
+  | "--text-primary"
+  | "--text-secondary"
+  | "--text-muted"
+  | "--text-inverse"
+  | "--border-default"
+  | "--border-strong"
+  | "--border-focus"
+  | "--accent"
+  | "--accent-strong"
+  | "--success"
+  | "--warning"
+  | "--error"
+  | "--selection";
+
+export type ThemeTokens = Record<ThemeVariableName, string>;
+
+export const THEME_VARIABLES = {
   dark: {
     "--bg-app": "#0a0f0b",
     "--bg-chrome": "#121a14",
@@ -51,4 +75,8 @@ export const THEME_VARIABLES: Record<ThemeName, Record<string, string>> = {
     "--error": "#c45555",
     "--selection": "#cfe2d4",
   },
-};
+} satisfies Record<ThemeName, ThemeTokens>;
+
+export function getThemeTokens(themeName: ThemeName): ThemeTokens {
+  return THEME_VARIABLES[themeName];
+}

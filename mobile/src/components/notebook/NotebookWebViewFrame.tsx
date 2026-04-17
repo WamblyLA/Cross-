@@ -36,15 +36,14 @@ export function NotebookWebViewFrame({
   javaScriptEnabled = true,
 }: NotebookWebViewFrameProps) {
   const background = useThemeVariable("--bg-input", "#101913");
-  const border = useThemeVariable("--border-default", "#243228");
   const [height, setHeight] = useState(minHeight);
 
   const frameStyle = useMemo(
     () => ({
-      backgroundColor: "transparent",
+      backgroundColor: background,
       height,
     }),
-    [height],
+    [background, height],
   );
 
   return (

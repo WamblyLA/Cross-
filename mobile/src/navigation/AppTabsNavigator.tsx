@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { useThemeVariable } from "../hooks/useThemeVariable";
+import { useMemo } from "react";
+import { useTheme } from "../hooks/useTheme";
 import { AccountScreen } from "../screens/account/AccountScreen";
 import { ProjectsStackNavigator } from "./ProjectsStackNavigator";
 import type { AppTabsParamList } from "./navigationTypes";
@@ -8,24 +9,27 @@ import type { AppTabsParamList } from "./navigationTypes";
 const Tabs = createBottomTabNavigator<AppTabsParamList>();
 
 export function AppTabsNavigator() {
-  const accent = useThemeVariable("--accent", "#316e43");
-  const muted = useThemeVariable("--text-muted", "#8ea28f");
-  const panel = useThemeVariable("--bg-panel", "#172019");
-  const border = useThemeVariable("--border-default", "#243228");
+  const { themeTokens } = useTheme();
+  const accent = themeTokens["--accent"];
+  const muted = themeTokens["--text-muted"];
+  const panel = themeTokens["--bg-panel"];
+  const border = themeTokens["--border-default"];
+  const screenOptions = useMemo(
+    () => ({
+      headerShown: false,
+      tabBarActiveTintColor: accent,
+      tabBarInactiveTintColor: muted,
+      tabBarShowLabel: true,
+      tabBarStyle: {
+        backgroundColor: panel,
+        borderTopColor: border,
+      },
+    }),
+    [accent, border, muted, panel],
+  );
 
   return (
-    <Tabs.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: accent,
-        tabBarInactiveTintColor: muted,
-        tabBarShowLabel: true,
-        tabBarStyle: {
-          backgroundColor: panel,
-          borderTopColor: border,
-        },
-      }}
-    >
+    <Tabs.Navigator screenOptions={screenOptions}>
       <Tabs.Screen
         component={ProjectsStackNavigator}
         name="ProjectsTab"

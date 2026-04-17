@@ -6,10 +6,17 @@ import type { ApiError } from "../../types/api";
 import type { ThemeName, VisualSettings } from "../../types/visualSettings";
 import { fetchSettings, updateSettings } from "./settingsApi";
 import { readStoredTheme, writeStoredTheme } from "./settingsStorage";
-import { DEFAULT_VISUAL_SETTINGS } from "./themeVariables";
+import {
+  DEFAULT_VISUAL_SETTINGS,
+  getThemeTokens,
+  type ThemeTokens,
+} from "./themeVariables";
 
 type ThemeContextValue = {
   themeName: ThemeName;
+  colorScheme: ThemeName;
+  themeTokens: ThemeTokens;
+  resolvedThemeVariables: ThemeTokens;
   visualSettings: VisualSettings;
   isThemeReady: boolean;
   isThemeSyncPending: boolean;
@@ -131,17 +138,35 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     [sessionStatus, visualSettings],
   );
 
+  const themeName = visualSettings.theme;
+  const themeTokens = useMemo(() => getThemeTokens(themeName), [themeName]);
+  const clearThemeError = useCallback(() => {
+    setThemeError(null);
+  }, []);
+
   const value = useMemo<ThemeContextValue>(
     () => ({
-      themeName: visualSettings.theme,
+      themeName,
+      colorScheme: themeName,
+      themeTokens,
+      resolvedThemeVariables: themeTokens,
       visualSettings,
       isThemeReady,
       isThemeSyncPending,
       themeError,
       applyTheme,
-      clearThemeError: () => setThemeError(null),
+      clearThemeError,
     }),
-    [applyTheme, isThemeReady, isThemeSyncPending, themeError, visualSettings],
+    [
+      applyTheme,
+      clearThemeError,
+      isThemeReady,
+      isThemeSyncPending,
+      themeError,
+      themeName,
+      themeTokens,
+      visualSettings,
+    ],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

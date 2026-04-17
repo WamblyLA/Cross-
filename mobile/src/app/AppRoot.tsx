@@ -4,7 +4,6 @@ import { LoadingState } from "../components/common/LoadingState";
 import { ScreenContainer } from "../components/common/ScreenContainer";
 import { useSession } from "../hooks/useSession";
 import { useTheme } from "../hooks/useTheme";
-import { cn } from "../lib/utils/cn";
 import { RootNavigator } from "../navigation/RootNavigator";
 import { AppProviders } from "./AppProviders";
 
@@ -25,16 +24,11 @@ function AppContent() {
 
 export function AppRoot() {
   function RootShell() {
-    const { themeName } = useTheme();
+    const { colorScheme } = useTheme();
 
     return (
-      <View
-        className={cn(
-          "theme-root will-change-variable flex-1 bg-app",
-          themeName === "dark" ? "theme-dark" : "theme-light",
-        )}
-      >
-        <StatusBar style={themeName === "dark" ? "light" : "dark"} />
+      <View className="flex-1 bg-app">
+        <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
         <AppContent />
       </View>
     );

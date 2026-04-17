@@ -1,31 +1,34 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
+import { useMemo } from "react";
 import { AuthNavigator } from "./AuthNavigator";
 import { AppTabsNavigator } from "./AppTabsNavigator";
 import { useSession } from "../hooks/useSession";
 import { useTheme } from "../hooks/useTheme";
-import { useThemeVariable } from "../hooks/useThemeVariable";
 
 export function RootNavigator() {
   const { sessionStatus } = useSession();
-  const { themeName } = useTheme();
-  const background = useThemeVariable("--bg-app", "#0a0f0b");
-  const panel = useThemeVariable("--bg-panel", "#172019");
-  const text = useThemeVariable("--text-primary", "#edf5ee");
-  const accent = useThemeVariable("--accent", "#316e43");
-  const border = useThemeVariable("--border-default", "#243228");
-  const baseTheme = themeName === "dark" ? DarkTheme : DefaultTheme;
-  const navigationTheme = {
-    ...baseTheme,
-    colors: {
-      ...baseTheme.colors,
-      background,
-      card: panel,
-      text,
-      primary: accent,
-      border,
-      notification: accent,
-    },
-  };
+  const { colorScheme, themeTokens } = useTheme();
+  const background = themeTokens["--bg-app"];
+  const panel = themeTokens["--bg-panel"];
+  const text = themeTokens["--text-primary"];
+  const accent = themeTokens["--accent"];
+  const border = themeTokens["--border-default"];
+  const navigationTheme = useMemo(() => {
+    const baseTheme = colorScheme === "dark" ? DarkTheme : DefaultTheme;
+
+    return {
+      ...baseTheme,
+      colors: {
+        ...baseTheme.colors,
+        background,
+        card: panel,
+        text,
+        primary: accent,
+        border,
+        notification: accent,
+      },
+    };
+  }, [accent, background, border, colorScheme, panel, text]);
 
   return (
     <NavigationContainer theme={navigationTheme}>

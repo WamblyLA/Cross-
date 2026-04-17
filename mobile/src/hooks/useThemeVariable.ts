@@ -1,7 +1,7 @@
 import { useTheme } from "./useTheme";
-import { THEME_VARIABLES } from "../features/visualSettings/themeVariables";
+import type { ThemeVariableName } from "../features/visualSettings/themeVariables";
 
-export function useThemeVariable(name: string, fallback: string) {
-  const { themeName } = useTheme();
-  return THEME_VARIABLES[themeName][name] ?? fallback;
+export function useThemeVariable(name: ThemeVariableName, fallback: string) {
+  const { resolvedThemeVariables } = useTheme();
+  return resolvedThemeVariables[name] ?? fallback;
 }
