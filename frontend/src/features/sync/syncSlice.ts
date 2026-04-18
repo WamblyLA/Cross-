@@ -12,6 +12,7 @@ const initialState: SyncState = {
   bindingsStatus: "idle",
   bindingsError: null,
   preview: null,
+  previewDialogOpen: false,
   previewStatus: "idle",
   previewError: null,
   operation: null,
@@ -63,6 +64,7 @@ const syncSlice = createSlice({
       state.bindingsError = null;
       if (state.preview?.bindingId === action.payload) {
         state.preview = null;
+        state.previewDialogOpen = false;
         state.previewStatus = "idle";
         state.previewError = null;
       }
@@ -77,11 +79,19 @@ const syncSlice = createSlice({
       state.previewError = null;
     },
     previewFailed(state, action: PayloadAction<string>) {
+      state.previewDialogOpen = false;
       state.previewStatus = "failed";
       state.previewError = action.payload;
     },
+    openPreviewDialog(state) {
+      state.previewDialogOpen = Boolean(state.preview);
+    },
+    closePreviewDialog(state) {
+      state.previewDialogOpen = false;
+    },
     clearPreview(state) {
       state.preview = null;
+      state.previewDialogOpen = false;
       state.previewStatus = "idle";
       state.previewError = null;
     },
@@ -121,6 +131,8 @@ export const {
   previewStarted,
   previewReady,
   previewFailed,
+  openPreviewDialog,
+  closePreviewDialog,
   clearPreview,
   operationStarted,
   operationSucceeded,

@@ -6,6 +6,7 @@ import {
   FILE_TREE_INDENT_SIZE_PX,
   FILE_TREE_ROW_BASE_PADDING_PX,
 } from "./fileTreeConstants";
+import type { FileTreeGitDecoration } from "./fileTreeGit";
 import FileTreeInlineInput from "./FileTreeInlineInput";
 import { getDraftPlaceholder, getRenamePlaceholder } from "./fileTreeUtils";
 import type { FileTreeRowModel, TreeDraft, WorkspaceTreeNode } from "./fileTreeTypes";
@@ -19,6 +20,7 @@ type FileTreeRowProps = {
   isDragging: boolean;
   isDropTarget: boolean;
   isInvalidDropTarget: boolean;
+  gitDecoration: FileTreeGitDecoration | null;
   dragDisabled: boolean;
   onSelect: (node: WorkspaceTreeNode, event: MouseEvent<HTMLDivElement>) => void;
   onDoubleClick: (node: WorkspaceTreeNode) => void;
@@ -43,6 +45,7 @@ function FileTreeRow({
   isDragging,
   isDropTarget,
   isInvalidDropTarget,
+  gitDecoration,
   dragDisabled,
   onSelect,
   onDoubleClick,
@@ -172,6 +175,14 @@ function FileTreeRow({
 
             <span className="flex w-4 shrink-0 justify-center text-secondary">{fileIcon}</span>
             <span className="block min-w-0 flex-1 truncate text-sm">{node.name}</span>
+            {gitDecoration ? (
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: gitDecoration.color }}
+                title={`Git: ${gitDecoration.label}`}
+                aria-label={`Git: ${gitDecoration.label}`}
+              />
+            ) : null}
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ import CloudExplorer from "./Cloud/CloudExplorer";
 import FileTree from "./FileTree/FileTree";
 import LinkedWorkspaceBanner from "./Linked/LinkedWorkspaceBanner";
 import OptionsBar from "./OptionsBar/OptionsBar";
+import LinkedWorkspaceSyncDialogs from "../Sync/LinkedWorkspaceSyncDialogs";
 
 export default function SideBar() {
   const source = useAppSelector((state) => state.workspace.source);
@@ -14,6 +15,7 @@ export default function SideBar() {
         <OptionsBar />
         <LinkedWorkspaceBanner />
         {source === "cloud" ? <CloudExplorer /> : <FileTree />}
+        <LinkedWorkspaceSyncDialogs />
       </div>
     </ResizeableBlock>
   );

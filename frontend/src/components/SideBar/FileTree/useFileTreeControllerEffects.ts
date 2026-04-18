@@ -36,6 +36,11 @@ export function useFileTreeControllerEffects(
       core.setLoadingPath(null);
       core.setContextMenu(null);
       core.setClipboard(null);
+      core.setGitState({
+        available: false,
+        repositoryRootPath: null,
+        statusesByRelativePath: {},
+      });
       core.dispatch(
         setExplorerSelectionSummary({
           path: null,
@@ -53,20 +58,37 @@ export function useFileTreeControllerEffects(
     core.setDraft(null);
     core.setDeleteTarget(null);
     core.setContextMenu(null);
-    void core.refreshTree([]);
-  }, [core.dispatch, core.refreshTree, core.rootPath]);
+    void Promise.all([core.refreshTree([]), core.refreshGitState()]);
+  }, [core.dispatch, core.refreshGitState, core.refreshTree, core.rootPath]);
 
   useEffect(() => {
     if (!core.rootPath) {
       return;
     }
 
+    let refreshTimerId: number | null = null;
+    const scheduleRefresh = () => {
+      if (refreshTimerId !== null) {
+        window.clearTimeout(refreshTimerId);
+      }
+
+      refreshTimerId = window.setTimeout(() => {
+        void Promise.all([core.refreshTree(core.expandedPaths), core.refreshGitState()]);
+      }, 120);
+    };
+
     const unsubscribe = window.electronAPI.onFolderChanged(() => {
-      void core.refreshTree(core.expandedPaths);
+      scheduleRefresh();
     });
 
-    return unsubscribe;
-  }, [core.expandedPaths, core.refreshTree, core.rootPath]);
+    return () => {
+      unsubscribe();
+
+      if (refreshTimerId !== null) {
+        window.clearTimeout(refreshTimerId);
+      }
+    };
+  }, [core.expandedPaths, core.refreshGitState, core.refreshTree, core.rootPath]);
 
   useEffect(() => {
     const nextSelectedPaths = core.selectedPaths.filter((path) => core.allPaths.has(path));
@@ -118,13 +140,13 @@ export function useFileTreeControllerEffects(
           beginDelete();
           break;
         case "refresh":
-          await core.refreshTree(core.expandedPaths);
+          await Promise.all([core.refreshTree(core.expandedPaths), core.refreshGitState()]);
           break;
         case "collapse-all":
           core.setExpandedPaths([]);
           core.setDraft(null);
           core.setDeleteTarget(null);
-          await core.refreshTree([]);
+          await Promise.all([core.refreshTree([]), core.refreshGitState()]);
           break;
         default:
           break;

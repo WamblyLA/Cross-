@@ -85,6 +85,7 @@ export type SyncState = {
   bindingsStatus: SyncOperationStatus;
   bindingsError: string | null;
   preview: SyncPreview | null;
+  previewDialogOpen: boolean;
   previewStatus: SyncOperationStatus;
   previewError: string | null;
   operation: SyncOperation | null;

@@ -1,5 +1,6 @@
 import type { DragEvent, MouseEvent } from "react";
 import FileTreeRow from "./FileTreeRow";
+import type { FileTreeGitDecoration } from "./fileTreeGit";
 import type {
   DropTarget,
   FileTreeRowModel,
@@ -16,6 +17,7 @@ type FileTreeListProps = {
   draggedPathSet: Set<string>;
   dropTarget: DropTarget | null;
   invalidDropTargetKey: string | null;
+  gitDecorationsByPath: Map<string, FileTreeGitDecoration>;
   dragDisabled: boolean;
   onSelect: (node: WorkspaceTreeNode, event: MouseEvent<HTMLDivElement>) => void;
   onDoubleClick: (node: WorkspaceTreeNode) => void;
@@ -40,6 +42,7 @@ export default function FileTreeList({
   draggedPathSet,
   dropTarget,
   invalidDropTargetKey,
+  gitDecorationsByPath,
   dragDisabled,
   onSelect,
   onDoubleClick,
@@ -75,6 +78,7 @@ export default function FileTreeList({
             isDragging={rowPath ? draggedPathSet.has(rowPath) : false}
             isDropTarget={rowPath ? folderDropTargetPath === rowPath : false}
             isInvalidDropTarget={rowPath ? invalidFolderDropTargetPath === rowPath : false}
+            gitDecoration={rowPath ? gitDecorationsByPath.get(rowPath) ?? null : null}
             dragDisabled={dragDisabled}
             onSelect={onSelect}
             onDoubleClick={onDoubleClick}

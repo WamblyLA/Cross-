@@ -1,4 +1,5 @@
 import { hashText } from "./syncHash";
+import { toSyncRelativePath } from "./syncPaths";
 import type {
   CloudSyncSnapshot,
   LinkedWorkspaceBinding,
@@ -6,20 +7,6 @@ import type {
   SyncPlanItem,
 } from "./syncTypes";
 import type { StateType } from "../../store/store";
-
-function buildLocalRelativePath(rootPath: string, filePath: string) {
-  const normalizedRoot = rootPath.replace(/[\\/]+$/, "");
-  const normalizedFile = filePath.replace(/[\\/]+$/, "");
-
-  if (!normalizedFile.startsWith(normalizedRoot)) {
-    return null;
-  }
-
-  return normalizedFile
-    .slice(normalizedRoot.length)
-    .replace(/^[\\/]+/, "")
-    .replace(/[\\]+/g, "/");
-}
 
 export function collectBlockingDirtyTabs(
   filesState: StateType["files"],
@@ -37,7 +24,7 @@ export function collectBlockingDirtyTabs(
     }
 
     if (openedFile.kind === "local" && binding.localRootPath) {
-      const relativePath = buildLocalRelativePath(binding.localRootPath, openedFile.path);
+      const relativePath = toSyncRelativePath(binding.localRootPath, openedFile.path);
 
       if (relativePath) {
         blockingRelativePaths.add(relativePath);

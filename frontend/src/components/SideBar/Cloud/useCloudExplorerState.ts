@@ -31,6 +31,8 @@ import {
 } from "../../../features/cloud/cloudSelectors";
 import type { CloudSelectionEntry } from "../../../features/cloud/cloudSelection";
 import { normalizeApiError } from "../../../lib/api/errorNormalization";
+import { findCloudFileRelativePathById } from "../../../features/sync/syncPaths";
+import { useLinkedWorkspaceActions } from "../../../hooks/useLinkedWorkspaceActions";
 import { useWorkspaceActions } from "../../../hooks/useWorkspaceActions";
 import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import { useProjectMembersDialog } from "../../CodeWithMe/ProjectMembersDialogContext";
@@ -75,6 +77,7 @@ export function useCloudExplorerState() {
   const folderActionError = useAppSelector(selectCloudFolderActionError);
   const fileActionError = useAppSelector(selectCloudFileActionError);
   const workspaceActions = useWorkspaceActions();
+  const { activeBinding, openSyncPreview } = useLinkedWorkspaceActions();
 
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -270,6 +273,23 @@ export function useCloudExplorerState() {
     );
   }, []);
 
+  const previewLinkedFileSync = useCallback(
+    async (direction: "push" | "pull", fileId: string) => {
+      if (!activeBinding || activeBinding.projectId !== activeProjectId || !activeProjectTree) {
+        return;
+      }
+
+      const relativePath = findCloudFileRelativePathById(activeProjectTree, fileId);
+
+      if (!relativePath) {
+        return;
+      }
+
+      await openSyncPreview(activeBinding, direction, "file", relativePath);
+    },
+    [activeBinding, activeProjectId, activeProjectTree, openSyncPreview],
+  );
+
   return {
     dispatch,
     workspaceActions,
@@ -319,6 +339,7 @@ export function useCloudExplorerState() {
     selectedMovableItems,
     aggregatedError,
     authRecoveryRequired,
+    hasLinkedActiveProject: activeBinding?.projectId === activeProjectId,
     canManageMembers:
       (projects.find((project) => project.id === activeProjectId)?.accessRole ?? null) === "owner",
     canWriteActiveProject: (() => {
@@ -332,6 +353,7 @@ export function useCloudExplorerState() {
     handleProjectClick,
     handleOpenFile,
     toggleFolder,
+    previewLinkedFileSync,
     openProjectMembers,
   };
 }

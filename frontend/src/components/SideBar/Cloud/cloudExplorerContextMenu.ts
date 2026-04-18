@@ -2,9 +2,7 @@ import type { MenuSection } from "../../../ui/FloatingMenu";
 import { createCloudSelectionEntry } from "../../../features/cloud/cloudSelection";
 import type { useCloudExplorerCreateRename } from "./useCloudExplorerCreateRename";
 import type { useCloudExplorerState } from "./useCloudExplorerState";
-import {
-  pruneNestedCloudSelection,
-} from "./cloudExplorerSelection";
+import { pruneNestedCloudSelection } from "./cloudExplorerSelection";
 
 type CloudExplorerState = ReturnType<typeof useCloudExplorerState>;
 type CloudExplorerCreateRename = ReturnType<typeof useCloudExplorerCreateRename>;
@@ -145,11 +143,7 @@ export function buildCloudExplorerContextMenuSections(
                       },
                     ),
                   )
-                : createRename.beginFolderDelete(
-                    projectId,
-                    folder.id,
-                    folder.name,
-                  ),
+                : createRename.beginFolderDelete(projectId, folder.id, folder.name),
           },
         ],
       },
@@ -175,18 +169,25 @@ export function buildCloudExplorerContextMenuSections(
           onSelect: () => state.handleOpenFile(projectId, file.id),
         },
         {
+          id: "cloud-file-push",
+          label: "Отправить файл в облако",
+          disabled: !state.hasLinkedActiveProject,
+          onSelect: () => state.previewLinkedFileSync("push", file.id),
+        },
+        {
+          id: "cloud-file-pull",
+          label: "Получить файл из облака",
+          disabled: !state.hasLinkedActiveProject,
+          onSelect: () => state.previewLinkedFileSync("pull", file.id),
+        },
+        {
           id: "cloud-file-rename",
           label: "Переименовать",
           disabled:
             !state.canWriteActiveProject ||
             (state.selectedItemCount > 1 && state.selectedItemKeySet.has(fileSelectionKey)),
           onSelect: () =>
-            createRename.beginFileRename(
-              projectId,
-              file.id,
-              file.folderId,
-              file.name,
-            ),
+            createRename.beginFileRename(projectId, file.id, file.folderId, file.name),
         },
         {
           id: "cloud-file-delete",
@@ -204,11 +205,7 @@ export function buildCloudExplorerContextMenuSections(
                     },
                   ),
                 )
-              : createRename.beginFileDelete(
-                  projectId,
-                  file.id,
-                  file.name,
-                ),
+              : createRename.beginFileDelete(projectId, file.id, file.name),
         },
       ],
     },

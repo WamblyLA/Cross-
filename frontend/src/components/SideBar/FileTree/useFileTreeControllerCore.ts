@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { setExplorerSelectionSummary } from "../../../features/workspace/workspaceSlice";
 import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import { getParentPath } from "../../../utils/path";
+import { buildFileTreeGitDecorations } from "./fileTreeGit";
 import { resolvePrimarySelectionPath } from "./fileTreeKeyboard";
 import { buildFileTreeDerivedState } from "./fileTreeSelectors";
 import type {
@@ -39,8 +40,14 @@ export function useFileTreeControllerCore() {
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [invalidDropTargetKey, setInvalidDropTargetKey] = useState<string | null>(null);
+  const [gitState, setGitState] = useState<WorkspaceGitState>({
+    available: false,
+    repositoryRootPath: null,
+    statusesByRelativePath: {},
+  });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hoverExpandTimerRef = useRef<number | null>(null);
+  const gitRequestIdRef = useRef(0);
 
   const trimmedSearchQuery = searchQuery.trim();
   const expandedSet = useMemo(() => new Set(expandedPaths), [expandedPaths]);
@@ -66,6 +73,15 @@ export function useFileTreeControllerCore() {
 
   const { nodeByPath, allPaths, visibleRows, visibleNodePaths, hasAnyNodes, hasVisibleNodes } =
     derivedState;
+  const gitDecorationsByPath = useMemo(
+    () =>
+      buildFileTreeGitDecorations({
+        rootPath,
+        gitState,
+        nodeByPath,
+      }),
+    [gitState, nodeByPath, rootPath],
+  );
 
   const syncSelectionSummary = useCallback(
     (nextSelectedPaths: string[], nextFocusedPath: string | null) => {
@@ -135,6 +151,40 @@ export function useFileTreeControllerCore() {
     },
     [rootPath],
   );
+
+  const refreshGitState = useCallback(async () => {
+    const requestId = gitRequestIdRef.current + 1;
+    gitRequestIdRef.current = requestId;
+
+    if (!rootPath) {
+      setGitState({
+        available: false,
+        repositoryRootPath: null,
+        statusesByRelativePath: {},
+      });
+      return;
+    }
+
+    try {
+      const nextGitState = await window.electronAPI.getWorkspaceGitStatus(rootPath);
+
+      if (gitRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setGitState(nextGitState);
+    } catch {
+      if (gitRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setGitState({
+        available: false,
+        repositoryRootPath: null,
+        statusesByRelativePath: {},
+      });
+    }
+  }, [rootPath]);
 
   const currentPrimarySelectionPath = useMemo(
     () => resolvePrimarySelectionPath(focusedPath, selectedPaths),
@@ -243,6 +293,8 @@ export function useFileTreeControllerCore() {
     setDropTarget,
     invalidDropTargetKey,
     setInvalidDropTargetKey,
+    gitState,
+    setGitState,
     containerRef,
     hoverExpandTimerRef,
     trimmedSearchQuery,
@@ -256,12 +308,14 @@ export function useFileTreeControllerCore() {
     visibleNodePaths,
     hasAnyNodes,
     hasVisibleNodes,
+    gitDecorationsByPath,
     syncSelectionSummary,
     commitSelection,
     focusExplorer,
     clearHoverExpandTimer,
     clearDragDropState,
     refreshTree,
+    refreshGitState,
     currentPrimarySelectionPath,
     resolveCreateParentPath,
     ensureFolderVisible,

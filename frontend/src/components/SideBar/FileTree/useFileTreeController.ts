@@ -38,6 +38,7 @@ export function useFileTreeController() {
     draggedPathSet: core.draggedPathSet,
     isDragDropEnabled: core.isDragDropEnabled,
     visibleRows: core.visibleRows,
+    gitDecorationsByPath: core.gitDecorationsByPath,
     hasAnyNodes: core.hasAnyNodes,
     hasVisibleNodes: core.hasVisibleNodes,
     contextMenuSections: interactionHandlers.contextMenuSections,

@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { registerWindowCommandRouting } from "./commands/registerWindowCommandRouting.js";
 import { startFolderWatcher } from "./folderWatcher.js";
+import { getWorkspaceGitStatus } from "./git/gitStatusService.js";
 import { createLinkBindingStore } from "./linking/linkBindingStore.js";
 import { registerLinkingIpc } from "./linking/registerLinkingIpc.js";
 import { registerNotebookKernelIpc } from "./notebook/ipc/registerNotebookKernelIpc.js";
@@ -354,6 +355,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle("folder:list", async (_, folderPath) => {
     return readFolder(folderPath);
+  });
+
+  ipcMain.handle("git:status", async (_, rootPath) => {
+    return getWorkspaceGitStatus(rootPath);
   });
 
   ipcMain.handle("file:read", async (_, filePath) => {

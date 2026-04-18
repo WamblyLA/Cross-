@@ -16,7 +16,9 @@ import {
   bindingsFailed,
   bindingsLoaded,
   bindingsLoading,
+  closePreviewDialog,
   clearPreview,
+  openPreviewDialog,
   operationFailed,
   operationStarted,
   operationSucceeded,
@@ -48,6 +50,7 @@ export function useLinkedWorkspaceActions() {
   const activeBindingId = useAppSelector((state) => state.workspace.activeBindingId);
   const bindings = useAppSelector((state) => state.sync.bindings);
   const preview = useAppSelector((state) => state.sync.preview);
+  const isPreviewDialogOpen = useAppSelector((state) => state.sync.previewDialogOpen);
   const filesState = useAppSelector((state) => state.files);
 
   const activeBinding =
@@ -369,25 +372,53 @@ export function useLinkedWorkspaceActions() {
     [dispatch, preview, syncOpenEditors],
   );
 
+  const openSyncPreview = useCallback(
+    async (
+      binding: LinkedWorkspaceBinding,
+      direction: SyncDirection,
+      scope: SyncScope,
+      targetRelativePath?: string | null,
+    ) => {
+      const nextPreview = await previewSync(binding, direction, scope, targetRelativePath);
+
+      if (nextPreview) {
+        dispatch(openPreviewDialog());
+      }
+
+      return nextPreview;
+    },
+    [dispatch, previewSync],
+  );
+
+  const closeSyncPreviewDialog = useCallback(() => {
+    dispatch(closePreviewDialog());
+  }, [dispatch]);
+
   return useMemo(
     () => ({
       bindings,
       activeBinding,
       preview,
+      isPreviewDialogOpen,
       loadBindings,
       linkWorkspace,
       unlinkWorkspace,
       previewSync,
+      openSyncPreview,
+      closeSyncPreviewDialog,
       applyPreview,
     }),
     [
       bindings,
       activeBinding,
       preview,
+      isPreviewDialogOpen,
       loadBindings,
       linkWorkspace,
       unlinkWorkspace,
       previewSync,
+      openSyncPreview,
+      closeSyncPreviewDialog,
       applyPreview,
     ],
   );

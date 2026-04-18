@@ -1,4 +1,5 @@
 import type { MenuSection } from "../../../ui/FloatingMenu";
+import { toSyncRelativePath } from "../../../features/sync/syncPaths";
 import type {
   ClipboardState,
   ContextMenuState,
@@ -16,6 +17,11 @@ type FileTreeMenuArgs = {
   beginDelete: (pathsOverride?: string[]) => void;
   handleOpenFile: (node: WorkspaceTreeNode) => Promise<void>;
   handlePaste: (targetPathOverride?: string) => Promise<void>;
+  handleLinkedFileSyncPreview: (
+    direction: "push" | "pull",
+    relativePath: string,
+  ) => Promise<void>;
+  linkedRootPath: string | null;
   refreshTree: (nextExpandedPaths: string[]) => Promise<void>;
   copySelectionToClipboard: (mode: "copy" | "cut", pathsOverride?: string[]) => void;
   expandedPaths: string[];
@@ -31,6 +37,8 @@ export function buildFileTreeContextMenuSections({
   beginDelete,
   handleOpenFile,
   handlePaste,
+  handleLinkedFileSyncPreview,
+  linkedRootPath,
   refreshTree,
   copySelectionToClipboard,
   expandedPaths,
@@ -87,6 +95,10 @@ export function buildFileTreeContextMenuSections({
 
   const singleSelection = normalizedPaths.length === 1;
   const canPasteIntoPrimary = primaryNode.type === "folder" && Boolean(clipboard);
+  const syncRelativePath =
+    primaryNode.type === "file" && linkedRootPath
+      ? toSyncRelativePath(linkedRootPath, primaryNode.path)
+      : null;
 
   if (primaryNode.type === "folder") {
     return [
@@ -159,6 +171,30 @@ export function buildFileTreeContextMenuSections({
           disabled: !singleSelection,
           onSelect: () => {
             void handleOpenFile(primaryNode);
+          },
+        },
+        {
+          id: "file-push-to-cloud",
+          label: "Отправить файл в облако",
+          disabled: !singleSelection || !syncRelativePath,
+          onSelect: () => {
+            if (!syncRelativePath) {
+              return;
+            }
+
+            void handleLinkedFileSyncPreview("push", syncRelativePath);
+          },
+        },
+        {
+          id: "file-pull-from-cloud",
+          label: "Получить файл из облака",
+          disabled: !singleSelection || !syncRelativePath,
+          onSelect: () => {
+            if (!syncRelativePath) {
+              return;
+            }
+
+            void handleLinkedFileSyncPreview("pull", syncRelativePath);
           },
         },
         {

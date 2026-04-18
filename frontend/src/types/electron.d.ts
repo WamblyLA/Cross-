@@ -7,6 +7,14 @@ declare global {
     isDirectory: boolean;
   };
 
+  type GitFileStatus = "modified" | "added" | "deleted" | "untracked" | "renamed";
+
+  type WorkspaceGitState = {
+    available: boolean;
+    repositoryRootPath: string | null;
+    statusesByRelativePath: Record<string, GitFileStatus>;
+  };
+
   type TerminalMeta = {
     id: string;
     title: string;
@@ -386,6 +394,7 @@ declare global {
         files: FileSystemItem[];
       } | null>;
       listFolder: (folderPath: string) => Promise<FileSystemItem[]>;
+      getWorkspaceGitStatus: (rootPath: string | null) => Promise<WorkspaceGitState>;
       readFile: (filePath: string) => Promise<string>;
       writeFile: (filePath: string, content: string) => Promise<{ success: true }>;
       createFileSystemItem: (

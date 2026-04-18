@@ -1,4 +1,5 @@
 import { useCallback, useMemo, type KeyboardEvent, type MouseEvent } from "react";
+import { useLinkedWorkspaceActions } from "../../../hooks/useLinkedWorkspaceActions";
 import { buildFileTreeContextMenuSections } from "./fileTreeMenuSections";
 import {
   moveSelectionByOffset,
@@ -22,6 +23,19 @@ export function useFileTreeInteractionHandlers(
   draftActions: FileTreeDraftActions,
   clipboardActions: FileTreeClipboard,
 ) {
+  const { activeBinding, openSyncPreview } = useLinkedWorkspaceActions();
+
+  const handleLinkedFileSyncPreview = useCallback(
+    async (direction: "push" | "pull", relativePath: string) => {
+      if (!activeBinding || !relativePath) {
+        return;
+      }
+
+      await openSyncPreview(activeBinding, direction, "file", relativePath);
+    },
+    [activeBinding, openSyncPreview],
+  );
+
   const handleNodeContextMenu = useCallback(
     (node: WorkspaceTreeNode, event: MouseEvent<HTMLDivElement>) => {
       event.preventDefault();
@@ -215,11 +229,13 @@ export function useFileTreeInteractionHandlers(
         beginDelete: nodeActions.beginDelete,
         handleOpenFile: nodeActions.handleOpenFile,
         handlePaste: clipboardActions.handlePaste,
+        handleLinkedFileSyncPreview,
+        linkedRootPath: activeBinding?.localRootPath ?? null,
         refreshTree: core.refreshTree,
         copySelectionToClipboard: clipboardActions.copySelectionToClipboard,
         expandedPaths: core.expandedPaths,
       }),
-    [clipboardActions, core, nodeActions],
+    [activeBinding?.localRootPath, clipboardActions, core, handleLinkedFileSyncPreview, nodeActions],
   );
 
   void draftActions;

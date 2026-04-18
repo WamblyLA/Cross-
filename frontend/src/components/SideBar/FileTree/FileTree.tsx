@@ -88,6 +88,7 @@ export default function FileTree() {
           draggedPathSet={controller.draggedPathSet}
           dropTarget={controller.dropTarget}
           invalidDropTargetKey={controller.invalidDropTargetKey}
+          gitDecorationsByPath={controller.gitDecorationsByPath}
           dragDisabled={!controller.isDragDropEnabled}
           onSelect={controller.handleSelectNode}
           onDoubleClick={controller.handleNodeDoubleClick}
