@@ -1,9 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { selectIsAuthenticated } from "../../../features/auth/authSelectors";
-import { selectCloudProjects, selectCloudTreeForProject } from "../../../features/cloud/cloudSelectors";
-import { selectActiveFile } from "../../../features/files/filesSelectors";
+import { selectCloudProjects } from "../../../features/cloud/cloudSelectors";
 import { SYNC_UI_TEXT } from "../../../features/sync/syncUiText";
-import { findCloudFileRelativePathById, toSyncRelativePath } from "../../../features/sync/syncPaths";
 import { useLinkedWorkspaceActions } from "../../../hooks/useLinkedWorkspaceActions";
 import { useAppSelector } from "../../../store/hooks";
 import LinkWorkspaceDialog from "../../Sync/LinkWorkspaceDialog";
@@ -11,30 +9,10 @@ import LinkWorkspaceDialog from "../../Sync/LinkWorkspaceDialog";
 export default function LinkedWorkspaceBanner() {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
-  const activeFile = useAppSelector(selectActiveFile);
   const cloudProjects = useAppSelector(selectCloudProjects);
   const { activeBinding, openSyncPreview, linkWorkspace, unlinkWorkspace } =
     useLinkedWorkspaceActions();
-  const cloudTree = useAppSelector((state) =>
-    selectCloudTreeForProject(state, activeBinding?.projectId ?? null),
-  );
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
-
-  const singleFileRelativePath = useMemo(() => {
-    if (!activeBinding || !activeFile) {
-      return null;
-    }
-
-    if (activeFile.kind === "local" && activeBinding.localRootPath) {
-      return toSyncRelativePath(activeBinding.localRootPath, activeFile.path);
-    }
-
-    if (activeFile.kind === "cloud" && activeFile.projectId === activeBinding.projectId) {
-      return findCloudFileRelativePathById(cloudTree, activeFile.fileId);
-    }
-
-    return null;
-  }, [activeBinding, activeFile, cloudTree]);
 
   if (!isAuthenticated) {
     return null;
@@ -84,39 +62,13 @@ export default function LinkedWorkspaceBanner() {
               >
                 {SYNC_UI_TEXT.pullFromCloud}
               </button>
-              <button
-                type="button"
-                className="ui-control px-3 py-2 text-xs"
-                disabled={!singleFileRelativePath}
-                onClick={() => {
-                  if (!singleFileRelativePath) {
-                    return;
-                  }
-
-                  void openSyncPreview(activeBinding, "push", "file", singleFileRelativePath);
-                }}
-              >
-                {SYNC_UI_TEXT.pushFile}
-              </button>
-              <button
-                type="button"
-                className="ui-control px-3 py-2 text-xs"
-                disabled={!singleFileRelativePath}
-                onClick={() => {
-                  if (!singleFileRelativePath) {
-                    return;
-                  }
-
-                  void openSyncPreview(activeBinding, "pull", "file", singleFileRelativePath);
-                }}
-              >
-                {SYNC_UI_TEXT.pullFile}
-              </button>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm text-secondary">Локальная папка пока не связана с облачным проектом.</div>
+            <div className="text-sm text-secondary">
+              Локальная папка пока не связана с облачным проектом.
+            </div>
             <button
               type="button"
               className="ui-button-primary ui-control px-3 py-2 text-xs"

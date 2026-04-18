@@ -1,11 +1,8 @@
 import { useEffect } from "react";
 import { setActiveBindingId, setWorkspaceMode } from "../features/workspace/workspaceSlice";
+import { resolveActiveBindingForWorkspace } from "../features/sync/syncBindingSelection";
 import { useLinkedWorkspaceActions } from "./useLinkedWorkspaceActions";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
-
-function normalizePath(filePath: string | null) {
-  return `${filePath ?? ""}`.replace(/[\\/]+$/, "").toLowerCase();
-}
 
 export function useLinkedWorkspaceBootstrap() {
   const dispatch = useAppDispatch();
@@ -26,11 +23,12 @@ export function useLinkedWorkspaceBootstrap() {
       return;
     }
 
-    const matchedBinding =
-      source === "local"
-        ? bindings.find((binding) => normalizePath(binding.localRootPath) === normalizePath(rootPath)) ??
-          null
-        : bindings.find((binding) => binding.projectId === activeProjectId) ?? null;
+    const matchedBinding = resolveActiveBindingForWorkspace({
+      bindings,
+      source,
+      rootPath,
+      activeProjectId,
+    });
 
     if (matchedBinding) {
       dispatch(setActiveBindingId(matchedBinding.id));

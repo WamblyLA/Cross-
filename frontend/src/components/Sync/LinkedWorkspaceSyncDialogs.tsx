@@ -4,8 +4,8 @@ import SyncPreviewDialog from "./SyncPreviewDialog";
 
 export default function LinkedWorkspaceSyncDialogs() {
   const {
-    activeBinding,
     preview,
+    previewBinding,
     isPreviewDialogOpen,
     applyPreview,
     closeSyncPreviewDialog,
@@ -21,11 +21,11 @@ export default function LinkedWorkspaceSyncDialogs() {
       error={operationError}
       onClose={closeSyncPreviewDialog}
       onApply={async (confirmedDeletePaths) => {
-        if (!activeBinding) {
+        if (!previewBinding) {
           return;
         }
 
-        const result = await applyPreview(activeBinding, confirmedDeletePaths);
+        const result = await applyPreview(previewBinding, confirmedDeletePaths);
 
         if (result.ok) {
           closeSyncPreviewDialog();

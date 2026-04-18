@@ -9,6 +9,10 @@ import {
 import * as syncApi from "../features/sync/syncApi";
 import { applyPullPlan, applyPushPlan } from "../features/sync/syncApply";
 import { mergeLinkedBindings } from "../features/sync/syncBindingMerge";
+import {
+  resolveActiveBindingForWorkspace,
+  resolvePreviewBinding,
+} from "../features/sync/syncBindingSelection";
 import { assertCloudPreconditions, assertLocalPreconditions, collectBlockingDirtyTabs } from "../features/sync/syncGuards";
 import { buildSyncPreview } from "../features/sync/syncPlanner";
 import { buildCloudSyncSnapshot, buildLocalSyncSnapshot } from "../features/sync/syncSnapshots";
@@ -38,26 +42,24 @@ function buildClientBindingKey(rootPath: string, projectId: string) {
   return `${projectId}:${rootPath}:${Date.now()}:${Math.random().toString(16).slice(2, 8)}`;
 }
 
-function normalizePath(filePath: string | null) {
-  return `${filePath ?? ""}`.replace(/[\\/]+$/, "").toLowerCase();
-}
-
 export function useLinkedWorkspaceActions() {
   const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector((state) => state.auth.sessionStatus === "authenticated");
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
   const source = useAppSelector((state) => state.workspace.source);
-  const activeBindingId = useAppSelector((state) => state.workspace.activeBindingId);
+  const activeProjectId = useAppSelector((state) => state.cloud.activeProjectId);
   const bindings = useAppSelector((state) => state.sync.bindings);
   const preview = useAppSelector((state) => state.sync.preview);
   const isPreviewDialogOpen = useAppSelector((state) => state.sync.previewDialogOpen);
   const filesState = useAppSelector((state) => state.files);
 
-  const activeBinding =
-    bindings.find((binding) => binding.id === activeBindingId) ??
-    (rootPath
-      ? bindings.find((binding) => normalizePath(binding.localRootPath) === normalizePath(rootPath)) ?? null
-      : null);
+  const activeBinding = resolveActiveBindingForWorkspace({
+    bindings,
+    source,
+    rootPath,
+    activeProjectId,
+  });
+  const previewBinding = resolvePreviewBinding({ bindings, preview });
 
   const loadBindings = useCallback(async () => {
     if (!isAuthenticated) {
@@ -407,6 +409,7 @@ export function useLinkedWorkspaceActions() {
       openSyncPreview,
       closeSyncPreviewDialog,
       applyPreview,
+      previewBinding,
     }),
     [
       bindings,
@@ -420,6 +423,7 @@ export function useLinkedWorkspaceActions() {
       openSyncPreview,
       closeSyncPreviewDialog,
       applyPreview,
+      previewBinding,
     ],
   );
 }
