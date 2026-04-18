@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { AppError } from "../lib/errors.js";
 import {
   getProjectRunSnapshotForAccess,
+  getProjectSyncManifestForAccess,
   getProjectTreeForAccess,
 } from "../lib/cloudExplorer.js";
 import {
@@ -113,6 +114,18 @@ export async function getProjectRunSnapshot(req: Request, res: Response) {
   const snapshot = await getProjectRunSnapshotForAccess(id, userId);
 
   res.json({ snapshot });
+}
+
+export async function getProjectSyncManifest(req: Request, res: Response) {
+  const { id } = req.params as ProjectParams;
+  const userId = requireUserId(req);
+  const targetRelativePath =
+    typeof req.query.targetRelativePath === "string" && req.query.targetRelativePath.trim()
+      ? req.query.targetRelativePath.trim()
+      : null;
+  const manifest = await getProjectSyncManifestForAccess(id, userId, targetRelativePath);
+
+  res.json({ manifest });
 }
 
 export async function updateProject(req: Request, res: Response) {
