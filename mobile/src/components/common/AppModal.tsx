@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppButton } from "./AppButton";
 import { Card } from "./Card";
@@ -30,36 +37,67 @@ export function AppModal({
 }: AppModalProps) {
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
-      <SafeAreaView className="flex-1">
-        <View className="flex-1 items-center justify-center bg-black/50 px-4">
-          <Pressable className="absolute inset-0" onPress={onClose} />
-          <View className="w-full max-w-[420px]">
-            <Card>
-              <View className="gap-4">
-                <View className="gap-1">
-                  <Text className="will-change-variable text-lg font-extrabold text-primary">{title}</Text>
-                  {description ? (
-                    <Text className="will-change-variable text-sm leading-6 text-secondary">{description}</Text>
-                  ) : null}
-                </View>
+      <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
+        <View style={styles.overlay}>
+          <Pressable onPress={onClose} style={styles.backdrop} />
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.modalWidth}>
+              <Card>
+                <View className="gap-4">
+                  <View className="gap-1">
+                    <Text className="will-change-variable text-lg font-extrabold text-primary">{title}</Text>
+                    {description ? (
+                      <Text className="will-change-variable text-sm leading-6 text-secondary">{description}</Text>
+                    ) : null}
+                  </View>
 
-                {children}
+                  {children}
 
-                <View className="gap-3">
-                  <AppButton
-                    disabled={confirmDisabled}
-                    loading={confirmLoading}
-                    onPress={onConfirm}
-                    title={confirmLabel}
-                    variant={confirmVariant}
-                  />
-                  <AppButton onPress={onClose} title="Отмена" variant="ghost" />
+                  <View className="gap-3">
+                    <AppButton
+                      disabled={confirmDisabled}
+                      loading={confirmLoading}
+                      onPress={onConfirm}
+                      title={confirmLabel}
+                      variant={confirmVariant}
+                    />
+                    <AppButton onPress={onClose} title="Отмена" variant="ghost" />
+                  </View>
                 </View>
-              </View>
-            </Card>
-          </View>
+              </Card>
+            </View>
+          </ScrollView>
         </View>
       </SafeAreaView>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+  },
+  modalWidth: {
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+  },
+});

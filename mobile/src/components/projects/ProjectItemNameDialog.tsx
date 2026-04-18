@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { normalizeCloudItemName, validateCloudItemName } from "../../lib/utils/cloudName";
 import { AppModal } from "../common/AppModal";
 import { AppTextField } from "../common/AppTextField";
-import { normalizeCloudItemName, validateCloudItemName } from "../../lib/utils/cloudName";
 
 type ProjectItemNameDialogProps = {
   visible: boolean;
