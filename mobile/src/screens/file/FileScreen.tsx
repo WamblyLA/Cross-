@@ -1,16 +1,11 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert } from "react-native";
 import { ErrorState } from "../../components/common/ErrorState";
-import { InlineNotice } from "../../components/common/InlineNotice";
 import { LoadingState } from "../../components/common/LoadingState";
 import { ScreenContainer } from "../../components/common/ScreenContainer";
-import { FileInfoCard } from "../../components/file/FileInfoCard";
-import { ReadOnlyBanner } from "../../components/file/ReadOnlyBanner";
-import { TextFileEditor } from "../../components/file/TextFileEditor";
-import { MarkdownEditorPanel } from "../../components/markdown/MarkdownEditorPanel";
-import { NotebookView } from "../../components/notebook/NotebookView";
+import { FileDocumentView } from "../../components/file/FileDocumentView";
 import * as filesApi from "../../features/files/filesApi";
 import { fileQueryKeys, useProjectFileQuery } from "../../features/files/filesHooks";
 import { useUnsavedChangesGuard } from "../../hooks/useUnsavedChangesGuard";
@@ -31,7 +26,6 @@ export function FileScreen({ navigation, route }: FileScreenProps) {
   const [draft, setDraft] = useState("");
   const [serverContent, setServerContent] = useState("");
   const [serverVersion, setServerVersion] = useState(0);
-  const [markdownMode, setMarkdownMode] = useState<"edit" | "preview">("edit");
   const [notice, setNotice] = useState<NoticeState>(null);
 
   useEffect(() => {
@@ -44,7 +38,6 @@ export function FileScreen({ navigation, route }: FileScreenProps) {
     setDraft(file.content);
     setServerContent(file.content);
     setServerVersion(file.version);
-    setMarkdownMode(file.canWrite ? "edit" : "preview");
     setNotice(null);
   }, [fileQuery.data?.content, fileQuery.data?.id, fileQuery.data?.version, fileQuery.data?.canWrite]);
 
@@ -165,42 +158,36 @@ export function FileScreen({ navigation, route }: FileScreenProps) {
 
   return (
     <ScreenContainer>
-      <View className="flex-1 gap-3">
-        <FileInfoCard
-          canSave={canEdit && isDirty}
-          fileName={fileName}
-          isDirty={isDirty}
-          isSaving={saveMutation.isPending}
-          onReload={handleReload}
-          onSave={() => {
-            void handleSave();
-          }}
-          showSaveAction={kind !== "notebook" && canWrite}
-        />
-
-        {readOnlyReason ? <ReadOnlyBanner text={readOnlyReason} /> : null}
-        {notice ? <InlineNotice text={notice.text} tone={notice.tone} /> : null}
-
-        <View className="flex-1">
-          {kind === "markdown" ? (
-            <MarkdownEditorPanel
-              editable={canEdit}
-              mode={markdownMode}
-              onChangeMode={setMarkdownMode}
-              onChangeText={setDraft}
-              value={draft}
-            />
-          ) : null}
-
-          {kind === "text" ? (
-            <TextFileEditor editable={canEdit} onChangeText={setDraft} value={draft} />
-          ) : null}
-
-          {kind === "notebook" ? (
-            <NotebookView content={draft} />
-          ) : null}
-        </View>
-      </View>
+      <FileDocumentView
+        editable={canEdit}
+        fileName={fileName}
+        fileInfo={{
+          statusText: isDirty ? "Есть несохранённые изменения." : "Изменений нет.",
+          badgeText: isDirty ? "Черновик" : "Синхронизирован",
+          badgeTone: isDirty ? "primary" : "muted",
+          primaryAction:
+            kind !== "notebook" && canWrite
+              ? {
+                  label: "Сохранить",
+                  disabled: !isDirty,
+                  loading: saveMutation.isPending,
+                  onPress: () => {
+                    void handleSave();
+                  },
+                }
+              : null,
+          secondaryAction: {
+            label: "Обновить с сервера",
+            onPress: handleReload,
+            variant: "secondary",
+          },
+        }}
+        kind={kind}
+        notice={notice}
+        onChangeText={setDraft}
+        readOnlyReason={readOnlyReason}
+        value={draft}
+      />
     </ScreenContainer>
   );
 }

@@ -3,48 +3,65 @@ import { AppButton } from "../common/AppButton";
 import { Badge } from "../common/Badge";
 import { Card } from "../common/Card";
 
+type FileInfoAction = {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  variant?: "primary" | "secondary" | "danger" | "ghost";
+};
+
 type FileInfoCardProps = {
   fileName: string;
-  isDirty: boolean;
-  isSaving: boolean;
-  canSave: boolean;
-  onSave: () => void;
-  onReload: () => void;
-  showSaveAction: boolean;
+  statusText: string;
+  badgeText: string;
+  badgeTone?: "primary" | "muted";
+  primaryAction?: FileInfoAction | null;
+  secondaryAction?: FileInfoAction | null;
 };
 
 export function FileInfoCard({
   fileName,
-  isDirty,
-  isSaving,
-  canSave,
-  onSave,
-  onReload,
-  showSaveAction,
+  statusText,
+  badgeText,
+  badgeTone = "muted",
+  primaryAction = null,
+  secondaryAction = null,
 }: FileInfoCardProps) {
   return (
     <Card>
       <View className="gap-3">
         <View className="gap-1">
-          <Text className="will-change-variable text-lg font-extrabold text-primary">{fileName}</Text>
-          <Text className="will-change-variable text-xs text-secondary">
-            {isDirty ? "Есть несохранённые изменения" : "Изменений нет"}
+          <Text className="will-change-variable text-lg font-extrabold text-primary">
+            {fileName}
           </Text>
+          <Text className="will-change-variable text-xs text-secondary">{statusText}</Text>
         </View>
-        <Badge text={isDirty ? "Черновик" : "Синхронизирован"} tone={isDirty ? "primary" : "muted"} />
+        <Badge text={badgeText} tone={badgeTone} />
       </View>
 
-      <View className="gap-3">
-        {showSaveAction ? (
-          <AppButton
-            disabled={!canSave}
-            loading={isSaving}
-            onPress={onSave}
-            title="Сохранить"
-          />
-        ) : null}
-        <AppButton onPress={onReload} title="Обновить с сервера" variant="secondary" />
-      </View>
+      {primaryAction || secondaryAction ? (
+        <View className="gap-3">
+          {primaryAction ? (
+            <AppButton
+              disabled={primaryAction.disabled}
+              loading={primaryAction.loading}
+              onPress={primaryAction.onPress}
+              title={primaryAction.label}
+              variant={primaryAction.variant}
+            />
+          ) : null}
+          {secondaryAction ? (
+            <AppButton
+              disabled={secondaryAction.disabled}
+              loading={secondaryAction.loading}
+              onPress={secondaryAction.onPress}
+              title={secondaryAction.label}
+              variant={secondaryAction.variant ?? "secondary"}
+            />
+          ) : null}
+        </View>
+      ) : null}
     </Card>
   );
 }

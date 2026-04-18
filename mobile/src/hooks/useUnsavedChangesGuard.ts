@@ -1,10 +1,9 @@
 import { useEffect, useRef } from "react";
 import { Alert } from "react-native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { ProjectsStackParamList } from "../navigation/navigationTypes";
+import type { NavigationProp, ParamListBase } from "@react-navigation/native";
 
 type UseUnsavedChangesGuardOptions = {
-  navigation: NativeStackNavigationProp<ProjectsStackParamList>;
+  navigation: NavigationProp<ParamListBase>;
   enabled: boolean;
   isSaving: boolean;
   onSave: () => Promise<boolean>;
