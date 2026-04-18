@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { File, Folder } from "../../generated/prisma/index.js";
 import { AppError } from "./errors.js";
 import {
@@ -46,6 +47,26 @@ export type CloudProjectRunSnapshot = {
   projectName: string;
   folders: CloudRunSnapshotFolder[];
   files: CloudRunSnapshotFile[];
+};
+
+export type CloudSyncManifestFolder = CloudFolderSummary & {
+  relativePath: string;
+};
+
+export type CloudSyncManifestFile = Pick<
+  File,
+  "id" | "projectId" | "folderId" | "name" | "version" | "updatedAt"
+> & {
+  relativePath: string;
+  contentHash: string;
+  contentSize: number;
+};
+
+export type CloudProjectSyncManifest = {
+  projectId: string;
+  projectName: string;
+  folders: CloudSyncManifestFolder[];
+  files: CloudSyncManifestFile[];
 };
 
 function sortByName<T extends { name: string }>(items: T[]) {
@@ -186,6 +207,33 @@ function joinRelativePath(parentPath: string | null, name: string) {
   return parentPath ? `${parentPath}/${name}` : name;
 }
 
+function hashFileContent(content: string) {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+function includesTargetRelativePath(
+  candidateRelativePath: string,
+  targetRelativePath: string | null,
+  kind: "folder" | "file",
+) {
+  if (!targetRelativePath) {
+    return true;
+  }
+
+  if (kind === "folder") {
+    return (
+      candidateRelativePath === targetRelativePath ||
+      candidateRelativePath.startsWith(`${targetRelativePath}/`) ||
+      targetRelativePath.startsWith(`${candidateRelativePath}/`)
+    );
+  }
+
+  return (
+    candidateRelativePath === targetRelativePath ||
+    candidateRelativePath.startsWith(`${targetRelativePath}/`)
+  );
+}
+
 export async function getProjectRunSnapshotForAccess(
   projectId: string,
   userId: string,
@@ -263,6 +311,104 @@ export async function getProjectRunSnapshotForAccess(
     projectName: project.name,
     folders: snapshotFolders,
     files: snapshotFiles,
+  };
+}
+
+export async function getProjectSyncManifestForAccess(
+  projectId: string,
+  userId: string,
+  targetRelativePath: string | null = null,
+): Promise<CloudProjectSyncManifest> {
+  const access = await requireProjectReadAccess(userId, projectId);
+  const project = access.project;
+
+  const [folders, files] = await Promise.all([
+    prisma.folder.findMany({
+      where: { projectId },
+      select: {
+        id: true,
+        projectId: true,
+        parentId: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: [{ name: "asc" }],
+    }),
+    prisma.file.findMany({
+      where: { projectId },
+      select: {
+        id: true,
+        projectId: true,
+        folderId: true,
+        name: true,
+        content: true,
+        version: true,
+        updatedAt: true,
+      },
+      orderBy: [{ name: "asc" }],
+    }),
+  ]);
+
+  const folderById = new Map(folders.map((folder) => [folder.id, folder]));
+  const folderPathCache = new Map<string, string>();
+
+  const resolveFolderPath = (folderId: string): string => {
+    const cachedPath = folderPathCache.get(folderId);
+
+    if (cachedPath) {
+      return cachedPath;
+    }
+
+    const folder = folderById.get(folderId);
+
+    if (!folder) {
+      throw new AppError("Папка проекта не найдена при подготовке manifest.", 500);
+    }
+
+    const relativePath = joinRelativePath(
+      folder.parentId ? resolveFolderPath(folder.parentId) : null,
+      folder.name,
+    );
+
+    folderPathCache.set(folderId, relativePath);
+
+    return relativePath;
+  };
+
+  const manifestFolders = folders
+    .map((folder) => ({
+      ...folder,
+      relativePath: resolveFolderPath(folder.id),
+    }))
+    .filter((folder) =>
+      includesTargetRelativePath(folder.relativePath, targetRelativePath, "folder"),
+    );
+
+  const manifestFiles = files
+    .map((file) => ({
+      id: file.id,
+      projectId: file.projectId,
+      folderId: file.folderId,
+      name: file.name,
+      version: file.version,
+      updatedAt: file.updatedAt,
+      relativePath: joinRelativePath(
+        file.folderId ? resolveFolderPath(file.folderId) : null,
+        file.name,
+      ),
+      contentHash: hashFileContent(file.content),
+      contentSize: Buffer.byteLength(file.content, "utf-8"),
+    }))
+    .filter((file) =>
+      includesTargetRelativePath(file.relativePath, targetRelativePath, "file"),
+    );
+
+  return {
+    projectId: project.id,
+    projectName: project.name,
+    folders: manifestFolders,
+    files: manifestFiles,
   };
 }
 

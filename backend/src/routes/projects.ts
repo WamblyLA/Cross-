@@ -4,6 +4,7 @@ import {
   deleteProject,
   getProject,
   getProjectRunSnapshot,
+  getProjectSyncManifest,
   getProjects,
   getProjectTree,
   updateProject,
@@ -24,6 +25,11 @@ router.get("/", getProjects);
 router.post("/", validateRequest({ body: createProjectBodySchema }), createProject);
 router.get("/:id", validateRequest({ params: projectParamsSchema }), getProject);
 router.get("/:id/tree", validateRequest({ params: projectParamsSchema }), getProjectTree);
+router.get(
+  "/:id/sync-manifest",
+  validateRequest({ params: projectParamsSchema }),
+  getProjectSyncManifest,
+);
 router.get(
   "/:id/run-snapshot",
   validateRequest({ params: projectParamsSchema }),
