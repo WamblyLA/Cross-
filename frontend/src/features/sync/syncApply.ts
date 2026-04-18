@@ -1,7 +1,8 @@
 import * as cloudApi from "../cloud/cloudApi";
 import { joinFsPath } from "../../utils/path";
 import { resolveLocalFsPath } from "./syncPaths";
-import type { CloudSyncSnapshot, LocalSyncSnapshot, SyncPlanItem, SyncPreview } from "./syncTypes";
+import { readLocalFileContent } from "./syncSnapshots";
+import type { CloudSyncSnapshot, SyncPlanItem } from "./syncTypes";
 
 function sortByDepthAscending(items: SyncPlanItem[]) {
   return [...items].sort((left, right) => left.depth - right.depth);
@@ -25,14 +26,18 @@ async function ensureLocalFolder(rootPath: string, relativePath: string) {
     try {
       await window.electronAPI.createFileSystemItem(currentPath, segment, true);
     } catch {
-      // The folder may already exist, which is fine for sync apply.
+      // Folder may already exist.
     }
 
     currentPath = nextPath;
   }
 }
 
-async function createMissingCloudFolders(projectId: string, items: SyncPlanItem[], cloudSnapshot: CloudSyncSnapshot) {
+async function createMissingCloudFolders(
+  projectId: string,
+  items: SyncPlanItem[],
+  cloudSnapshot: CloudSyncSnapshot,
+) {
   const folderIdByRelativePath = buildFolderMap(cloudSnapshot);
 
   for (const item of sortByDepthAscending(items)) {
@@ -43,7 +48,9 @@ async function createMissingCloudFolders(projectId: string, items: SyncPlanItem[
     const segments = item.relativePath.split("/");
     const folderName = segments.at(-1);
     const parentRelativePath = segments.slice(0, -1).join("/");
-    const parentId = parentRelativePath ? folderIdByRelativePath.get(parentRelativePath) ?? null : null;
+    const parentId = parentRelativePath
+      ? folderIdByRelativePath.get(parentRelativePath) ?? null
+      : null;
 
     if (!folderName || folderIdByRelativePath.has(item.relativePath)) {
       continue;
@@ -61,41 +68,34 @@ async function createMissingCloudFolders(projectId: string, items: SyncPlanItem[
 }
 
 export async function applyPushPlan(input: {
-  preview: SyncPreview;
-  localSnapshot: LocalSyncSnapshot;
+  items: SyncPlanItem[];
   cloudSnapshot: CloudSyncSnapshot;
-  confirmedDeletePaths: Set<string>;
+  localRootPath: string;
 }) {
-  const actionableItems = input.preview.items.filter(
-    (item) =>
-      !item.blockedByDirtyTab &&
-      (item.action !== "delete" || input.confirmedDeletePaths.has(item.relativePath)),
-  );
-  const localFiles = new Map(input.localSnapshot.files.map((file) => [file.relativePath, file]));
   const folderIds = await createMissingCloudFolders(
     input.cloudSnapshot.projectId,
-    actionableItems,
+    input.items,
     input.cloudSnapshot,
   );
 
-  for (const item of actionableItems) {
+  for (const item of input.items) {
     if (item.kind !== "file" || (item.action !== "create" && item.action !== "update")) {
       continue;
     }
 
-    const localFile = localFiles.get(item.relativePath);
+    const content = await readLocalFileContent(input.localRootPath, item.relativePath);
     const name = item.relativePath.split("/").at(-1);
     const parentRelativePath = item.relativePath.split("/").slice(0, -1).join("/");
     const folderId = parentRelativePath ? folderIds.get(parentRelativePath) ?? null : null;
 
-    if (!localFile || !name) {
+    if (content === null || !name) {
       continue;
     }
 
     if (item.action === "create") {
       await cloudApi.createProjectFile(input.cloudSnapshot.projectId, {
         name,
-        content: localFile.content,
+        content,
         folderId,
       });
       continue;
@@ -106,12 +106,12 @@ export async function applyPushPlan(input: {
     }
 
     await cloudApi.updateProjectFile(input.cloudSnapshot.projectId, item.cloudFileId, {
-      content: localFile.content,
+      content,
       expectedVersion: item.cloudVersion ?? undefined,
     });
   }
 
-  for (const item of actionableItems.filter((entry) => entry.kind === "file" && entry.action === "delete")) {
+  for (const item of input.items.filter((entry) => entry.kind === "file" && entry.action === "delete")) {
     if (!item.cloudFileId) {
       continue;
     }
@@ -119,7 +119,7 @@ export async function applyPushPlan(input: {
     await cloudApi.deleteProjectFile(input.cloudSnapshot.projectId, item.cloudFileId);
   }
 
-  for (const item of sortByDepthDescending(actionableItems)) {
+  for (const item of sortByDepthDescending(input.items)) {
     if (item.kind !== "folder" || item.action !== "delete" || !item.cloudFolderId) {
       continue;
     }
@@ -129,31 +129,27 @@ export async function applyPushPlan(input: {
 }
 
 export async function applyPullPlan(input: {
-  preview: SyncPreview;
-  localSnapshot: LocalSyncSnapshot;
-  cloudSnapshot: CloudSyncSnapshot;
-  confirmedDeletePaths: Set<string>;
+  items: SyncPlanItem[];
+  projectId: string;
   localRootPath: string;
 }) {
-  const actionableItems = input.preview.items.filter(
-    (item) =>
-      !item.blockedByDirtyTab &&
-      (item.action !== "delete" || input.confirmedDeletePaths.has(item.relativePath)),
-  );
-  const cloudFiles = new Map(input.cloudSnapshot.files.map((file) => [file.relativePath, file]));
-
-  for (const item of sortByDepthAscending(actionableItems)) {
+  for (const item of sortByDepthAscending(input.items)) {
     if (item.kind === "folder" && item.action === "create") {
       await ensureLocalFolder(input.localRootPath, item.relativePath);
     }
   }
 
-  for (const item of actionableItems) {
+  for (const item of input.items) {
     if (item.kind !== "file" || (item.action !== "create" && item.action !== "update")) {
       continue;
     }
 
-    const cloudFile = cloudFiles.get(item.relativePath);
+    if (!item.cloudFileId) {
+      continue;
+    }
+
+    const response = await cloudApi.getProjectFile(input.projectId, item.cloudFileId);
+    const cloudFile = response.file;
     const segments = item.relativePath.split("/").filter(Boolean);
     const fileName = segments.at(-1);
     const parentRelativePath = segments.slice(0, -1).join("/");
@@ -162,7 +158,7 @@ export async function applyPullPlan(input: {
       : input.localRootPath;
     const filePath = joinFsPath(parentPath, fileName ?? "");
 
-    if (!cloudFile || !fileName) {
+    if (!fileName) {
       continue;
     }
 
@@ -173,7 +169,7 @@ export async function applyPullPlan(input: {
     await window.electronAPI.writeFile(filePath, cloudFile.content);
   }
 
-  for (const item of actionableItems.filter((entry) => entry.kind === "file" && entry.action === "delete")) {
+  for (const item of input.items.filter((entry) => entry.kind === "file" && entry.action === "delete")) {
     if (!item.localPath) {
       continue;
     }
@@ -181,7 +177,7 @@ export async function applyPullPlan(input: {
     await window.electronAPI.removeFileSystemItem(item.localPath);
   }
 
-  for (const item of sortByDepthDescending(actionableItems)) {
+  for (const item of sortByDepthDescending(input.items)) {
     if (item.kind !== "folder" || item.action !== "delete" || !item.localPath) {
       continue;
     }

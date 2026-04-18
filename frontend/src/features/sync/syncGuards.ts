@@ -1,4 +1,4 @@
-import { hashText } from "./syncHash";
+import type { StateType } from "../../store/store";
 import { toSyncRelativePath } from "./syncPaths";
 import type {
   CloudSyncSnapshot,
@@ -6,7 +6,6 @@ import type {
   LocalSyncSnapshot,
   SyncPlanItem,
 } from "./syncTypes";
-import type { StateType } from "../../store/store";
 
 export function collectBlockingDirtyTabs(
   filesState: StateType["files"],
@@ -43,9 +42,16 @@ export function collectBlockingDirtyTabs(
   return blockingRelativePaths;
 }
 
-export function assertLocalPreconditions(items: SyncPlanItem[], localSnapshot: LocalSyncSnapshot) {
-  const currentFiles = new Map(localSnapshot.files.map((file) => [file.relativePath, file]));
-  const currentFolders = new Set(localSnapshot.folders.map((folder) => folder.relativePath));
+export function assertLocalPreconditions(
+  items: SyncPlanItem[],
+  localSnapshot: LocalSyncSnapshot,
+) {
+  const currentFiles = new Map(
+    localSnapshot.files.map((file) => [file.relativePath, file]),
+  );
+  const currentFolders = new Set(
+    localSnapshot.folders.map((folder) => folder.relativePath),
+  );
 
   for (const item of items) {
     if (item.kind === "folder") {
@@ -62,7 +68,7 @@ export function assertLocalPreconditions(items: SyncPlanItem[], localSnapshot: L
     }
 
     const currentFile = currentFiles.get(item.relativePath) ?? null;
-    const currentHash = currentFile ? hashText(currentFile.content) : null;
+    const currentHash = currentFile?.hash ?? null;
     const currentExists = Boolean(currentFile);
 
     if (item.localExists !== currentExists || item.localHash !== currentHash) {
@@ -76,9 +82,16 @@ export function assertLocalPreconditions(items: SyncPlanItem[], localSnapshot: L
   return { ok: true as const };
 }
 
-export function assertCloudPreconditions(items: SyncPlanItem[], cloudSnapshot: CloudSyncSnapshot) {
-  const currentFiles = new Map(cloudSnapshot.files.map((file) => [file.relativePath, file]));
-  const currentFolders = new Map(cloudSnapshot.folders.map((folder) => [folder.relativePath, folder]));
+export function assertCloudPreconditions(
+  items: SyncPlanItem[],
+  cloudSnapshot: CloudSyncSnapshot,
+) {
+  const currentFiles = new Map(
+    cloudSnapshot.files.map((file) => [file.relativePath, file]),
+  );
+  const currentFolders = new Map(
+    cloudSnapshot.folders.map((folder) => [folder.relativePath, folder]),
+  );
 
   for (const item of items) {
     if (item.kind === "folder") {
@@ -96,7 +109,7 @@ export function assertCloudPreconditions(items: SyncPlanItem[], cloudSnapshot: C
     }
 
     const currentFile = currentFiles.get(item.relativePath) ?? null;
-    const currentHash = currentFile ? hashText(currentFile.content) : null;
+    const currentHash = currentFile?.contentHash ?? null;
     const currentExists = Boolean(currentFile);
     const currentVersion = currentFile?.version ?? null;
 

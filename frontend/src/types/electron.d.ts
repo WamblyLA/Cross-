@@ -5,6 +5,8 @@ declare global {
     name: string;
     path: string;
     isDirectory: boolean;
+    size?: number | null;
+    mtimeMs?: number | null;
   };
 
   type GitFileStatus = "modified" | "added" | "deleted" | "untracked" | "renamed";

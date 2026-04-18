@@ -28,6 +28,29 @@ type ProjectRunSnapshotResponse = {
   snapshot: CloudProjectRunSnapshot;
 };
 
+type ProjectSyncManifestResponse = {
+  manifest: {
+    projectId: string;
+    projectName: string;
+    folders: Array<{
+      id: string;
+      parentId: string | null;
+      name: string;
+      relativePath: string;
+    }>;
+    files: Array<{
+      id: string;
+      folderId: string | null;
+      name: string;
+      relativePath: string;
+      version: number;
+      updatedAt: string;
+      contentHash: string;
+      contentSize: number;
+    }>;
+  };
+};
+
 type FilesResponse = {
   files: CloudFileSummary[];
 };
@@ -109,6 +132,21 @@ export function getProjectTree(projectId: string) {
 export function getProjectRunSnapshot(projectId: string) {
   return request<ProjectRunSnapshotResponse>({
     url: `/api/projects/${projectId}/run-snapshot`,
+  });
+}
+
+export function getProjectSyncManifest(
+  projectId: string,
+  options?: {
+    targetRelativePath?: string | null;
+  },
+) {
+  const query = options?.targetRelativePath
+    ? `?targetRelativePath=${encodeURIComponent(options.targetRelativePath)}`
+    : "";
+
+  return request<ProjectSyncManifestResponse>({
+    url: `/api/projects/${projectId}/sync-manifest${query}`,
   });
 }
 

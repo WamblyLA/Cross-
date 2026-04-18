@@ -105,7 +105,8 @@ export type CloudSnapshotFile = {
   folderId: string | null;
   name: string;
   relativePath: string;
-  content: string;
+  contentHash: string;
+  contentSize: number;
   version: number;
   updatedAt: string;
 };
@@ -125,8 +126,9 @@ export type LocalSnapshotFolder = {
 export type LocalSnapshotFile = {
   relativePath: string;
   path: string;
-  content: string;
   hash: string;
+  size: number | null;
+  mtimeMs: number | null;
 };
 
 export type LocalSyncSnapshot = {

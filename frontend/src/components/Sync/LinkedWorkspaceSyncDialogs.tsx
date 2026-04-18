@@ -6,6 +6,8 @@ export default function LinkedWorkspaceSyncDialogs() {
   const {
     preview,
     previewBinding,
+    previewStatus,
+    previewError,
     isPreviewDialogOpen,
     applyPreview,
     closeSyncPreviewDialog,
@@ -17,15 +19,16 @@ export default function LinkedWorkspaceSyncDialogs() {
     <SyncPreviewDialog
       isOpen={isPreviewDialogOpen}
       preview={preview}
+      isLoading={previewStatus === "loading"}
       isApplying={operationStatus === "loading"}
-      error={operationError}
+      error={previewError ?? operationError}
       onClose={closeSyncPreviewDialog}
-      onApply={async (confirmedDeletePaths) => {
+      onApply={async (selectedItemKeys) => {
         if (!previewBinding) {
           return;
         }
 
-        const result = await applyPreview(previewBinding, confirmedDeletePaths);
+        const result = await applyPreview(previewBinding, selectedItemKeys);
 
         if (result.ok) {
           closeSyncPreviewDialog();

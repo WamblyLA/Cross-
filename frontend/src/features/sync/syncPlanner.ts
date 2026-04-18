@@ -1,4 +1,3 @@
-import { hashText } from "./syncHash";
 import { resolveLocalFsPath } from "./syncPaths";
 import type {
   CloudSyncSnapshot,
@@ -54,6 +53,18 @@ function resolveDeleteState(blockedByDirtyTab: boolean): SyncPreviewItemState {
   return blockedByDirtyTab ? "blocked_dirty_buffer" : "pending_delete_confirm";
 }
 
+function includesTargetPath(relativePath: string, targetRelativePath: string | null) {
+  if (!targetRelativePath) {
+    return true;
+  }
+
+  return (
+    relativePath === targetRelativePath ||
+    relativePath.startsWith(`${targetRelativePath}/`) ||
+    targetRelativePath.startsWith(`${relativePath}/`)
+  );
+}
+
 export function buildSyncPreview({
   binding,
   direction,
@@ -63,19 +74,19 @@ export function buildSyncPreview({
   cloudSnapshot,
   blockingRelativePaths,
 }: PlannerInput): SyncPreview {
-  const localFolders = new Map(localSnapshot.folders.map((folder) => [folder.relativePath, folder]));
-  const localFiles = new Map(localSnapshot.files.map((file) => [file.relativePath, file]));
-  const cloudFolders = new Map(cloudSnapshot.folders.map((folder) => [folder.relativePath, folder]));
-  const cloudFiles = new Map(cloudSnapshot.files.map((file) => [file.relativePath, file]));
+  const localFolders = new Map(
+    localSnapshot.folders.map((folder) => [folder.relativePath, folder]),
+  );
+  const localFiles = new Map(
+    localSnapshot.files.map((file) => [file.relativePath, file]),
+  );
+  const cloudFolders = new Map(
+    cloudSnapshot.folders.map((folder) => [folder.relativePath, folder]),
+  );
+  const cloudFiles = new Map(
+    cloudSnapshot.files.map((file) => [file.relativePath, file]),
+  );
   const items: SyncPlanItem[] = [];
-
-  const includePath = (relativePath: string) => {
-    if (!targetRelativePath) {
-      return true;
-    }
-
-    return relativePath === targetRelativePath || relativePath.startsWith(`${targetRelativePath}/`);
-  };
 
   const addItem = (item: SyncPlanItem | null) => {
     if (!item || item.action === null) {
@@ -88,7 +99,7 @@ export function buildSyncPreview({
   const folderPaths = new Set([...localFolders.keys(), ...cloudFolders.keys()]);
 
   for (const relativePath of folderPaths) {
-    if (!includePath(relativePath)) {
+    if (!includesTargetPath(relativePath, targetRelativePath)) {
       continue;
     }
 
@@ -149,13 +160,13 @@ export function buildSyncPreview({
           action: "create",
           reason: "Папка будет создана локально.",
           requiresDeleteConfirm: false,
-            blockedByDirtyTab,
-            localExists: false,
-            cloudExists: true,
-            localPath: binding.localRootPath
-              ? resolveLocalFsPath(binding.localRootPath, relativePath)
-              : null,
-            cloudFileId: null,
+          blockedByDirtyTab,
+          localExists: false,
+          cloudExists: true,
+          localPath: binding.localRootPath
+            ? resolveLocalFsPath(binding.localRootPath, relativePath)
+            : null,
+          cloudFileId: null,
           cloudFolderId: cloudFolder.id,
           localHash: null,
           cloudHash: null,
@@ -190,7 +201,7 @@ export function buildSyncPreview({
   const filePaths = new Set([...localFiles.keys(), ...cloudFiles.keys()]);
 
   for (const relativePath of filePaths) {
-    if (!includePath(relativePath)) {
+    if (!includesTargetPath(relativePath, targetRelativePath)) {
       continue;
     }
 
@@ -199,7 +210,7 @@ export function buildSyncPreview({
     const blockedByDirtyTab = blockingRelativePaths.has(relativePath);
 
     if (localFile && cloudFile) {
-      const cloudHash = hashText(cloudFile.content);
+      const cloudHash = cloudFile.contentHash;
 
       if (localFile.hash !== cloudHash) {
         addItem(
@@ -274,7 +285,7 @@ export function buildSyncPreview({
     }
 
     if (!localFile && cloudFile) {
-      const cloudHash = hashText(cloudFile.content);
+      const cloudHash = cloudFile.contentHash;
 
       if (direction === "pull") {
         addItem(

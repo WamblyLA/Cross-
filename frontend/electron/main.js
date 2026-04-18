@@ -133,14 +133,35 @@ function isPathInsideRoot(targetPath, rootPath) {
 
 async function readFolder(folderPath) {
   const entries = await fs.readdir(folderPath, { withFileTypes: true });
+  const detailedEntries = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = path.join(folderPath, entry.name);
+      const isDirectory = entry.isDirectory();
+      let size = null;
+      let mtimeMs = null;
 
-  return sortEntries(
-    entries.map((entry) => ({
-      name: entry.name,
-      path: path.join(folderPath, entry.name),
-      isDirectory: entry.isDirectory(),
-    })),
+      if (!isDirectory) {
+        try {
+          const stats = await fs.stat(entryPath);
+          size = Number.isFinite(stats.size) ? stats.size : null;
+          mtimeMs = Number.isFinite(stats.mtimeMs) ? stats.mtimeMs : null;
+        } catch {
+          size = null;
+          mtimeMs = null;
+        }
+      }
+
+      return {
+        name: entry.name,
+        path: entryPath,
+        isDirectory,
+        size,
+        mtimeMs,
+      };
+    }),
   );
+
+  return sortEntries(detailedEntries);
 }
 
 async function closeFolderWatcher() {

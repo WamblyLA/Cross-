@@ -70,6 +70,8 @@ const syncSlice = createSlice({
       }
     },
     previewStarted(state) {
+      state.preview = null;
+      state.previewDialogOpen = true;
       state.previewStatus = "loading";
       state.previewError = null;
     },
@@ -79,12 +81,13 @@ const syncSlice = createSlice({
       state.previewError = null;
     },
     previewFailed(state, action: PayloadAction<string>) {
-      state.previewDialogOpen = false;
+      state.preview = null;
+      state.previewDialogOpen = true;
       state.previewStatus = "failed";
       state.previewError = action.payload;
     },
     openPreviewDialog(state) {
-      state.previewDialogOpen = Boolean(state.preview);
+      state.previewDialogOpen = true;
     },
     closePreviewDialog(state) {
       state.previewDialogOpen = false;

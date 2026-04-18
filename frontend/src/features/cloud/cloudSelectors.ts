@@ -1,3 +1,4 @@
+import { createSelector } from "@reduxjs/toolkit";
 import type { StateType } from "../../store/store";
 import { parseCloudSelectionKey } from "./cloudSelection";
 
@@ -35,10 +36,13 @@ export const selectCloudFilesError = (state: StateType, projectId: string | null
 export const selectCloudSelectedItemKeys = (state: StateType) => state.cloud.selectedItemKeys;
 export const selectCloudFocusedItemKey = (state: StateType) => state.cloud.focusedItemKey;
 export const selectCloudSelectionAnchorKey = (state: StateType) => state.cloud.selectionAnchorKey;
-export const selectCloudSelectedItems = (state: StateType) =>
-  state.cloud.selectedItemKeys
-    .map((key) => parseCloudSelectionKey(key))
-    .filter((item) => item !== null);
+export const selectCloudSelectedItems = createSelector(
+  [(state: StateType) => state.cloud.selectedItemKeys],
+  (selectedItemKeys) =>
+    selectedItemKeys
+      .map((key) => parseCloudSelectionKey(key))
+      .filter((item) => item !== null),
+);
 export const selectCloudSelectedProjectId = (state: StateType) => state.cloud.selectedProjectId;
 export const selectCloudSelectedFolderId = (state: StateType) => state.cloud.selectedFolderId;
 export const selectCloudSelectedFileId = (state: StateType) => state.cloud.selectedFileId;

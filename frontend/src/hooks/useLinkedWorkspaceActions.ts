@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import * as cloudApi from "../features/cloud/cloudApi";
 import { fetchProjectTree } from "../features/cloud/cloudThunks";
 import {
   applyCloudFileSavedSnapshot,
@@ -6,16 +7,23 @@ import {
   closeCloudFile,
   closeLocalFileByPath,
 } from "../features/files/filesSlice";
-import * as syncApi from "../features/sync/syncApi";
 import { applyPullPlan, applyPushPlan } from "../features/sync/syncApply";
 import { mergeLinkedBindings } from "../features/sync/syncBindingMerge";
 import {
   resolveActiveBindingForWorkspace,
   resolvePreviewBinding,
 } from "../features/sync/syncBindingSelection";
-import { assertCloudPreconditions, assertLocalPreconditions, collectBlockingDirtyTabs } from "../features/sync/syncGuards";
+import { getSelectedSyncPreviewItems } from "../features/sync/syncPreviewSelection";
+import {
+  assertCloudPreconditions,
+  assertLocalPreconditions,
+  collectBlockingDirtyTabs,
+} from "../features/sync/syncGuards";
 import { buildSyncPreview } from "../features/sync/syncPlanner";
-import { buildCloudSyncSnapshot, buildLocalSyncSnapshot } from "../features/sync/syncSnapshots";
+import {
+  buildCloudSyncSnapshot,
+  buildLocalSyncSnapshot,
+} from "../features/sync/syncSnapshots";
 import {
   bindingsFailed,
   bindingsLoaded,
@@ -33,8 +41,17 @@ import {
   setBindingStatus,
   upsertBinding,
 } from "../features/sync/syncSlice";
-import type { LinkedWorkspaceBinding, SyncDirection, SyncPreview, SyncScope } from "../features/sync/syncTypes";
-import { setActiveBindingId, setWorkspaceMode } from "../features/workspace/workspaceSlice";
+import * as syncApi from "../features/sync/syncApi";
+import type {
+  LinkedWorkspaceBinding,
+  SyncDirection,
+  SyncPlanItem,
+  SyncScope,
+} from "../features/sync/syncTypes";
+import {
+  setActiveBindingId,
+  setWorkspaceMode,
+} from "../features/workspace/workspaceSlice";
 import { normalizeApiError } from "../lib/api/errorNormalization";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 
@@ -42,15 +59,25 @@ function buildClientBindingKey(rootPath: string, projectId: string) {
   return `${projectId}:${rootPath}:${Date.now()}:${Math.random().toString(16).slice(2, 8)}`;
 }
 
+function resolveSnapshotTarget(scope: SyncScope, targetRelativePath?: string | null) {
+  return scope === "file" ? targetRelativePath ?? null : null;
+}
+
 export function useLinkedWorkspaceActions() {
   const dispatch = useAppDispatch();
-  const isAuthenticated = useAppSelector((state) => state.auth.sessionStatus === "authenticated");
+  const isAuthenticated = useAppSelector(
+    (state) => state.auth.sessionStatus === "authenticated",
+  );
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
   const source = useAppSelector((state) => state.workspace.source);
   const activeProjectId = useAppSelector((state) => state.cloud.activeProjectId);
   const bindings = useAppSelector((state) => state.sync.bindings);
   const preview = useAppSelector((state) => state.sync.preview);
-  const isPreviewDialogOpen = useAppSelector((state) => state.sync.previewDialogOpen);
+  const previewStatus = useAppSelector((state) => state.sync.previewStatus);
+  const previewError = useAppSelector((state) => state.sync.previewError);
+  const isPreviewDialogOpen = useAppSelector(
+    (state) => state.sync.previewDialogOpen,
+  );
   const filesState = useAppSelector((state) => state.files);
 
   const activeBinding = resolveActiveBindingForWorkspace({
@@ -74,7 +101,10 @@ export function useLinkedWorkspaceActions() {
         syncApi.listProjectLinks(),
         window.electronAPI.listLinkBindings(),
       ]);
-      const mergedBindings = mergeLinkedBindings(serverResponse.links, localResponse.bindings);
+      const mergedBindings = mergeLinkedBindings(
+        serverResponse.links,
+        localResponse.bindings,
+      );
       dispatch(bindingsLoaded(mergedBindings));
       return mergedBindings;
     } catch (error) {
@@ -93,7 +123,8 @@ export function useLinkedWorkspaceActions() {
         const serverResponse = await syncApi.createProjectLink({
           projectId,
           clientBindingKey,
-          localRootLabel: localRootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? localRootPath,
+          localRootLabel:
+            localRootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? localRootPath,
         });
 
         const localBinding: LocalLinkBindingRecord = {
@@ -156,19 +187,33 @@ export function useLinkedWorkspaceActions() {
       targetRelativePath?: string | null,
     ) => {
       if (!binding.localRootPath) {
-        dispatch(previewFailed("Для этой связи на текущем устройстве не найден локальный путь."));
+        dispatch(
+          previewFailed(
+            "Для этой связи на текущем устройстве не найден локальный путь.",
+          ),
+        );
         return null;
       }
+
+      const snapshotTarget = resolveSnapshotTarget(scope, targetRelativePath);
 
       dispatch(previewStarted());
       dispatch(setBindingStatus({ bindingId: binding.id, status: "scan_required" }));
 
       try {
         const [localSnapshot, cloudSnapshot] = await Promise.all([
-          buildLocalSyncSnapshot(binding.localRootPath),
-          buildCloudSyncSnapshot(binding.projectId),
+          buildLocalSyncSnapshot(binding.localRootPath, {
+            targetRelativePath: snapshotTarget,
+          }),
+          buildCloudSyncSnapshot(binding.projectId, {
+            targetRelativePath: snapshotTarget,
+          }),
         ]);
-        const blockingRelativePaths = collectBlockingDirtyTabs(filesState, binding, cloudSnapshot);
+        const blockingRelativePaths = collectBlockingDirtyTabs(
+          filesState,
+          binding,
+          cloudSnapshot,
+        );
         const nextPreview = buildSyncPreview({
           binding,
           direction,
@@ -195,55 +240,53 @@ export function useLinkedWorkspaceActions() {
   const syncOpenEditors = useCallback(
     async (
       binding: LinkedWorkspaceBinding,
-      nextPreview: SyncPreview,
+      appliedItems: SyncPlanItem[],
       direction: SyncDirection,
-      confirmedDeletePaths: Set<string>,
     ) => {
       if (!binding.localRootPath) {
         return;
       }
 
-      const cloudSnapshot = await buildCloudSyncSnapshot(binding.projectId);
-
       if (direction === "push") {
-        const cloudFileByPath = new Map(cloudSnapshot.files.map((file) => [file.relativePath, file]));
+        const cloudSnapshot = await buildCloudSyncSnapshot(binding.projectId);
+        const cloudFileByPath = new Map(
+          cloudSnapshot.files.map((file) => [file.relativePath, file]),
+        );
 
-        for (const item of nextPreview.items) {
-          if (item.action === "delete" && !confirmedDeletePaths.has(item.relativePath)) {
-            continue;
-          }
-
+        for (const item of appliedItems) {
           if (item.kind !== "file") {
             continue;
           }
 
           if (item.action === "delete" && item.cloudFileId) {
-            dispatch(closeCloudFile({ projectId: binding.projectId, fileId: item.cloudFileId }));
+            dispatch(
+              closeCloudFile({ projectId: binding.projectId, fileId: item.cloudFileId }),
+            );
             continue;
           }
 
           const cloudFile = cloudFileByPath.get(item.relativePath);
 
-          if (cloudFile) {
-            dispatch(
-              applyCloudFileSavedSnapshot({
-                fileId: cloudFile.id,
-                content: cloudFile.content,
-                version: cloudFile.version,
-                updatedAt: cloudFile.updatedAt,
-              }),
-            );
+          if (!cloudFile) {
+            continue;
           }
+
+          const response = await cloudApi.getProjectFile(binding.projectId, cloudFile.id);
+
+          dispatch(
+            applyCloudFileSavedSnapshot({
+              fileId: response.file.id,
+              content: response.file.content,
+              version: response.file.version,
+              updatedAt: response.file.updatedAt,
+            }),
+          );
         }
 
         return;
       }
 
-      for (const item of nextPreview.items) {
-        if (item.action === "delete" && !confirmedDeletePaths.has(item.relativePath)) {
-          continue;
-        }
-
+      for (const item of appliedItems) {
         if (item.kind !== "file") {
           continue;
         }
@@ -270,9 +313,21 @@ export function useLinkedWorkspaceActions() {
   );
 
   const applyPreview = useCallback(
-    async (binding: LinkedWorkspaceBinding, confirmedDeletePaths: Set<string>) => {
+    async (binding: LinkedWorkspaceBinding, selectedItemKeys: Set<string>) => {
       if (!preview || preview.bindingId !== binding.id || !binding.localRootPath) {
-        return { ok: false as const, message: "Нет подготовленного preview для синхронизации." };
+        return {
+          ok: false as const,
+          message: "Нет подготовленного preview для синхронизации.",
+        };
+      }
+
+      const selectedItems = getSelectedSyncPreviewItems(preview, selectedItemKeys);
+
+      if (selectedItems.length === 0) {
+        return {
+          ok: false as const,
+          message: "Выберите хотя бы одно изменение для синхронизации.",
+        };
       }
 
       const operation = {
@@ -288,22 +343,30 @@ export function useLinkedWorkspaceActions() {
       dispatch(setBindingStatus({ bindingId: binding.id, status: "sync_in_progress" }));
 
       try {
-        const [localSnapshot, cloudSnapshot] = await Promise.all([
-          buildLocalSyncSnapshot(binding.localRootPath),
-          buildCloudSyncSnapshot(binding.projectId),
-        ]);
-        const actionableItems = preview.items.filter(
-          (item) =>
-            !item.blockedByDirtyTab &&
-            (item.action !== "delete" || confirmedDeletePaths.has(item.relativePath)),
+        const snapshotTarget = resolveSnapshotTarget(
+          preview.scope,
+          preview.targetRelativePath,
         );
-        const localCheck = assertLocalPreconditions(actionableItems, localSnapshot);
+        const [localSnapshot, cloudSnapshot] = await Promise.all([
+          buildLocalSyncSnapshot(binding.localRootPath, {
+            targetRelativePath: snapshotTarget,
+          }),
+          buildCloudSyncSnapshot(binding.projectId, {
+            targetRelativePath: snapshotTarget,
+          }),
+        ]);
+
+        if (selectedItems.some((item) => item.blockedByDirtyTab)) {
+          throw new Error("Среди выбранных элементов есть заблокированные изменения.");
+        }
+
+        const localCheck = assertLocalPreconditions(selectedItems, localSnapshot);
 
         if (!localCheck.ok) {
           throw new Error(localCheck.error);
         }
 
-        const cloudCheck = assertCloudPreconditions(actionableItems, cloudSnapshot);
+        const cloudCheck = assertCloudPreconditions(selectedItems, cloudSnapshot);
 
         if (!cloudCheck.ok) {
           throw new Error(cloudCheck.error);
@@ -311,25 +374,25 @@ export function useLinkedWorkspaceActions() {
 
         if (preview.direction === "push") {
           await applyPushPlan({
-            preview,
-            localSnapshot,
+            items: selectedItems,
             cloudSnapshot,
-            confirmedDeletePaths,
+            localRootPath: binding.localRootPath,
           });
         } else {
           await applyPullPlan({
-            preview,
-            localSnapshot,
-            cloudSnapshot,
-            confirmedDeletePaths,
+            items: selectedItems,
+            projectId: binding.projectId,
             localRootPath: binding.localRootPath,
           });
         }
 
-        const syncSummaryResponse = await syncApi.updateProjectLinkSyncSummary(binding.id, {
-          lastSyncAt: new Date().toISOString(),
-          lastSyncDirection: preview.direction,
-        });
+        const syncSummaryResponse = await syncApi.updateProjectLinkSyncSummary(
+          binding.id,
+          {
+            lastSyncAt: new Date().toISOString(),
+            lastSyncDirection: preview.direction,
+          },
+        );
         const nextBinding: LinkedWorkspaceBinding = {
           ...syncSummaryResponse.link,
           localRootPath: binding.localRootPath,
@@ -349,7 +412,7 @@ export function useLinkedWorkspaceActions() {
 
         dispatch(upsertBinding(nextBinding));
         dispatch(fetchProjectTree({ projectId: binding.projectId }));
-        await syncOpenEditors(binding, preview, preview.direction, confirmedDeletePaths);
+        await syncOpenEditors(binding, selectedItems, preview.direction);
         dispatch(clearPreview());
 
         const completedOperation = {
@@ -381,13 +444,8 @@ export function useLinkedWorkspaceActions() {
       scope: SyncScope,
       targetRelativePath?: string | null,
     ) => {
-      const nextPreview = await previewSync(binding, direction, scope, targetRelativePath);
-
-      if (nextPreview) {
-        dispatch(openPreviewDialog());
-      }
-
-      return nextPreview;
+      dispatch(openPreviewDialog());
+      return previewSync(binding, direction, scope, targetRelativePath);
     },
     [dispatch, previewSync],
   );
@@ -401,6 +459,8 @@ export function useLinkedWorkspaceActions() {
       bindings,
       activeBinding,
       preview,
+      previewStatus,
+      previewError,
       isPreviewDialogOpen,
       loadBindings,
       linkWorkspace,
@@ -415,6 +475,8 @@ export function useLinkedWorkspaceActions() {
       bindings,
       activeBinding,
       preview,
+      previewStatus,
+      previewError,
       isPreviewDialogOpen,
       loadBindings,
       linkWorkspace,
