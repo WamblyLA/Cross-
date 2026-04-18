@@ -37,5 +37,7 @@ mobile/.env.*
 *.sw?
 __pycache__
 docs
+!backend/docs/
+!backend/docs/**
 report_by_file.cs
 report.csv

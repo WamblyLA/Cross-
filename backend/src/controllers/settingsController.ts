@@ -1,14 +1,10 @@
 import type { Request, Response } from "express";
-import { AppError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
+import { requireUserId } from "../lib/requestContext.js";
 import { DEFAULT_SETTINGS, type UpdateSettingsBody } from "../lib/validation.js";
 
 export async function getMySettings(req: Request, res: Response) {
-  const userId = req.userId;
-
-  if (!userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
+  const userId = requireUserId(req);
 
   const settings = await prisma.userSettings.upsert({
     where: { userId },
@@ -23,12 +19,8 @@ export async function getMySettings(req: Request, res: Response) {
 }
 
 export async function updateMySettings(req: Request, res: Response) {
-  const userId = req.userId;
+  const userId = requireUserId(req);
   const data = req.body as UpdateSettingsBody;
-
-  if (!userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
 
   const updateData = {
     ...(data.theme !== undefined ? { theme: data.theme } : {}),

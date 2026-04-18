@@ -9,6 +9,7 @@ import {
 } from "../lib/auth.js";
 import { AppError } from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
+import { requireUserId } from "../lib/requestContext.js";
 import type {
   LoginBody,
   RegisterBody,
@@ -115,12 +116,10 @@ export async function login(req: Request, res: Response) {
 }
 
 export async function me(req: Request, res: Response) {
-  if (!req.userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
+  const userId = requireUserId(req);
 
   const user = await prisma.user.findUnique({
-    where: { id: req.userId },
+    where: { id: userId },
     select: {
       id: true,
       username: true,
@@ -136,12 +135,8 @@ export async function me(req: Request, res: Response) {
 }
 
 export async function updateProfile(req: Request, res: Response) {
-  const userId = req.userId;
   const { username } = req.body as UpdateProfileBody;
-
-  if (!userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
+  const userId = requireUserId(req);
 
   const existingUser = await prisma.user.findFirst({
     where: {

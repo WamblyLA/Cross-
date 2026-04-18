@@ -12,6 +12,16 @@ type AuthJwtPayload = JwtPayload & {
   sub: string;
 };
 
+export function extractBearerToken(headerValue: string | undefined) {
+  if (!headerValue || !headerValue.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = headerValue.slice(7).trim();
+
+  return token || null;
+}
+
 function parseExpiresInToMs(value: string) {
   const match = value.trim().match(/^(\d+)([smhd])$/i);
 

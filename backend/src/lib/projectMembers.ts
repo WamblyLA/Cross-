@@ -94,63 +94,6 @@ export async function listProjectMembers(userId: string, projectId: string): Pro
   return [createOwnerSummary(project), ...project.members.map(toSummary)];
 }
 
-export async function addProjectMember(input: {
-  userId: string;
-  projectId: string;
-  email: string;
-  role: "editor" | "viewer";
-}): Promise<ProjectMemberSummary> {
-  const access = await requireProjectOwnerAccess(input.userId, input.projectId);
-  const targetUser = await prisma.user.findUnique({
-    where: {
-      email: input.email,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!targetUser) {
-    throw new AppError("Пользователь не найден", 404, undefined, "USER_NOT_FOUND");
-  }
-
-  if (targetUser.id === access.project.ownerId) {
-    throw new AppError("Пользователь уже добавлен", 409, undefined, "ALREADY_MEMBER");
-  }
-
-  const existingMember = await prisma.projectMember.findFirst({
-    where: {
-      projectId: input.projectId,
-      userId: targetUser.id,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (existingMember) {
-    throw new AppError("Пользователь уже добавлен", 409, undefined, "ALREADY_MEMBER");
-  }
-
-  const member = await prisma.projectMember.create({
-    data: {
-      projectId: input.projectId,
-      userId: targetUser.id,
-      role: input.role === "editor" ? "EDITOR" : "VIEWER",
-    },
-    include: {
-      user: {
-        select: {
-          username: true,
-          email: true,
-        },
-      },
-    },
-  });
-
-  return toSummary(member);
-}
-
 export async function updateProjectMemberRole(input: {
   userId: string;
   projectId: string;

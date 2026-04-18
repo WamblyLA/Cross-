@@ -1,27 +1,19 @@
 import type { Request, Response } from "express";
-import { AppError } from "../lib/errors.js";
 import {
   listProjectMembers,
   removeProjectMember,
   updateProjectMemberRole,
 } from "../lib/projectMembers.js";
 import { listPendingProjectInvitationsForOwnerView } from "../lib/projectInvitations.js";
+import { requireUserId } from "../lib/requestContext.js";
 import type {
   ProjectFilesParams,
   ProjectMemberParams,
   UpdateProjectMemberBody,
 } from "../lib/validation.js";
 
-function requireUserId(req: Request) {
-  if (!req.userId) {
-    throw new AppError("Требуется авторизация", 401, undefined, "UNAUTHORIZED");
-  }
-
-  return req.userId;
-}
-
 export async function getProjectMembers(req: Request, res: Response) {
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const { projectId } = req.params as ProjectFilesParams;
   const [members, pendingInvitations] = await Promise.all([
     listProjectMembers(userId, projectId),
@@ -31,7 +23,7 @@ export async function getProjectMembers(req: Request, res: Response) {
 }
 
 export async function updateProjectMember(req: Request, res: Response) {
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const { projectId, id } = req.params as ProjectMemberParams;
   const body = req.body as UpdateProjectMemberBody;
   const member = await updateProjectMemberRole({
@@ -44,7 +36,7 @@ export async function updateProjectMember(req: Request, res: Response) {
 }
 
 export async function deleteProjectMember(req: Request, res: Response) {
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const { projectId, id } = req.params as ProjectMemberParams;
   await removeProjectMember({
     userId,

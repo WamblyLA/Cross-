@@ -1,5 +1,4 @@
 import type { Request, Response } from "express";
-import { AppError } from "../lib/errors.js";
 import {
   getProjectRunSnapshotForAccess,
   getProjectSyncManifestForAccess,
@@ -11,22 +10,18 @@ import {
   requireProjectReadAccess,
 } from "../lib/projectAccess.js";
 import { prisma } from "../lib/prisma.js";
+import {
+  getOptionalTrimmedQueryString,
+  requireUserId,
+} from "../lib/requestContext.js";
 import type {
   CreateProjectBody,
   ProjectParams,
   UpdateProjectBody,
 } from "../lib/validation.js";
 
-function requireUserId(req: Request) {
-  if (!req.userId) {
-    throw new AppError("Требуется авторизация", 401, undefined, "UNAUTHORIZED");
-  }
-
-  return req.userId;
-}
-
 export async function getProjects(req: Request, res: Response) {
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
 
   const projects = await prisma.project.findMany({
     where: {
@@ -69,7 +64,7 @@ export async function getProjects(req: Request, res: Response) {
 }
 
 export async function createProject(req: Request, res: Response) {
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const { name } = req.body as CreateProjectBody;
 
   const project = await prisma.project.create({
@@ -94,7 +89,7 @@ export async function createProject(req: Request, res: Response) {
 
 export async function getProject(req: Request, res: Response) {
   const { id } = req.params as ProjectParams;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const project = await requireProjectReadAccess(userId, id);
 
   res.json({ project: projectAccessToSummary(project) });
@@ -102,7 +97,7 @@ export async function getProject(req: Request, res: Response) {
 
 export async function getProjectTree(req: Request, res: Response) {
   const { id } = req.params as ProjectParams;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const tree = await getProjectTreeForAccess(id, userId);
 
   res.json({ tree });
@@ -110,7 +105,7 @@ export async function getProjectTree(req: Request, res: Response) {
 
 export async function getProjectRunSnapshot(req: Request, res: Response) {
   const { id } = req.params as ProjectParams;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const snapshot = await getProjectRunSnapshotForAccess(id, userId);
 
   res.json({ snapshot });
@@ -118,11 +113,11 @@ export async function getProjectRunSnapshot(req: Request, res: Response) {
 
 export async function getProjectSyncManifest(req: Request, res: Response) {
   const { id } = req.params as ProjectParams;
-  const userId = requireUserId(req);
-  const targetRelativePath =
-    typeof req.query.targetRelativePath === "string" && req.query.targetRelativePath.trim()
-      ? req.query.targetRelativePath.trim()
-      : null;
+  const userId = requireUserId(req, "UNAUTHORIZED");
+  const targetRelativePath = getOptionalTrimmedQueryString(
+    req.query,
+    "targetRelativePath",
+  );
   const manifest = await getProjectSyncManifestForAccess(id, userId, targetRelativePath);
 
   res.json({ manifest });
@@ -131,7 +126,7 @@ export async function getProjectSyncManifest(req: Request, res: Response) {
 export async function updateProject(req: Request, res: Response) {
   const { id } = req.params as ProjectParams;
   const { name } = req.body as UpdateProjectBody;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const projectAccess = await requireProjectOwnerAccess(userId, id);
 
   const updatedProject = await prisma.project.update({
@@ -154,7 +149,7 @@ export async function updateProject(req: Request, res: Response) {
 
 export async function deleteProject(req: Request, res: Response) {
   const { id } = req.params as ProjectParams;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const projectAccess = await requireProjectOwnerAccess(userId, id);
 
   await prisma.project.delete({

@@ -11,6 +11,7 @@ import {
   requireProjectWriteAccess,
 } from "../lib/projectAccess.js";
 import { prisma } from "../lib/prisma.js";
+import { requireUserId } from "../lib/requestContext.js";
 import type {
   CreateFileBody,
   MoveFileBody,
@@ -19,17 +20,9 @@ import type {
   UpdateFileBody,
 } from "../lib/validation.js";
 
-function requireUserId(req: Request) {
-  if (!req.userId) {
-    throw new AppError("Требуется авторизация", 401, undefined, "UNAUTHORIZED");
-  }
-
-  return req.userId;
-}
-
 export async function getProjectFiles(req: Request, res: Response) {
   const { projectId } = req.params as ProjectFilesParams;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
 
   await requireProjectReadAccess(userId, projectId);
 
@@ -53,7 +46,7 @@ export async function getProjectFiles(req: Request, res: Response) {
 export async function createFile(req: Request, res: Response) {
   const { projectId } = req.params as ProjectFilesParams;
   const { name, content, folderId } = req.body as CreateFileBody;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
 
   await requireProjectWriteAccess(userId, projectId);
   await assertFolderInProject(userId, projectId, folderId ?? null, "write");
@@ -78,7 +71,7 @@ export async function createFile(req: Request, res: Response) {
 
 export async function getProjectFile(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFileParams;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const file = await getProjectFileForAccess(userId, projectId, id);
   const access = await requireProjectReadAccess(userId, projectId);
 
@@ -93,7 +86,7 @@ export async function getProjectFile(req: Request, res: Response) {
 export async function updateProjectFile(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFileParams;
   const { name, content, expectedVersion } = req.body as UpdateFileBody;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
 
   const file = await getProjectFileForAccess(userId, projectId, id, "write");
 
@@ -161,7 +154,7 @@ export async function updateProjectFile(req: Request, res: Response) {
 
 export async function deleteProjectFile(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFileParams;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const file = await getProjectFileForAccess(userId, projectId, id, "write");
 
   await prisma.file.delete({
@@ -174,7 +167,7 @@ export async function deleteProjectFile(req: Request, res: Response) {
 export async function moveProjectFile(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFileParams;
   const { targetProjectId, targetFolderId } = req.body as MoveFileBody;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const result = await moveProjectFileForAccess(
     userId,
     projectId,

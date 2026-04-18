@@ -59,6 +59,7 @@ const themeSchema = z.enum(["dark", "light"], {
   message: "Поддерживаются только темы dark и light",
 });
 
+// Auth and profile
 export const registerBodySchema = z
   .object({
     username: usernameSchema,
@@ -102,6 +103,7 @@ export const loginBodySchema = z
 
 export type LoginBody = z.infer<typeof loginBodySchema>;
 
+// Projects and collaboration
 export const createProjectBodySchema = z.object({ name: projectNameSchema }).strict();
 export type CreateProjectBody = z.infer<typeof createProjectBodySchema>;
 
@@ -123,16 +125,14 @@ export const projectMemberParamsSchema = z
 
 export type ProjectMemberParams = z.infer<typeof projectMemberParamsSchema>;
 
-export const createProjectMemberBodySchema = z
+const projectInvitationRecipientBodySchema = z
   .object({
     email: emailSchema,
     role: projectMemberRoleSchema,
   })
   .strict();
 
-export type CreateProjectMemberBody = z.infer<typeof createProjectMemberBodySchema>;
-
-export const createProjectInvitationBodySchema = createProjectMemberBodySchema;
+export const createProjectInvitationBodySchema = projectInvitationRecipientBodySchema;
 export type CreateProjectInvitationBody = z.infer<typeof createProjectInvitationBodySchema>;
 
 export const updateProjectMemberBodySchema = z
@@ -155,6 +155,7 @@ export type ProjectInvitationParams = z.infer<typeof projectInvitationParamsSche
 export const invitationActionParamsSchema = z.object({ id: idSchema }).strict();
 export type InvitationActionParams = z.infer<typeof invitationActionParamsSchema>;
 
+// Cloud projects, folders and files
 export const fileParamsSchema = z
   .object({
     projectId: idSchema,
@@ -236,6 +237,7 @@ export const moveFolderBodySchema = z
 
 export type MoveFolderBody = z.infer<typeof moveFolderBodySchema>;
 
+// Project links and settings
 export const projectLinkBodySchema = z
   .object({
     projectId: idSchema,

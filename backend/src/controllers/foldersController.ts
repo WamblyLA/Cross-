@@ -11,6 +11,7 @@ import {
   requireProjectWriteAccess,
 } from "../lib/projectAccess.js";
 import { prisma } from "../lib/prisma.js";
+import { requireUserId } from "../lib/requestContext.js";
 import type {
   CreateFolderBody,
   MoveFolderBody,
@@ -19,18 +20,10 @@ import type {
   UpdateFolderBody,
 } from "../lib/validation.js";
 
-function requireUserId(req: Request) {
-  if (!req.userId) {
-    throw new AppError("Требуется авторизация", 401, undefined, "UNAUTHORIZED");
-  }
-
-  return req.userId;
-}
-
 export async function createFolder(req: Request, res: Response) {
   const { projectId } = req.params as ProjectFilesParams;
   const { name, parentId } = req.body as CreateFolderBody;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
 
   await requireProjectWriteAccess(userId, projectId);
   await assertFolderInProject(userId, projectId, parentId ?? null, "write");
@@ -55,7 +48,7 @@ export async function createFolder(req: Request, res: Response) {
 export async function updateFolder(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFolderParams;
   const { name } = req.body as UpdateFolderBody;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const folder = await getProjectFolderForAccess(userId, projectId, id, "write");
   const duplicate = await findSiblingFolder(projectId, folder.parentId ?? null, name);
 
@@ -73,7 +66,7 @@ export async function updateFolder(req: Request, res: Response) {
 
 export async function deleteFolder(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFolderParams;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const folder = await getProjectFolderForAccess(userId, projectId, id, "write");
   const deletedFileIds = await listDeletedFolderFileIds(projectId, folder.id);
 
@@ -90,7 +83,7 @@ export async function deleteFolder(req: Request, res: Response) {
 export async function moveFolder(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFolderParams;
   const { targetProjectId, targetParentId } = req.body as MoveFolderBody;
-  const userId = requireUserId(req);
+  const userId = requireUserId(req, "UNAUTHORIZED");
   const result = await moveProjectFolderForAccess(
     userId,
     projectId,
