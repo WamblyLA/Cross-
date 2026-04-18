@@ -3,6 +3,7 @@ import { View } from "react-native";
 import type { FileKind } from "../../types/files";
 import { InlineNotice } from "../common/InlineNotice";
 import { MarkdownEditorPanel } from "../markdown/MarkdownEditorPanel";
+import { NotebookEditor } from "../notebook/NotebookEditor";
 import { NotebookView } from "../notebook/NotebookView";
 import { FileInfoCard } from "./FileInfoCard";
 import { ReadOnlyBanner } from "./ReadOnlyBanner";
@@ -85,7 +86,9 @@ export function FileDocumentView({
           <TextFileEditor editable={editable} onChangeText={onChangeText} value={value} />
         ) : null}
 
-        {kind === "notebook" ? <NotebookView content={value} /> : null}
+        {kind === "notebook" ? (
+          editable ? <NotebookEditor content={value} onChangeContent={onChangeText} /> : <NotebookView content={value} />
+        ) : null}
       </View>
     </View>
   );

@@ -44,7 +44,6 @@ export async function loadLocalFile(source: LocalFileReadSource): Promise<Loaded
     }
   }
 
-  const editable = kind !== "notebook";
   const saveStrategy =
     source.originalUri && source.canDirectWrite ? "direct-source" : "save-as-required";
 
@@ -59,7 +58,7 @@ export async function loadLocalFile(source: LocalFileReadSource): Promise<Loaded
     source: "local",
     sourceKind: source.sourceKind,
     saveStrategy,
-    editable,
+    editable: true,
     canDirectWrite: source.canDirectWrite,
     hasPersistedReadPermission: source.hasPersistedReadPermission,
     hasPersistedWritePermission: source.hasPersistedWritePermission,

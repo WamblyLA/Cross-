@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
-import { MonospaceBlock } from "../file/MonospaceBlock";
 import type { NotebookOutput } from "../../types/notebook";
+import { MonospaceBlock } from "../file/MonospaceBlock";
 import { NotebookRichOutputRenderer } from "./NotebookRichOutputRenderer";
 
 type NotebookOutputListProps = {
@@ -30,16 +30,12 @@ export function NotebookOutputList({
           return <MonospaceBlock compact key={`${output.outputType}-${index}`} text={text} />;
         }
 
-        if (output.outputType === "rich") {
-          return (
-            <NotebookRichOutputRenderer
-              key={`${output.outputType}-${index}-${output.mimeType ?? "fallback"}`}
-              output={output}
-            />
-          );
-        }
-
-        return null;
+        return (
+          <NotebookRichOutputRenderer
+            key={`${output.outputType}-${index}-${output.mimeType ?? "fallback"}`}
+            output={output}
+          />
+        );
       })}
 
       {hasUnsupportedOutputs ? (

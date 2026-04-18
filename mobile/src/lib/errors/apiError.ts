@@ -76,13 +76,15 @@ export function normalizeApiError(error: unknown): ApiError {
     const status = error.response?.status ?? null;
     const isTimeoutError = error.code === "ECONNABORTED";
     const isNetworkError = !error.response;
-    const payload = isRecord(error.response?.data) && isRecord(error.response?.data.error)
-      ? error.response?.data.error
-      : null;
+    const payload =
+      isRecord(error.response?.data) && isRecord(error.response?.data.error)
+        ? error.response.data.error
+        : null;
     const code = payload && typeof payload.code === "string" ? payload.code : null;
+    const payloadMessage = payload && typeof payload.message === "string" ? payload.message : null;
 
     if (isTimeoutError) {
-      return createApiError("Сервер не ответил вовремя.", {
+      return createApiError(payloadMessage ?? "Сервер не ответил вовремя.", {
         status,
         code,
         isNetworkError,
@@ -92,7 +94,7 @@ export function normalizeApiError(error: unknown): ApiError {
     }
 
     if (isNetworkError) {
-      return createApiError("Не удалось подключиться к серверу.", {
+      return createApiError(payloadMessage ?? "Не удалось подключиться к серверу.", {
         status,
         code,
         isNetworkError: true,
@@ -101,7 +103,7 @@ export function normalizeApiError(error: unknown): ApiError {
       });
     }
 
-    return createApiError(getStatusMessage(status), {
+    return createApiError(payloadMessage ?? getStatusMessage(status), {
       status,
       code,
       isNetworkError,
@@ -111,12 +113,8 @@ export function normalizeApiError(error: unknown): ApiError {
   }
 
   if (error instanceof Error) {
-    return createApiError(
-      error.message || "Произошла непредвиденная ошибка.",
-    );
+    return createApiError(error.message || "Произошла непредвиденная ошибка.");
   }
 
-  return createApiError(
-    "Произошла непредвиденная ошибка.",
-  );
+  return createApiError("Произошла непредвиденная ошибка.");
 }

@@ -7,10 +7,7 @@ type NotebookMarkdownCellProps = {
   source: string;
 };
 
-export function NotebookMarkdownCell({
-  index,
-  source,
-}: NotebookMarkdownCellProps) {
+export function NotebookMarkdownCell({ index, source }: NotebookMarkdownCellProps) {
   return (
     <Card>
       <Text className="will-change-variable text-xs font-bold text-secondary">{`Markdown-ячейка ${index + 1}`}</Text>

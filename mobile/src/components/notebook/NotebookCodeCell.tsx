@@ -1,8 +1,8 @@
 import { Text } from "react-native";
+import type { NotebookOutput } from "../../types/notebook";
 import { Card } from "../common/Card";
 import { MonospaceBlock } from "../file/MonospaceBlock";
 import { NotebookOutputList } from "./NotebookOutputList";
-import type { NotebookOutput } from "../../types/notebook";
 
 type NotebookCodeCellProps = {
   index: number;

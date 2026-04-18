@@ -11,26 +11,23 @@ type NotebookViewProps = {
 };
 
 export function NotebookView({ content }: NotebookViewProps) {
-  const document = useMemo(() => parseNotebookContent(content), [content]);
+  const parsed = useMemo(() => parseNotebookContent(content), [content]);
 
-  if (!document.isRecognizedNotebook) {
+  if (!parsed.isRecognizedNotebook) {
     return (
       <NotebookRawFallback
         content={content}
-        reason={document.parseError || "Файл не распознан как notebook."}
+        reason={parsed.parseError || "Файл не распознан как notebook."}
       />
     );
   }
 
   return (
     <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      {parsed.parseError ? <InlineNotice text={parsed.parseError} tone="warning" /> : null}
 
-      {document.parseError ? (
-        <InlineNotice text={document.parseError} tone="warning" />
-      ) : null}
-
-      {document.cells.length > 0 ? (
-        <NotebookCellList cells={document.cells} />
+      {parsed.document.cells.length > 0 ? (
+        <NotebookCellList cells={parsed.document.cells} />
       ) : (
         <EmptyState
           description="В notebook пока нет ячеек."

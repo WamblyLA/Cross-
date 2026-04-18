@@ -1,4 +1,9 @@
+export type NotebookRecord = Record<string, unknown>;
+export type NotebookCellRecord = Record<string, unknown>;
 export type NotebookMimeBundle = Record<string, unknown>;
+export type NotebookCellMode = "edit" | "preview";
+export type EditableNotebookCellType = "code" | "markdown";
+export type NotebookCellType = EditableNotebookCellType | string;
 
 export type NotebookOutput =
   | {
@@ -17,30 +22,38 @@ export type NotebookOutput =
       mimeType: string | null;
       text: string;
       data: NotebookMimeBundle;
-    };
-
-export type NotebookCell =
-  | {
-      id: string;
-      cellType: "markdown";
-      source: string;
-    }
-  | {
-      id: string;
-      cellType: "code";
-      source: string;
+      metadata: NotebookRecord;
       executionCount: number | null;
-      outputs: NotebookOutput[];
-      hasUnsupportedOutputs: boolean;
-    }
-  | {
-      id: string;
-      cellType: string;
-      source: string;
     };
 
-export type NotebookDocument = {
-  cells: NotebookCell[];
+export type NotebookCellModel = {
+  localId: string;
+  cellType: NotebookCellType;
+  source: string;
+  raw: NotebookCellRecord;
+  outputs: NotebookOutput[];
+  hasUnsupportedOutputs: boolean;
+  executionCount: number | null;
+  mode: NotebookCellMode;
+  isEditable: boolean;
+  hasOutdatedOutputs: boolean;
+};
+
+export type NotebookDocumentModel = {
+  raw: NotebookRecord;
+  cells: NotebookCellModel[];
+};
+
+export type ParsedNotebookDocument = {
+  document: NotebookDocumentModel;
   parseError: string | null;
   isRecognizedNotebook: boolean;
 };
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function cloneRecord(value: unknown): NotebookRecord {
+  return isRecord(value) ? { ...value } : {};
+}

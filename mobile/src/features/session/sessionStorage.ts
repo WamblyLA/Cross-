@@ -17,6 +17,10 @@ export async function readSessionToken() {
   }
 }
 
+export function peekSessionToken() {
+  return memoryToken;
+}
+
 export async function writeSessionToken(token: string) {
   memoryToken = token;
 

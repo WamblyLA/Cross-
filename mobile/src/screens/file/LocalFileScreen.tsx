@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ErrorState } from "../../components/common/ErrorState";
 import { ScreenContainer } from "../../components/common/ScreenContainer";
 import type { FileDocumentNotice } from "../../components/file/FileDocumentView";
@@ -165,11 +165,6 @@ export function LocalFileScreen({ navigation, route }: LocalFileScreenProps) {
     );
   }
 
-  const readOnlyReason =
-    currentFile.kind === "notebook"
-      ? "Notebook открыт только для просмотра в мобильном приложении."
-      : null;
-
   const statusText = isDirty
     ? "Есть несохранённые локальные изменения."
     : currentFile.saveStrategy === "save-as-required"
@@ -222,7 +217,7 @@ export function LocalFileScreen({ navigation, route }: LocalFileScreenProps) {
           setNotice(null);
           setDraft(value);
         }}
-        readOnlyReason={readOnlyReason}
+        readOnlyReason={null}
         value={draft}
       />
     </ScreenContainer>
