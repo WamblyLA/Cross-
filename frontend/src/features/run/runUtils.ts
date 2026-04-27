@@ -172,17 +172,3 @@ export function getRunConfigurationAvailability(
     reason: "Конфигурация запуска сейчас недоступна.",
   };
 }
-
-export function isRunConfigurationAvailable(
-  configuration: RunConfiguration | null,
-  options: {
-    workspaceDescriptor: RunWorkspaceDescriptor | null;
-    activeFile: OpenedFile | null;
-  },
-) {
-  return getRunConfigurationAvailability(configuration, options).available;
-}
-
-export function getRunConfigurationDisplayName(configuration: RunConfiguration | null) {
-  return configuration?.name ?? "Конфигурация запуска";
-}

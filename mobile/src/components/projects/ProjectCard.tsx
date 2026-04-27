@@ -21,7 +21,6 @@ export function ProjectCard({ project, onPress }: ProjectCardProps) {
           </View>
           <View className="flex-row flex-wrap gap-2">
             <Badge text={formatRoleLabel(project.accessRole)} tone="primary" />
-            {!project.isOwner ? <Badge text="Shared" /> : null}
           </View>
         </View>
       </Card>

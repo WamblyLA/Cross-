@@ -39,5 +39,7 @@ __pycache__
 docs
 !backend/docs/
 !backend/docs/**
+!frontend/docs/
+!frontend/docs/**
 report_by_file.cs
 report.csv

@@ -1,8 +1,8 @@
 import ProjectMembersDialog from "../components/CodeWithMe/ProjectMembersDialog";
 import {
   ProjectMembersDialogProvider,
-  useProjectMembersDialog,
 } from "../components/CodeWithMe/ProjectMembersDialogContext";
+import { useProjectMembersDialog } from "../components/CodeWithMe/useProjectMembersDialog";
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import VisualSettingsDialog from "../components/settings/VisualSettingsDialog";
@@ -27,6 +27,7 @@ import {
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 import { useLinkedWorkspaceBootstrap } from "../hooks/useLinkedWorkspaceBootstrap";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
+
 function isRunBusy(status: string) {
   return ["preparing", "materializing", "building", "running"].includes(status);
 }

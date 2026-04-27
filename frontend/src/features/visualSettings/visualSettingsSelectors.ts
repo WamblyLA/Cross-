@@ -1,6 +1,5 @@
 import type { StateType } from "../../store/store";
 
-export const selectVisualSettingsState = (state: StateType) => state.visualSettings;
 export const selectCurrentVisualSettings = (state: StateType) => state.visualSettings.current;
 export const selectAccountVisualSettings = (state: StateType) => state.visualSettings.accountSettings;
 export const selectVisualSettingsActionError = (state: StateType) => state.visualSettings.actionError;

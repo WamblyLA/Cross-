@@ -1,22 +1,7 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type PropsWithChildren,
-} from "react";
+import { useCallback, useMemo, useState, type PropsWithChildren } from "react";
 import { selectCloudActiveProject } from "../../features/cloud/cloudSelectors";
 import { useAppSelector } from "../../store/hooks";
-
-type ProjectMembersDialogContextValue = {
-  isOpen: boolean;
-  projectId: string | null;
-  openProjectMembers: (projectId?: string | null) => void;
-  closeProjectMembers: () => void;
-};
-
-const ProjectMembersDialogContext = createContext<ProjectMembersDialogContextValue | null>(null);
+import { ProjectMembersDialogContext } from "./projectMembersDialogShared";
 
 export function ProjectMembersDialogProvider({ children }: PropsWithChildren) {
   const activeProject = useAppSelector(selectCloudActiveProject);
@@ -50,14 +35,4 @@ export function ProjectMembersDialogProvider({ children }: PropsWithChildren) {
       {children}
     </ProjectMembersDialogContext.Provider>
   );
-}
-
-export function useProjectMembersDialog() {
-  const context = useContext(ProjectMembersDialogContext);
-
-  if (!context) {
-    throw new Error("useProjectMembersDialog должен использоваться внутри ProjectMembersDialogProvider");
-  }
-
-  return context;
 }

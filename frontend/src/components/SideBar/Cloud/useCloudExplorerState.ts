@@ -35,7 +35,7 @@ import { findCloudFileRelativePathById } from "../../../features/sync/syncPaths"
 import { useLinkedWorkspaceActions } from "../../../hooks/useLinkedWorkspaceActions";
 import { useWorkspaceActions } from "../../../hooks/useWorkspaceActions";
 import { useAppDispatch, useAppSelector } from "../../../store/hooks";
-import { useProjectMembersDialog } from "../../CodeWithMe/ProjectMembersDialogContext";
+import { useProjectMembersDialog } from "../../CodeWithMe/useProjectMembersDialog";
 import {
   buildVisibleCloudSelectionItems,
   hasPrimaryModifier,

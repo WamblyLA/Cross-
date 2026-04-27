@@ -26,17 +26,6 @@ export function getExtension(filePath: string) {
   return baseName.slice(index + 1);
 }
 
-export function getNameWithoutExtension(filePath: string) {
-  const baseName = getBaseName(filePath);
-  const index = baseName.lastIndexOf(".");
-
-  if (index <= 0) {
-    return baseName;
-  }
-
-  return baseName.slice(0, index);
-}
-
 export function getParentPath(filePath: string) {
   const normalized = trimTrailingSeparators(filePath);
   const lastSlash = Math.max(normalized.lastIndexOf("\\"), normalized.lastIndexOf("/"));

@@ -35,10 +35,6 @@ export function LocalFilesCard() {
           <Text className="will-change-variable text-xs font-bold uppercase tracking-[2.4px] text-muted">
             Локальные файлы
           </Text>
-          <Text className="will-change-variable text-sm leading-6 text-secondary">
-            Откройте Markdown, notebook или текстовый файл из памяти устройства и доступных
-            Android-провайдеров.
-          </Text>
         </View>
 
         <AppButton

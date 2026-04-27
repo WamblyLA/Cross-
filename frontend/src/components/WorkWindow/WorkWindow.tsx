@@ -1,7 +1,6 @@
 import { Editor } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RxCross1 } from "react-icons/rx";
 import { selectIsAuthenticated } from "../../features/auth/authSelectors";
 import { selectCloudActiveProject } from "../../features/cloud/cloudSelectors";
 import { useCloudRealtimeFile } from "../../features/cloud/realtime/useCloudRealtimeFile";
@@ -24,61 +23,14 @@ import { getMonacoThemeName, type ThemeName } from "../../styles/tokens";
 import MarkdownEditor from "./MarkdownEditor";
 import NotebookEditor from "./NotebookEditor";
 import UnsavedFileCloseDialog from "./UnsavedFileCloseDialog";
+import WorkWindowTabs from "./WorkWindowTabs";
+import { getEditorLanguage } from "./workWindowLanguage";
+import { getWorkWindowEmptyStateContent } from "./workWindowEmptyStateContent";
+import { EmptyEditorState } from "./workWindowEmptyState";
 
 type WorkWindowProps = {
   theme: ThemeName;
 };
-
-function extToLang(extension: string | null | undefined) {
-  if (!extension) {
-    return "plaintext";
-  }
-
-  switch (extension.toLowerCase()) {
-    case "py":
-      return "python";
-    case "ts":
-    case "tsx":
-      return "typescript";
-    case "js":
-    case "jsx":
-      return "javascript";
-    case "cpp":
-    case "cc":
-    case "cxx":
-    case "h":
-    case "hpp":
-      return "cpp";
-    case "json":
-      return "json";
-    case "md":
-      return "markdown";
-    case "html":
-      return "html";
-    case "css":
-      return "css";
-    default:
-      return "plaintext";
-  }
-}
-
-function EmptyEditorState({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex h-full items-center justify-center px-6">
-      <div className="max-w-lg rounded-2xl border border-default bg-panel px-6 py-8 text-center shadow-sm">
-        <div className="ui-brand-mark">Cross++ IDE</div>
-        <h2 className="mt-3 text-xl text-primary">{title}</h2>
-        <p className="mt-2 text-sm leading-6 text-secondary">{description}</p>
-      </div>
-    </div>
-  );
-}
 
 export default function WorkWindow({ theme }: WorkWindowProps) {
   const dispatch = useAppDispatch();
@@ -145,7 +97,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
       }
 
       void window.electronAPI.shutdownNotebookSession(previousTabId).catch(() => {
-        // TODO
+        // TODO: сохранить текущее поведение тихого завершения сессии.
       });
     }
 
@@ -215,35 +167,6 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
     [dispatch],
   );
 
-  const handleSaveActiveFileContent = useCallback(
-    async (nextContent?: string) => {
-      if (!activeFile) {
-        return;
-      }
-
-      if (nextContent !== undefined) {
-        if (activeFile.kind === "cloud" && !activeFile.canWrite) {
-          throw new Error("У вас только доступ для чтения.");
-        }
-
-        dispatch(
-          updateFileContent({
-            tabId: activeFile.tabId,
-            content: nextContent,
-          }),
-        );
-      }
-
-      const result = await saveActiveFile();
-
-      if (!result.ok) {
-        throw new Error(result.message ?? "Не удалось сохранить файл.");
-      }
-    },
-    [activeFile, dispatch, saveActiveFile],
-  );
-  void handleSaveActiveFileContent;
-
   const handleSaveFileContent = useCallback(
     async (tabId: string, nextContent?: string) => {
       if (nextContent !== undefined) {
@@ -267,7 +190,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
         throw new Error(result.message ?? "Не удалось сохранить файл.");
       }
     },
-    [dispatch, saveFileByTabId],
+    [dispatch, openedFiles, saveFileByTabId],
   );
 
   const handleRequestCloseFile = useCallback(
@@ -309,99 +232,34 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
     setPendingCloseFile(null);
   }, [dispatch, openedFiles, pendingCloseFile]);
 
-  if (!activeFile) {
-    if (source === "cloud") {
-      if (!isAuthenticated) {
-        return (
-          <div className="min-h-0 flex-1 bg-editor">
-            <EmptyEditorState
-              title="Облако доступно после входа"
-              description="Войдите в аккаунт, чтобы открывать облачные проекты, редактировать файлы и сохранять изменения"
-            />
-          </div>
-        );
-      }
+  const primaryEmptyState = !activeFile
+    ? getWorkWindowEmptyStateContent({
+        source,
+        isAuthenticated,
+        activeCloudProject,
+        rootPath,
+      })
+    : null;
 
-      if (!activeCloudProject) {
-        return (
-          <div className="min-h-0 flex-1 bg-editor">
-            <EmptyEditorState
-              title="Выберите облачный проект"
-              description="Откройте проект в облачном проводнике слева или создайте новый. После этого список файлов появится"
-            />
-          </div>
-        );
-      }
-
-      return (
-        <div className="min-h-0 flex-1 bg-editor">
-          <EmptyEditorState
-            title="Выберите файл облачного проекта"
-            description={`Выберите файл в облачном проводнике или создайте новый файл внутри проекта`}
-          />
-        </div>
-      );
-    }
-
-    if (!rootPath) {
-      return (
-        <div className="min-h-0 flex-1 bg-editor">
-          <EmptyEditorState
-            title="Откройте локальную папку"
-            description="Откройте проект через меню Файл или сочетанием Ctrl+O"
-          />
-        </div>
-      );
-    }
+  if (primaryEmptyState) {
+    return (
+      <div className="min-h-0 flex-1 bg-editor">
+        <EmptyEditorState
+          title={primaryEmptyState.title}
+          description={primaryEmptyState.description}
+        />
+      </div>
+    );
   }
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor">
-      <div className="ui-scrollbar-x flex items-end overflow-x-auto border-b border-default bg-editor px-2 pt-2">
-        {openedFiles.length > 0 ? (
-          openedFiles.map((file) => (
-            <div
-              key={file.tabId}
-              role="button"
-              tabIndex={0}
-              onClick={() => dispatch(setActiveFile(file.tabId))}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  dispatch(setActiveFile(file.tabId));
-                }
-              }}
-              className={`ui-tab flex items-center gap-2 px-3 py-2 ${
-                activeTabId === file.tabId ? "ui-tab-active" : ""
-              }`}
-            >
-              <span className="flex items-center gap-2 whitespace-nowrap">
-                <span>{file.name}</span>
-                {file.kind === "cloud" ? (
-                  <span className="rounded-full border border-default px-1.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-muted">
-                    Облако
-                  </span>
-                ) : null}
-                {file.isDirty ? <span className="h-2 w-2 rounded-full bg-emerald-400" /> : null}
-              </span>
-
-              <button
-                type="button"
-                className="ui-control h-5 w-5 shrink-0"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleRequestCloseFile(file.tabId);
-                }}
-                title="Закрыть файл"
-              >
-                <RxCross1 className="h-3 w-3" />
-              </button>
-            </div>
-          ))
-        ) : (
-          <div className="px-3 py-2 text-sm text-muted">Файлы пока не открыты</div>
-        )}
-      </div>
+      <WorkWindowTabs
+        openedFiles={openedFiles}
+        activeTabId={activeTabId}
+        onActivate={(tabId) => dispatch(setActiveFile(tabId))}
+        onRequestClose={handleRequestCloseFile}
+      />
 
       <div className="min-h-0 flex-1 border-t border-default">
         {isCloudReadOnly ? (
@@ -466,7 +324,7 @@ export default function WorkWindow({ theme }: WorkWindowProps) {
             <Editor
               path={activeFile.editorPath}
               height="100%"
-              language={extToLang(activeFile.extension)}
+              language={getEditorLanguage(activeFile.extension)}
               value={activeFile.content}
               onChange={handleEditorChange}
               beforeMount={beforeMount}

@@ -10,10 +10,6 @@ function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, "");
 }
 
-function isAbsoluteUrl(value: string) {
-  return /^https?:\/\//i.test(value);
-}
-
 function toWsUrl(url: string) {
   if (url.startsWith("https://")) {
     return url.replace("https://", "wss://");
@@ -38,14 +34,6 @@ function readRuntimeApiBaseUrl() {
 export const API_BASE_URL = trimTrailingSlash(readRuntimeApiBaseUrl() || DEFAULT_API_BASE_URL);
 
 export const WS_URL = toWsUrl(API_BASE_URL);
-
-export function resolveApiUrl(path: string) {
-  if (isAbsoluteUrl(path)) {
-    return path;
-  }
-
-  return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
-}
 
 export function resolveWsUrl(path = "") {
   const normalizedBase = trimTrailingSlash(WS_URL);

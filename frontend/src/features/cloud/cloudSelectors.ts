@@ -68,19 +68,8 @@ export const selectCloudCanMoveSelection = (state: StateType) =>
   state.cloud.selectedItemCount > 0 &&
   selectCloudCanWriteProject(state) &&
   (state.cloud.selectedItemType === "folder" || state.cloud.selectedItemType === "file");
-export const selectCloudProjectActionPending = (state: StateType) =>
-  state.cloud.projectActionPending;
-export const selectCloudProjectActionTargetId = (state: StateType) =>
-  state.cloud.projectActionTargetId;
 export const selectCloudProjectActionError = (state: StateType) =>
   state.cloud.projectActionError;
-export const selectCloudFolderActionPending = (state: StateType) =>
-  state.cloud.folderActionPending;
-export const selectCloudFolderActionTargetId = (state: StateType) =>
-  state.cloud.folderActionTargetId;
 export const selectCloudFolderActionError = (state: StateType) =>
   state.cloud.folderActionError;
-export const selectCloudFileActionPending = (state: StateType) => state.cloud.fileActionPending;
-export const selectCloudFileActionTargetId = (state: StateType) =>
-  state.cloud.fileActionTargetId;
 export const selectCloudFileActionError = (state: StateType) => state.cloud.fileActionError;

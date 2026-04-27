@@ -49,6 +49,20 @@ import { getReadOnlyCloudMessage } from "../features/cloud/projectCollaborationM
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { useRunActions } from "./useRunActions";
 
+type CloudWorkspaceTarget = {
+  projectId: string;
+  folderId?: string | null;
+  fileId?: string | null;
+  itemType: "project" | "folder" | "file";
+};
+
+type RetargetedCloudFile = {
+  sourceProjectId: string;
+  targetProjectId: string;
+  fileId: string;
+  name: string;
+};
+
 export function useWorkspaceActions() {
   const dispatch = useAppDispatch();
   const activeFile = useAppSelector(selectActiveFile);
@@ -106,6 +120,69 @@ export function useWorkspaceActions() {
       return project;
     },
     [getCloudProject],
+  );
+
+  const refreshProjectTrees = useCallback(
+    async (...projectIds: Array<string | null | undefined>) => {
+      const uniqueProjectIds = Array.from(
+        new Set(
+          projectIds.filter((projectId): projectId is string => Boolean(projectId)),
+        ),
+      );
+
+      await Promise.all(
+        uniqueProjectIds.map((projectId) =>
+          dispatch(fetchProjectTree({ projectId })).unwrap(),
+        ),
+      );
+    },
+    [dispatch],
+  );
+
+  const focusCloudItem = useCallback(
+    ({ projectId, folderId = null, fileId = null, itemType }: CloudWorkspaceTarget) => {
+      dispatch(setWorkspaceSource("cloud"));
+      dispatch(setActiveProjectId(projectId));
+      dispatch(
+        selectCloudItem({
+          projectId,
+          folderId,
+          fileId,
+          itemType,
+        }),
+      );
+    },
+    [dispatch],
+  );
+
+  const focusCloudSelection = useCallback(
+    (projectId: string, items: CloudSelectionEntry[]) => {
+      dispatch(setWorkspaceSource("cloud"));
+      dispatch(setActiveProjectId(projectId));
+      dispatch(
+        setCloudSelection({
+          items,
+          focusedItemKey: items[0]?.key ?? null,
+          selectionAnchorKey: items[0]?.key ?? null,
+        }),
+      );
+    },
+    [dispatch],
+  );
+
+  const retargetMovedCloudFiles = useCallback(
+    (items: RetargetedCloudFile[]) => {
+      if (items.length === 0) {
+        return;
+      }
+
+      dispatch(
+        retargetCloudFiles({
+          items,
+        }),
+      );
+    },
+    [dispatch],
   );
 
   const saveOpenedFile = useCallback(
@@ -215,28 +292,19 @@ export function useWorkspaceActions() {
 
   const refreshCloudProjects = useCallback(async () => {
     await dispatch(fetchProjects()).unwrap();
-
-    if (activeProjectId) {
-      await dispatch(fetchProjectTree({ projectId: activeProjectId })).unwrap();
-    }
-  }, [activeProjectId, dispatch]);
+    await refreshProjectTrees(activeProjectId);
+  }, [activeProjectId, dispatch, refreshProjectTrees]);
 
   const openCloudProject = useCallback(
     async (projectId: string) => {
-      dispatch(setWorkspaceSource("cloud"));
-      dispatch(setActiveProjectId(projectId));
-      dispatch(
-        selectCloudItem({
-          projectId,
-          folderId: null,
-          fileId: null,
-          itemType: "project",
-        }),
-      );
+      focusCloudItem({
+        projectId,
+        itemType: "project",
+      });
 
       return dispatch(fetchProjectTree({ projectId })).unwrap();
     },
-    [dispatch],
+    [dispatch, focusCloudItem],
   );
 
   const openCloudWorkspaceFile = useCallback(
@@ -245,16 +313,11 @@ export function useWorkspaceActions() {
         (file) => file.kind === "cloud" && file.projectId === projectId && file.fileId === fileId,
       );
 
-      dispatch(setWorkspaceSource("cloud"));
-      dispatch(setActiveProjectId(projectId));
-      dispatch(
-        selectCloudItem({
-          projectId,
-          folderId: null,
-          fileId,
-          itemType: "file",
-        }),
-      );
+      focusCloudItem({
+        projectId,
+        fileId,
+        itemType: "file",
+      });
 
       if (existing) {
         dispatch(setActiveFile(existing.tabId));
@@ -277,25 +340,19 @@ export function useWorkspaceActions() {
 
       return response.file;
     },
-    [dispatch, openedFiles],
+    [dispatch, focusCloudItem, getCloudProject, openedFiles],
   );
 
   const createCloudProject = useCallback(
     async (name: string) => {
       const response = await dispatch(createCloudProjectThunk({ name })).unwrap();
-      dispatch(setWorkspaceSource("cloud"));
-      dispatch(setActiveProjectId(response.project.id));
-      dispatch(
-        selectCloudItem({
-          projectId: response.project.id,
-          folderId: null,
-          fileId: null,
-          itemType: "project",
-        }),
-      );
+      focusCloudItem({
+        projectId: response.project.id,
+        itemType: "project",
+      });
       return response.project;
     },
-    [dispatch],
+    [dispatch, focusCloudItem],
   );
 
   const renameCloudProject = useCallback(
@@ -328,18 +385,13 @@ export function useWorkspaceActions() {
         }),
       ).unwrap();
 
-      await dispatch(fetchProjectTree({ projectId })).unwrap();
-
-      dispatch(setWorkspaceSource("cloud"));
-      dispatch(setActiveProjectId(projectId));
-      dispatch(
-        selectCloudItem({
-          projectId,
-          folderId: response.file.folderId ?? null,
-          fileId: response.file.id,
-          itemType: "file",
-        }),
-      );
+      await refreshProjectTrees(projectId);
+      focusCloudItem({
+        projectId,
+        folderId: response.file.folderId ?? null,
+        fileId: response.file.id,
+        itemType: "file",
+      });
       dispatch(
         openCloudFile({
           projectId,
@@ -354,7 +406,7 @@ export function useWorkspaceActions() {
 
       return response.file;
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, focusCloudItem, refreshProjectTrees],
   );
 
   const renameCloudFile = useCallback(
@@ -368,7 +420,7 @@ export function useWorkspaceActions() {
         }),
       ).unwrap();
 
-      await dispatch(fetchProjectTree({ projectId })).unwrap();
+      await refreshProjectTrees(projectId);
 
       dispatch(
         renameCloudFileMetadata({
@@ -380,17 +432,17 @@ export function useWorkspaceActions() {
 
       return response.file;
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, refreshProjectTrees],
   );
 
   const deleteCloudWorkspaceFile = useCallback(
     async (projectId: string, fileId: string) => {
       assertCanWriteCloudProject(projectId);
       await dispatch(deleteCloudProjectFile({ projectId, fileId })).unwrap();
-      await dispatch(fetchProjectTree({ projectId })).unwrap();
+      await refreshProjectTrees(projectId);
       dispatch(closeCloudFile({ projectId, fileId }));
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, refreshProjectTrees],
   );
 
   const createCloudFolder = useCallback(
@@ -404,21 +456,16 @@ export function useWorkspaceActions() {
         }),
       ).unwrap();
 
-      await dispatch(fetchProjectTree({ projectId })).unwrap();
-      dispatch(setWorkspaceSource("cloud"));
-      dispatch(setActiveProjectId(projectId));
-      dispatch(
-        selectCloudItem({
-          projectId,
-          folderId: response.folder.id,
-          fileId: null,
-          itemType: "folder",
-        }),
-      );
+      await refreshProjectTrees(projectId);
+      focusCloudItem({
+        projectId,
+        folderId: response.folder.id,
+        itemType: "folder",
+      });
 
       return response.folder;
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, focusCloudItem, refreshProjectTrees],
   );
 
   const renameCloudFolder = useCallback(
@@ -432,11 +479,11 @@ export function useWorkspaceActions() {
         }),
       ).unwrap();
 
-      await dispatch(fetchProjectTree({ projectId })).unwrap();
+      await refreshProjectTrees(projectId);
 
       return response.folder;
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, refreshProjectTrees],
   );
 
   const deleteCloudFolder = useCallback(
@@ -449,7 +496,7 @@ export function useWorkspaceActions() {
         }),
       ).unwrap();
 
-      await dispatch(fetchProjectTree({ projectId })).unwrap();
+      await refreshProjectTrees(projectId);
 
       if (response.deletedFileIds.length > 0) {
         dispatch(
@@ -462,7 +509,7 @@ export function useWorkspaceActions() {
 
       return response;
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, refreshProjectTrees],
   );
 
   const moveCloudFile = useCallback(
@@ -483,45 +530,29 @@ export function useWorkspaceActions() {
         }),
       ).unwrap();
 
-      const refreshRequests =
-        projectId === targetProjectId
-          ? [dispatch(fetchProjectTree({ projectId }))]
-          : [
-              dispatch(fetchProjectTree({ projectId })),
-              dispatch(fetchProjectTree({ projectId: targetProjectId })),
-            ];
-
-      await Promise.all(refreshRequests.map((request) => request.unwrap()));
+      await refreshProjectTrees(projectId, targetProjectId);
 
       if (projectId !== targetProjectId) {
-        dispatch(
-          retargetCloudFiles({
-            items: [
-              {
-                sourceProjectId: projectId,
-                targetProjectId,
-                fileId: response.file.id,
-                name: response.file.name,
-              },
-            ],
-          }),
-        );
+        retargetMovedCloudFiles([
+          {
+            sourceProjectId: projectId,
+            targetProjectId,
+            fileId: response.file.id,
+            name: response.file.name,
+          },
+        ]);
       }
 
-      dispatch(setWorkspaceSource("cloud"));
-      dispatch(setActiveProjectId(targetProjectId));
-      dispatch(
-        selectCloudItem({
-          projectId: targetProjectId,
-          folderId: response.file.folderId ?? null,
-          fileId: response.file.id,
-          itemType: "file",
-        }),
-      );
+      focusCloudItem({
+        projectId: targetProjectId,
+        folderId: response.file.folderId ?? null,
+        fileId: response.file.id,
+        itemType: "file",
+      });
 
       return response;
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, focusCloudItem, refreshProjectTrees, retargetMovedCloudFiles],
   );
 
   const moveCloudFolder = useCallback(
@@ -542,43 +573,28 @@ export function useWorkspaceActions() {
         }),
       ).unwrap();
 
-      const refreshRequests =
-        projectId === targetProjectId
-          ? [dispatch(fetchProjectTree({ projectId }))]
-          : [
-              dispatch(fetchProjectTree({ projectId })),
-              dispatch(fetchProjectTree({ projectId: targetProjectId })),
-            ];
-
-      await Promise.all(refreshRequests.map((request) => request.unwrap()));
+      await refreshProjectTrees(projectId, targetProjectId);
 
       if (projectId !== targetProjectId && response.movedFiles.length > 0) {
-        dispatch(
-          retargetCloudFiles({
-            items: response.movedFiles.map((file) => ({
-              sourceProjectId: projectId,
-              targetProjectId,
-              fileId: file.id,
-              name: file.name,
-            })),
-          }),
+        retargetMovedCloudFiles(
+          response.movedFiles.map((file) => ({
+            sourceProjectId: projectId,
+            targetProjectId,
+            fileId: file.id,
+            name: file.name,
+          })),
         );
       }
 
-      dispatch(setWorkspaceSource("cloud"));
-      dispatch(setActiveProjectId(targetProjectId));
-      dispatch(
-        selectCloudItem({
-          projectId: targetProjectId,
-          folderId: response.folder.id,
-          fileId: null,
-          itemType: "folder",
-        }),
-      );
+      focusCloudItem({
+        projectId: targetProjectId,
+        folderId: response.folder.id,
+        itemType: "folder",
+      });
 
       return response;
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, focusCloudItem, refreshProjectTrees, retargetMovedCloudFiles],
   );
 
   const deleteCloudSelection = useCallback(
@@ -614,7 +630,7 @@ export function useWorkspaceActions() {
         deletedFileIds.add(item.fileId);
       }
 
-      await dispatch(fetchProjectTree({ projectId })).unwrap();
+      await refreshProjectTrees(projectId);
 
       if (deletedFileIds.size > 0) {
         dispatch(
@@ -631,7 +647,7 @@ export function useWorkspaceActions() {
         }),
       );
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, refreshProjectTrees],
   );
 
   const moveCloudSelection = useCallback(
@@ -718,35 +734,11 @@ export function useWorkspaceActions() {
         }
       }
 
-      const refreshRequests =
-        projectId === targetProjectId
-          ? [dispatch(fetchProjectTree({ projectId }))]
-          : [
-              dispatch(fetchProjectTree({ projectId })),
-              dispatch(fetchProjectTree({ projectId: targetProjectId })),
-            ];
-
-      await Promise.all(refreshRequests.map((request) => request.unwrap()));
-
-      if (retargetedFiles.length > 0) {
-        dispatch(
-          retargetCloudFiles({
-            items: retargetedFiles,
-          }),
-        );
-      }
-
-      dispatch(setWorkspaceSource("cloud"));
-      dispatch(setActiveProjectId(targetProjectId));
-      dispatch(
-        setCloudSelection({
-          items: movedSelection,
-          focusedItemKey: movedSelection[0]?.key ?? null,
-          selectionAnchorKey: movedSelection[0]?.key ?? null,
-        }),
-      );
+      await refreshProjectTrees(projectId, targetProjectId);
+      retargetMovedCloudFiles(retargetedFiles);
+      focusCloudSelection(targetProjectId, movedSelection);
     },
-    [assertCanWriteCloudProject, dispatch],
+    [assertCanWriteCloudProject, dispatch, focusCloudSelection, refreshProjectTrees, retargetMovedCloudFiles],
   );
 
   const activeCloudProject = projects.find((project) => project.id === activeProjectId) ?? null;

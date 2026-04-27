@@ -45,15 +45,6 @@ export function appendRunConsoleChunk(event: RunDataEvent) {
   notify(event.sessionId);
 }
 
-export function clearRunConsoleSession(sessionId: string) {
-  if (!outputBySessionId.has(sessionId)) {
-    return;
-  }
-
-  outputBySessionId.delete(sessionId);
-  notify(sessionId);
-}
-
 export function getRunConsoleChunks(sessionId: string | null) {
   if (!sessionId) {
     return EMPTY_CHUNKS;

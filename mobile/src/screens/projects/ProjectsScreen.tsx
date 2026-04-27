@@ -70,7 +70,6 @@ export function ProjectsScreen({ navigation }: ProjectsScreenProps) {
         showsVerticalScrollIndicator={false}
       >
         <SectionTitle
-          subtitle="Ваши проекты и проекты, к которым вам дали доступ."
           title="Облачные проекты"
         />
 
