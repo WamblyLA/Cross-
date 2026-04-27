@@ -21,7 +21,6 @@ export function ProjectMembersCard({ members }: ProjectMembersCardProps) {
             </View>
             <View className="flex-row flex-wrap gap-2">
               <Badge text={formatRoleLabel(member.role)} tone="primary" />
-              {member.isOwner ? <Badge text="Владелец" /> : null}
             </View>
           </View>
         ))}
