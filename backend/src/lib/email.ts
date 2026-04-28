@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer";
 import { APP_PUBLIC_URL, IS_PROD, SMTP_CONFIG } from "../config.js";
-
 type MailOptions = {
   to: string;
   subject: string;
@@ -8,7 +7,9 @@ type MailOptions = {
   debugLabel: string;
 };
 
-let transporterPromise: Promise<ReturnType<typeof nodemailer.createTransport>> | null = null;
+let transporterPromise: Promise<
+  ReturnType<typeof nodemailer.createTransport>
+> | null = null;
 
 function getTransporter() {
   if (!SMTP_CONFIG) {
@@ -28,7 +29,10 @@ function getTransporter() {
             },
           }
         : {}),
-    }),
+      tls: {
+        rejectUnauthorized: false,
+      },
+    } as any),
   );
 
   return transporterPromise;
