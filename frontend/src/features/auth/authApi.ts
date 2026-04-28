@@ -2,16 +2,10 @@ import { request } from "../../lib/api/request";
 import type {
   AuthSettings,
   AuthUser,
-  ForgotPasswordPayload,
-  GenericSuccessResponse,
   LoginPayload,
   RegisterPayload,
-  RegisterResponse,
-  ResendVerificationPayload,
-  ResetPasswordPayload,
   UpdateProfilePayload,
   UpdateSettingsPayload,
-  VerifyEmailPayload,
 } from "./authTypes";
 
 type AuthResponse = {
@@ -29,7 +23,7 @@ type SettingsResponse = {
 };
 
 export function register(payload: RegisterPayload) {
-  return request<RegisterResponse, RegisterPayload>({
+  return request<AuthResponse, RegisterPayload>({
     url: "/api/auth/register",
     method: "POST",
     body: payload,
@@ -39,38 +33,6 @@ export function register(payload: RegisterPayload) {
 export function login(payload: LoginPayload) {
   return request<AuthResponse, LoginPayload>({
     url: "/api/auth/login",
-    method: "POST",
-    body: payload,
-  });
-}
-
-export function verifyEmail(payload: VerifyEmailPayload) {
-  return request<GenericSuccessResponse, VerifyEmailPayload>({
-    url: "/api/auth/verify-email",
-    method: "POST",
-    body: payload,
-  });
-}
-
-export function resendVerification(payload: ResendVerificationPayload) {
-  return request<GenericSuccessResponse, ResendVerificationPayload>({
-    url: "/api/auth/resend-verification",
-    method: "POST",
-    body: payload,
-  });
-}
-
-export function forgotPassword(payload: ForgotPasswordPayload) {
-  return request<GenericSuccessResponse, ForgotPasswordPayload>({
-    url: "/api/auth/forgot-password",
-    method: "POST",
-    body: payload,
-  });
-}
-
-export function resetPassword(payload: ResetPasswordPayload) {
-  return request<GenericSuccessResponse, ResetPasswordPayload>({
-    url: "/api/auth/reset-password",
     method: "POST",
     body: payload,
   });

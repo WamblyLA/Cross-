@@ -5,17 +5,11 @@ import {
   selectAuthSettings,
   selectAuthUser,
   selectIsAuthenticated,
-  selectPendingVerification,
   selectSessionError,
   selectSessionStatus,
   selectSettingsPending,
 } from "../features/auth/authSelectors";
-import {
-  clearActionError,
-  clearPendingVerification,
-  clearSessionError,
-  setPendingVerification,
-} from "../features/auth/authSlice";
+import { clearActionError, clearSessionError } from "../features/auth/authSlice";
 import {
   login as loginThunk,
   logout as logoutThunk,
@@ -35,7 +29,6 @@ export function useAuth() {
   const settingsPending = useAppSelector(selectSettingsPending);
   const sessionError = useAppSelector(selectSessionError);
   const actionError = useAppSelector(selectActionError);
-  const pendingVerification = useAppSelector(selectPendingVerification);
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const displayName = useAppSelector(selectAuthDisplayName);
 
@@ -47,7 +40,6 @@ export function useAuth() {
     settingsPending,
     sessionError,
     actionError,
-    pendingVerification,
     isAuthenticated,
     displayName,
     restoreSession: () => dispatch(restoreSessionThunk()),
@@ -60,8 +52,5 @@ export function useAuth() {
       dispatch(updateSettingsThunk(payload)),
     clearActionError: () => dispatch(clearActionError()),
     clearSessionError: () => dispatch(clearSessionError()),
-    setPendingVerification: (payload: Parameters<typeof setPendingVerification>[0]) =>
-      dispatch(setPendingVerification(payload)),
-    clearPendingVerification: () => dispatch(clearPendingVerification()),
   };
 }

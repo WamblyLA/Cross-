@@ -1,4 +1,4 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import { createApiError, type ApiError } from "../../lib/api/errorNormalization";
 import {
   login,
@@ -8,7 +8,7 @@ import {
   updateProfile,
   updateSettings,
 } from "./authThunks";
-import type { AuthState, PendingVerificationState } from "./authTypes";
+import type { AuthState } from "./authTypes";
 
 const initialState: AuthState = {
   sessionStatus: "idle",
@@ -18,7 +18,6 @@ const initialState: AuthState = {
   settingsPending: false,
   sessionError: null,
   actionError: null,
-  pendingVerification: null,
 };
 
 function resolveError(error: ApiError | undefined, fallbackMessage: string): ApiError {
@@ -34,12 +33,6 @@ const authSlice = createSlice({
     },
     clearSessionError(state) {
       state.sessionError = null;
-    },
-    setPendingVerification(state, action: PayloadAction<PendingVerificationState | null>) {
-      state.pendingVerification = action.payload;
-    },
-    clearPendingVerification(state) {
-      state.pendingVerification = null;
     },
   },
   extraReducers: (builder) => {
@@ -58,7 +51,6 @@ const authSlice = createSlice({
         state.settingsPending = false;
         state.sessionError = null;
         state.actionError = null;
-        state.pendingVerification = null;
       })
       .addCase(restoreSession.rejected, (state, action) => {
         const error = resolveError(action.payload, "Не удалось восстановить сессию.");
@@ -85,7 +77,6 @@ const authSlice = createSlice({
         state.settingsPending = false;
         state.actionError = null;
         state.sessionError = null;
-        state.pendingVerification = null;
       })
       .addCase(login.rejected, (state, action) => {
         state.sessionStatus = "anonymous";
@@ -97,23 +88,18 @@ const authSlice = createSlice({
       })
       .addCase(register.pending, (state) => {
         state.authPending = true;
-        state.settingsPending = false;
+        state.settingsPending = true;
         state.actionError = null;
         state.sessionError = null;
       })
       .addCase(register.fulfilled, (state, action) => {
-        state.sessionStatus = "anonymous";
-        state.user = null;
-        state.settings = null;
+        state.sessionStatus = "authenticated";
+        state.user = action.payload.user;
+        state.settings = action.payload.settings;
         state.authPending = false;
         state.settingsPending = false;
         state.actionError = null;
         state.sessionError = null;
-        state.pendingVerification = {
-          login: action.payload.user.email,
-          email: action.payload.user.email,
-          message: action.payload.message,
-        };
       })
       .addCase(register.rejected, (state, action) => {
         state.sessionStatus = "anonymous";
@@ -135,7 +121,6 @@ const authSlice = createSlice({
         state.settingsPending = false;
         state.sessionError = null;
         state.actionError = null;
-        state.pendingVerification = null;
       })
       .addCase(logout.rejected, (state, action) => {
         state.authPending = false;
@@ -170,11 +155,6 @@ const authSlice = createSlice({
   },
 });
 
-export const {
-  clearActionError,
-  clearSessionError,
-  setPendingVerification,
-  clearPendingVerification,
-} = authSlice.actions;
+export const { clearActionError, clearSessionError } = authSlice.actions;
 
 export default authSlice.reducer;

@@ -5,13 +5,7 @@ import * as authApi from "../auth/authApi";
 import { setApiAuthToken, setUnauthorizedHandler } from "../../lib/api/apiClient";
 import { normalizeApiError } from "../../lib/errors/apiError";
 import type { ApiError } from "../../types/api";
-import type {
-  AuthUser,
-  LoginPayload,
-  PendingVerificationState,
-  RegisterPayload,
-  SessionStatus,
-} from "../../types/auth";
+import type { AuthUser, LoginPayload, RegisterPayload, SessionStatus } from "../../types/auth";
 import { clearSessionToken, readSessionToken, writeSessionToken } from "./sessionStorage";
 
 type SessionContextValue = {
@@ -19,10 +13,7 @@ type SessionContextValue = {
   user: AuthUser | null;
   authPending: boolean;
   sessionNotice: string | null;
-  pendingVerification: PendingVerificationState | null;
   clearSessionNotice: () => void;
-  setPendingVerification: (value: PendingVerificationState | null) => void;
-  clearPendingVerification: () => void;
   login: (payload: LoginPayload) => Promise<ApiError | null>;
   register: (payload: RegisterPayload) => Promise<ApiError | null>;
   logout: () => Promise<void>;
@@ -36,7 +27,6 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authPending, setAuthPending] = useState(false);
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
-  const [pendingVerification, setPendingVerification] = useState<PendingVerificationState | null>(null);
   const tokenRef = useRef<string | null>(null);
 
   const applyAnonymousState = async (notice?: string) => {
@@ -113,7 +103,6 @@ export function SessionProvider({ children }: PropsWithChildren) {
     await writeSessionToken(token);
     setUser(nextUser);
     setSessionNotice(null);
-    setPendingVerification(null);
     setSessionStatus("authenticated");
   };
 
@@ -126,17 +115,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       await authenticate(response.token, response.user);
       return null;
     } catch (error) {
-      const normalizedError = normalizeApiError(error);
-
-      if (normalizedError.code === "EMAIL_NOT_VERIFIED") {
-        setPendingVerification({
-          login: payload.login.trim(),
-          email: payload.login.includes("@") ? payload.login.trim() : null,
-          message: normalizedError.message,
-        });
-      }
-
-      return normalizedError;
+      return normalizeApiError(error);
     } finally {
       setAuthPending(false);
     }
@@ -148,12 +127,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
     try {
       const response = await authApi.register(payload);
-      setPendingVerification({
-        login: response.user.email,
-        email: response.user.email,
-        message: response.message,
-      });
-      setSessionStatus("anonymous");
+      await authenticate(response.token, response.user);
       return null;
     } catch (error) {
       return normalizeApiError(error);
@@ -181,15 +155,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
       user,
       authPending,
       sessionNotice,
-      pendingVerification,
       clearSessionNotice: () => setSessionNotice(null),
-      setPendingVerification,
-      clearPendingVerification: () => setPendingVerification(null),
       login,
       register,
       logout,
     }),
-    [authPending, pendingVerification, sessionNotice, sessionStatus, user],
+    [authPending, sessionNotice, sessionStatus, user],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

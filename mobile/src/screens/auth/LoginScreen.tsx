@@ -13,12 +13,7 @@ import { InlineNotice } from "../../components/common/InlineNotice";
 type LoginScreenProps = NativeStackScreenProps<AuthStackParamList, "Login">;
 
 export function LoginScreen({ navigation }: LoginScreenProps) {
-  const {
-    login,
-    authPending,
-    sessionNotice,
-    clearSessionNotice,
-  } = useSession();
+  const { login, authPending, sessionNotice, clearSessionNotice } = useSession();
   const [form, setForm] = useState({
     login: "",
     password: "",
@@ -38,11 +33,6 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
     const error = await login(form);
 
     if (error) {
-      if (error.code === "EMAIL_NOT_VERIFIED") {
-        navigation.navigate("CheckEmail");
-        return;
-      }
-
       setActionError(getLoginErrorMessage(error));
     }
   };
@@ -86,10 +76,6 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         secureTextEntry
         value={form.password}
       />
-
-      <Pressable onPress={() => navigation.navigate("ForgotPassword")}>
-        <Text className="text-right text-sm font-bold text-accent">Забыли пароль?</Text>
-      </Pressable>
 
       <AppButton loading={authPending} onPress={handleSubmit} title="Войти" />
     </AuthFormLayout>

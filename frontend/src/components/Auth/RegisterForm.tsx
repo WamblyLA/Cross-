@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { clearActionError } from "../../features/auth/authSlice";
 import { getApiErrorDetail } from "../../lib/api/errorNormalization";
 import { useAuth } from "../../hooks/useAuth";
@@ -61,7 +60,6 @@ function validateRegister(values: RegisterFormValues) {
 
 export default function RegisterForm() {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { authPending, actionError, register } = useAuth();
   const [values, setValues] = useState<RegisterFormValues>({
     username: "",
@@ -100,7 +98,6 @@ export default function RegisterForm() {
         password: values.password,
         passwordConfirm: values.passwordConfirm,
       }).unwrap();
-      navigate("/auth/check-email");
     } catch {
       // Ошибка уже попадает в store.
     }

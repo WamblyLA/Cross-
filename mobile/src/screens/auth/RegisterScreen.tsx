@@ -36,10 +36,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
 
     if (error) {
       setActionError(getRegisterErrorMessage(error));
-      return;
     }
-
-    navigation.navigate("CheckEmail");
   };
 
   return (
