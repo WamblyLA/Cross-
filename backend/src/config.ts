@@ -3,8 +3,6 @@ import { z } from "zod";
 const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_PORT = 3000;
 const DEFAULT_CORS_ORIGINS = ["http://127.0.0.1:4173", "http://localhost:4173"];
-const DEFAULT_EMAIL_VERIFICATION_TTL_HOURS = 24;
-const DEFAULT_PASSWORD_RESET_TTL_HOURS = 1;
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -17,23 +15,6 @@ const envSchema = z.object({
   JSON_BODY_LIMIT: z.string().default("1mb"),
   COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).optional(),
   COOKIE_SECURE: z.enum(["true", "false"]).optional(),
-  APP_PUBLIC_URL: z.string().trim().optional(),
-  FRONTEND_PUBLIC_URL: z.string().trim().optional(),
-  SMTP_HOST: z.string().trim().optional(),
-  SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
-  SMTP_USER: z.string().trim().optional(),
-  SMTP_PASSWORD: z.string().trim().optional(),
-  SMTP_FROM: z.string().trim().optional(),
-  EMAIL_VERIFICATION_TTL_HOURS: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .default(DEFAULT_EMAIL_VERIFICATION_TTL_HOURS),
-  PASSWORD_RESET_TTL_HOURS: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .default(DEFAULT_PASSWORD_RESET_TTL_HOURS),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -51,37 +32,6 @@ function parseOrigins(value: string) {
 }
 
 const env = parsedEnv.data;
-const defaultPublicUrl = `http://127.0.0.1:${env.PORT}`;
-const configuredPublicUrl = (env.APP_PUBLIC_URL || env.FRONTEND_PUBLIC_URL || defaultPublicUrl)
-  .trim()
-  .replace(/\/+$/, "");
-const smtpCoreFields = [env.SMTP_HOST, env.SMTP_PORT, env.SMTP_FROM];
-const hasAnySmtpCoreConfig = smtpCoreFields.some((value) => value !== undefined && value !== "");
-const hasFullSmtpCoreConfig = smtpCoreFields.every((value) => value !== undefined && value !== "");
-const hasSmtpAuthUser = env.SMTP_USER !== undefined && env.SMTP_USER !== "";
-const hasSmtpAuthPassword = env.SMTP_PASSWORD !== undefined && env.SMTP_PASSWORD !== "";
-const hasAnySmtpConfig =
-  hasAnySmtpCoreConfig || hasSmtpAuthUser || hasSmtpAuthPassword;
-
-if (hasAnySmtpConfig && !hasFullSmtpCoreConfig) {
-  throw new Error(
-    "SMTP_HOST, SMTP_PORT и SMTP_FROM должны быть заполнены вместе или не заданы вовсе",
-  );
-}
-
-if (hasSmtpAuthUser !== hasSmtpAuthPassword) {
-  throw new Error("SMTP_USER и SMTP_PASSWORD должны быть заданы вместе");
-}
-
-if (env.NODE_ENV === "production") {
-  if (!configuredPublicUrl) {
-    throw new Error("APP_PUBLIC_URL или FRONTEND_PUBLIC_URL обязателен в production");
-  }
-
-  if (!hasFullSmtpCoreConfig) {
-    throw new Error("SMTP_HOST, SMTP_PORT и SMTP_FROM обязательны в production");
-  }
-}
 
 export const NODE_ENV = env.NODE_ENV;
 export const IS_PROD = NODE_ENV === "production";
@@ -97,19 +47,7 @@ export const CORS_ORIGINS = Array.from(
 export const COOKIE_SAME_SITE = env.COOKIE_SAME_SITE ?? (IS_PROD ? "none" : "lax");
 export const COOKIE_SECURE = env.COOKIE_SECURE ? env.COOKIE_SECURE === "true" : IS_PROD;
 export const API_URL = `http://${HOST}:${PORT}`;
-export const APP_PUBLIC_URL = configuredPublicUrl;
 export const COOKIE_NAME = "token";
 export const BCRYPT_SALT_ROUNDS = 12;
 export const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 export const AUTH_RATE_LIMIT_MAX = 10;
-export const EMAIL_VERIFICATION_TTL_HOURS = env.EMAIL_VERIFICATION_TTL_HOURS;
-export const PASSWORD_RESET_TTL_HOURS = env.PASSWORD_RESET_TTL_HOURS;
-export const SMTP_CONFIG = hasFullSmtpCoreConfig
-  ? {
-      host: env.SMTP_HOST!,
-      port: env.SMTP_PORT!,
-      from: env.SMTP_FROM!,
-      user: hasSmtpAuthUser ? env.SMTP_USER! : null,
-      password: hasSmtpAuthPassword ? env.SMTP_PASSWORD! : null,
-    }
-  : null;

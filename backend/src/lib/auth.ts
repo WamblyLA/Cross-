@@ -1,4 +1,4 @@
-﻿import type { Response } from "express";
+import type { Response } from "express";
 import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import {
   COOKIE_NAME,
@@ -55,11 +55,7 @@ function parseExpiresInToMs(value: string) {
 export function signAuthToken(userId: string) {
   const expiresIn = JWT_EXPIRES_IN as NonNullable<SignOptions["expiresIn"]>;
 
-  return jwt.sign(
-    { sub: userId },
-    JWT_SECRET,
-    { expiresIn },
-  );
+  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn });
 }
 
 export function verifyAuthToken(token: string) {
@@ -92,7 +88,7 @@ export function clearAuthCookie(res: Response) {
 }
 
 export function createAuthResponse(
-  user: { id: string; username: string; email: string; emailVerified: boolean },
+  user: { id: string; username: string; email: string },
   token: string,
 ) {
   return {

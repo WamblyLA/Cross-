@@ -29,7 +29,6 @@ model User {
   username                   String              @unique
   email                      String              @unique
   passwordHash               String
-  emailVerifiedAt            DateTime?
   createdAt                  DateTime            @default(now())
   updatedAt                  DateTime            @updatedAt
   projects                   Project[]
@@ -39,34 +38,6 @@ model User {
   receivedProjectInvitations ProjectInvitation[] @relation("ProjectInvitationInvitee")
   notifications              Notification[]
   settings                   UserSettings?
-  emailVerificationTokens    EmailVerificationToken[]
-  passwordResetTokens        PasswordResetToken[]
-}
-
-model EmailVerificationToken {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid
-  tokenHash  String   @unique
-  expiresAt  DateTime
-  consumedAt DateTime?
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-model PasswordResetToken {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid
-  tokenHash  String   @unique
-  expiresAt  DateTime
-  consumedAt DateTime?
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
 }
 
 model Project {
