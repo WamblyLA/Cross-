@@ -20,10 +20,14 @@ function getTransporter() {
       host: SMTP_CONFIG.host,
       port: SMTP_CONFIG.port,
       secure: SMTP_CONFIG.port === 465,
-      auth: {
-        user: SMTP_CONFIG.user,
-        pass: SMTP_CONFIG.password,
-      },
+      ...(SMTP_CONFIG.user && SMTP_CONFIG.password
+        ? {
+            auth: {
+              user: SMTP_CONFIG.user,
+              pass: SMTP_CONFIG.password,
+            },
+          }
+        : {}),
     }),
   );
 

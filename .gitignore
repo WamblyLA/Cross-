@@ -43,3 +43,4 @@ docs
 !frontend/docs/**
 report_by_file.cs
 report.csv
+README.md

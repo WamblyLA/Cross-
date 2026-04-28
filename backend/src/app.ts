@@ -41,6 +41,7 @@ app.use(helmet());
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 app.use(cookieParser());
+app.use(express.urlencoded({ extended: false, limit: JSON_BODY_LIMIT }));
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
 const healthHandler: express.RequestHandler = (_, res) => {

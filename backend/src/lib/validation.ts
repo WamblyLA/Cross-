@@ -34,6 +34,7 @@ const emailSchema = trimmedString().toLowerCase().email("Некорректны�
 const projectMemberRoleSchema = z.enum(["editor", "viewer"], {
   message: "Поддерживаются только роли editor и viewer",
 });
+const opaqueTokenSchema = (message: string) => trimmedString().min(1, message);
 
 export const passwordSchema = z
   .string()
@@ -105,7 +106,7 @@ export type LoginBody = z.infer<typeof loginBodySchema>;
 
 export const verifyEmailBodySchema = z
   .object({
-    token: trimmedString().min(1, "Токен подтверждения обязателен"),
+    token: opaqueTokenSchema("Токен подтверждения обязателен"),
   })
   .strict();
 
@@ -134,12 +135,27 @@ export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;
 
 export const resetPasswordBodySchema = z
   .object({
-    token: trimmedString().min(1, "Токен восстановления обязателен"),
+    token: opaqueTokenSchema("Токен восстановления обязателен"),
     password: passwordSchema,
-    passwordConfirm: z.string().min(1, "Подтвердите пароль"),
+    passwordConfirm: z.string().optional(),
+    confirmPassword: z.string().optional(),
   })
   .strict()
+  .transform((data) => ({
+    token: data.token,
+    password: data.password,
+    passwordConfirm: data.passwordConfirm ?? data.confirmPassword ?? "",
+  }))
   .superRefine((data, ctx) => {
+    if (!data.passwordConfirm) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["passwordConfirm"],
+        message: "Подтвердите пароль",
+      });
+      return;
+    }
+
     if (data.password !== data.passwordConfirm) {
       ctx.addIssue({
         code: "custom",
