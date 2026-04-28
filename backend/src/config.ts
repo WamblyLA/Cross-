@@ -51,21 +51,26 @@ function parseOrigins(value: string) {
 }
 
 const env = parsedEnv.data;
-const defaultPublicUrl = DEFAULT_CORS_ORIGINS[0] ?? "http://127.0.0.1:4173";
+const defaultPublicUrl = `http://127.0.0.1:${env.PORT}`;
 const configuredPublicUrl = (env.APP_PUBLIC_URL || env.FRONTEND_PUBLIC_URL || defaultPublicUrl)
   .trim()
   .replace(/\/+$/, "");
-const smtpHost = env.SMTP_HOST?.trim();
-const smtpFrom = env.SMTP_FROM?.trim();
-const smtpPort = env.SMTP_PORT;
+const smtpCoreFields = [env.SMTP_HOST, env.SMTP_PORT, env.SMTP_FROM];
+const hasAnySmtpCoreConfig = smtpCoreFields.some((value) => value !== undefined && value !== "");
+const hasFullSmtpCoreConfig = smtpCoreFields.every((value) => value !== undefined && value !== "");
+const hasSmtpAuthUser = env.SMTP_USER !== undefined && env.SMTP_USER !== "";
+const hasSmtpAuthPassword = env.SMTP_PASSWORD !== undefined && env.SMTP_PASSWORD !== "";
+const hasAnySmtpConfig =
+  hasAnySmtpCoreConfig || hasSmtpAuthUser || hasSmtpAuthPassword;
 
-const smtpRequiredFields = [smtpHost, smtpPort, smtpFrom];
+if (hasAnySmtpConfig && !hasFullSmtpCoreConfig) {
+  throw new Error(
+    "SMTP_HOST, SMTP_PORT и SMTP_FROM должны быть заполнены вместе или не заданы вовсе",
+  );
+}
 
-const hasAnySmtpConfig = smtpRequiredFields.some((value) => value !== undefined && value !== "");
-const hasFullSmtpConfig = Boolean(smtpHost) && Boolean(smtpPort) && Boolean(smtpFrom);
-
-if (hasAnySmtpConfig && !hasFullSmtpConfig) {
-  throw new Error("SMTP_* переменные должны быть заполнены полностью или не заданы вовсе");
+if (hasSmtpAuthUser !== hasSmtpAuthPassword) {
+  throw new Error("SMTP_USER и SMTP_PASSWORD должны быть заданы вместе");
 }
 
 if (env.NODE_ENV === "production") {
@@ -73,8 +78,8 @@ if (env.NODE_ENV === "production") {
     throw new Error("APP_PUBLIC_URL или FRONTEND_PUBLIC_URL обязателен в production");
   }
 
-  if (!hasFullSmtpConfig) {
-    throw new Error("SMTP_* переменные обязательны в production");
+  if (!hasFullSmtpCoreConfig) {
+    throw new Error("SMTP_HOST, SMTP_PORT и SMTP_FROM обязательны в production");
   }
 }
 
@@ -99,12 +104,12 @@ export const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 export const AUTH_RATE_LIMIT_MAX = 10;
 export const EMAIL_VERIFICATION_TTL_HOURS = env.EMAIL_VERIFICATION_TTL_HOURS;
 export const PASSWORD_RESET_TTL_HOURS = env.PASSWORD_RESET_TTL_HOURS;
-export const SMTP_CONFIG = hasFullSmtpConfig
+export const SMTP_CONFIG = hasFullSmtpCoreConfig
   ? {
-      host: smtpHost!,
-      port: smtpPort!,
-      user: env.SMTP_USER?.trim() || undefined,
-      password: env.SMTP_PASSWORD?.trim() || undefined,
-      from: smtpFrom!,
+      host: env.SMTP_HOST!,
+      port: env.SMTP_PORT!,
+      from: env.SMTP_FROM!,
+      user: hasSmtpAuthUser ? env.SMTP_USER! : null,
+      password: hasSmtpAuthPassword ? env.SMTP_PASSWORD! : null,
     }
   : null;

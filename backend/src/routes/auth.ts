@@ -7,7 +7,9 @@ import {
   register,
   resendVerificationEmail,
   resetPassword,
+  resetPasswordPage,
   verifyEmail,
+  verifyEmailPage,
 } from "../controllers/authController.js";
 import {
   AUTH_RATE_LIMIT_MAX,
@@ -18,7 +20,6 @@ import {
   loginBodySchema,
   registerBodySchema,
   resendVerificationBodySchema,
-  resetPasswordBodySchema,
   verifyEmailBodySchema,
 } from "../lib/validation.js";
 import { validateRequest } from "../middleware/validate.js";
@@ -39,6 +40,7 @@ const authRateLimiter = rateLimit({
 
 router.post("/register", authRateLimiter, validateRequest({ body: registerBodySchema }), register);
 router.post("/login", authRateLimiter, validateRequest({ body: loginBodySchema }), login);
+router.get("/verify-email", authRateLimiter, verifyEmailPage);
 router.post(
   "/verify-email",
   authRateLimiter,
@@ -57,12 +59,8 @@ router.post(
   validateRequest({ body: forgotPasswordBodySchema }),
   forgotPassword,
 );
-router.post(
-  "/reset-password",
-  authRateLimiter,
-  validateRequest({ body: resetPasswordBodySchema }),
-  resetPassword,
-);
+router.get("/reset-password", authRateLimiter, resetPasswordPage);
+router.post("/reset-password", authRateLimiter, resetPassword);
 router.post("/logout", logout);
 
 export default router;

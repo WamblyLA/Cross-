@@ -6,6 +6,7 @@ import {
   issuePasswordResetToken,
   hashOpaqueToken,
 } from "../lib/accountTokens.js";
+import { renderMessagePage, renderResetPasswordFormPage } from "../lib/authPages.js";
 import {
   buildAppUrl,
   sendEmailVerificationEmail,
@@ -17,17 +18,21 @@ import {
   setAuthCookie,
   signAuthToken,
 } from "../lib/auth.js";
-import { AppError } from "../lib/errors.js";
+import {
+  AppError,
+  createValidationError,
+  formatZodError,
+} from "../lib/errors.js";
 import { prisma } from "../lib/prisma.js";
 import { requireUserId } from "../lib/requestContext.js";
-import type {
-  ForgotPasswordBody,
-  LoginBody,
-  RegisterBody,
-  ResendVerificationBody,
-  ResetPasswordBody,
-  UpdateProfileBody,
-  VerifyEmailBody,
+import {
+  resetPasswordBodySchema,
+  type ForgotPasswordBody,
+  type LoginBody,
+  type RegisterBody,
+  type ResendVerificationBody,
+  type UpdateProfileBody,
+  type VerifyEmailBody,
 } from "../lib/validation.js";
 
 type PublicUserShape = {
@@ -35,6 +40,13 @@ type PublicUserShape = {
   username: string;
   email: string;
   emailVerifiedAt: Date | null;
+};
+
+type PasswordResetRecord = {
+  id: string;
+  userId: string;
+  consumedAt: Date | null;
+  expiresAt: Date;
 };
 
 function toPublicUser(user: PublicUserShape) {
@@ -46,9 +58,134 @@ function toPublicUser(user: PublicUserShape) {
   };
 }
 
-async function sendVerificationMessage(user: { id: string; username: string; email: string }) {
+function buildGenericEmailMessage() {
+  return "Если аккаунт существует, письмо уже отправлено.";
+}
+
+function extractSingleValue(value: unknown) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value) && typeof value[0] === "string") {
+    return value[0];
+  }
+
+  return "";
+}
+
+function isFormSubmission(req: Request) {
+  return req.is("application/x-www-form-urlencoded") === "application/x-www-form-urlencoded";
+}
+
+function sendHtml(res: Response, statusCode: number, html: string) {
+  res.status(statusCode).type("html").send(html);
+}
+
+function renderVerificationMessage(
+  res: Response,
+  statusCode: number,
+  message: string,
+  tone: "error" | "success",
+) {
+  sendHtml(
+    res,
+    statusCode,
+    renderMessagePage({
+      title: tone === "success" ? "Email подтверждён" : "Ошибка подтверждения",
+      message,
+      tone,
+    }),
+  );
+}
+
+function renderPasswordResetMessage(
+  res: Response,
+  statusCode: number,
+  title: string,
+  message: string,
+  tone: "error" | "success",
+) {
+  sendHtml(
+    res,
+    statusCode,
+    renderMessagePage({
+      title,
+      message,
+      tone,
+    }),
+  );
+}
+
+function renderPasswordResetForm(
+  res: Response,
+  statusCode: number,
+  options: {
+    token: string;
+    message?: string | null;
+    tone?: "error" | "success";
+    fieldErrors?: {
+      password?: string;
+      passwordConfirm?: string;
+    };
+  },
+) {
+  sendHtml(res, statusCode, renderResetPasswordFormPage(options));
+}
+
+function getResetPasswordFieldErrors(details: { path: string; message: string }[]) {
+  return details.reduce<{ password?: string; passwordConfirm?: string }>((accumulator, detail) => {
+    if (detail.path === "password") {
+      accumulator.password = detail.message;
+    }
+
+    if (detail.path === "passwordConfirm" || detail.path === "confirmPassword") {
+      accumulator.passwordConfirm = detail.message;
+    }
+
+    return accumulator;
+  }, {});
+}
+
+function buildInvalidVerificationTokenError() {
+  return new AppError(
+    "Ссылка подтверждения недействительна или уже использована.",
+    400,
+    undefined,
+    "INVALID_TOKEN",
+  );
+}
+
+function buildExpiredVerificationTokenError() {
+  return new AppError(
+    "Срок действия ссылки подтверждения истёк.",
+    410,
+    undefined,
+    "TOKEN_EXPIRED",
+  );
+}
+
+function buildInvalidResetTokenError() {
+  return new AppError(
+    "Ссылка восстановления недействительна или уже использована.",
+    400,
+    undefined,
+    "INVALID_TOKEN",
+  );
+}
+
+function buildExpiredResetTokenError() {
+  return new AppError(
+    "Срок действия ссылки восстановления истёк.",
+    410,
+    undefined,
+    "TOKEN_EXPIRED",
+  );
+}
+
+async function sendVerificationMessage(user: { id: string; email: string }) {
   const verification = await issueEmailVerificationToken(user.id);
-  const verificationUrl = buildAppUrl("/auth/verify-email", {
+  const verificationUrl = buildAppUrl("/api/auth/verify-email", {
     token: verification.token,
   });
 
@@ -59,8 +196,122 @@ async function sendVerificationMessage(user: { id: string; username: string; ema
   });
 }
 
-function buildGenericEmailMessage() {
-  return "Если аккаунт существует, письмо уже отправлено.";
+async function getEmailVerificationToken(token: string) {
+  const tokenHash = hashOpaqueToken(token);
+  return prisma.emailVerificationToken.findUnique({
+    where: { tokenHash },
+    include: {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          emailVerifiedAt: true,
+        },
+      },
+    },
+  });
+}
+
+function assertEmailVerificationTokenAvailable(
+  verificationToken: Awaited<ReturnType<typeof getEmailVerificationToken>>,
+): asserts verificationToken is NonNullable<
+  Awaited<ReturnType<typeof getEmailVerificationToken>>
+> {
+  if (!verificationToken || verificationToken.consumedAt) {
+    throw buildInvalidVerificationTokenError();
+  }
+
+  if (verificationToken.expiresAt.getTime() <= Date.now()) {
+    throw buildExpiredVerificationTokenError();
+  }
+}
+
+async function verifyEmailByToken(token: string) {
+  const verificationToken = await getEmailVerificationToken(token);
+  assertEmailVerificationTokenAvailable(verificationToken);
+
+  const consumedAt = new Date();
+  const [, user] = await prisma.$transaction([
+    prisma.emailVerificationToken.updateMany({
+      where: {
+        userId: verificationToken.userId,
+        consumedAt: null,
+      },
+      data: {
+        consumedAt,
+      },
+    }),
+    prisma.user.update({
+      where: { id: verificationToken.userId },
+      data: {
+        emailVerifiedAt: verificationToken.user.emailVerifiedAt ?? consumedAt,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        emailVerifiedAt: true,
+      },
+    }),
+  ]);
+
+  return user;
+}
+
+async function getPasswordResetToken(token: string) {
+  const tokenHash = hashOpaqueToken(token);
+  return prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    select: {
+      id: true,
+      userId: true,
+      consumedAt: true,
+      expiresAt: true,
+    },
+  });
+}
+
+function assertPasswordResetTokenAvailable(
+  resetToken: PasswordResetRecord | null,
+): asserts resetToken is PasswordResetRecord {
+  if (!resetToken || resetToken.consumedAt) {
+    throw buildInvalidResetTokenError();
+  }
+
+  if (resetToken.expiresAt.getTime() <= Date.now()) {
+    throw buildExpiredResetTokenError();
+  }
+}
+
+async function ensurePasswordResetTokenAvailable(token: string) {
+  const resetToken = await getPasswordResetToken(token);
+  assertPasswordResetTokenAvailable(resetToken);
+  return resetToken;
+}
+
+async function resetPasswordByToken(token: string, password: string) {
+  const resetToken = await ensurePasswordResetTokenAvailable(token);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+  const consumedAt = new Date();
+
+  await prisma.$transaction([
+    prisma.passwordResetToken.updateMany({
+      where: {
+        userId: resetToken.userId,
+        consumedAt: null,
+      },
+      data: {
+        consumedAt,
+      },
+    }),
+    prisma.user.update({
+      where: { id: resetToken.userId },
+      data: {
+        passwordHash,
+      },
+    }),
+  ]);
 }
 
 export async function register(req: Request, res: Response) {
@@ -68,10 +319,7 @@ export async function register(req: Request, res: Response) {
 
   const existingUsers = await prisma.user.findMany({
     where: {
-      OR: [
-        { username: { equals: username, mode: "insensitive" } },
-        { email },
-      ],
+      OR: [{ username: { equals: username, mode: "insensitive" } }, { email }],
     },
     select: {
       username: true,
@@ -121,10 +369,7 @@ export async function login(req: Request, res: Response) {
 
   const user = await prisma.user.findFirst({
     where: {
-      OR: [
-        { email: login },
-        { username: { equals: login, mode: "insensitive" } },
-      ],
+      OR: [{ email: login }, { username: { equals: login, mode: "insensitive" } }],
     },
     select: {
       id: true,
@@ -172,53 +417,7 @@ export async function login(req: Request, res: Response) {
 
 export async function verifyEmail(req: Request, res: Response) {
   const { token } = req.body as VerifyEmailBody;
-  const tokenHash = hashOpaqueToken(token);
-  const verificationToken = await prisma.emailVerificationToken.findUnique({
-    where: { tokenHash },
-    include: {
-      user: {
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          emailVerifiedAt: true,
-        },
-      },
-    },
-  });
-
-  if (!verificationToken || verificationToken.consumedAt) {
-    throw new AppError("Ссылка подтверждения недействительна или уже использована.", 400, undefined, "INVALID_TOKEN");
-  }
-
-  if (verificationToken.expiresAt.getTime() <= Date.now()) {
-    throw new AppError("Срок действия ссылки подтверждения истёк.", 410, undefined, "TOKEN_EXPIRED");
-  }
-
-  const consumedAt = new Date();
-  const [, user] = await prisma.$transaction([
-    prisma.emailVerificationToken.updateMany({
-      where: {
-        userId: verificationToken.userId,
-        consumedAt: null,
-      },
-      data: {
-        consumedAt,
-      },
-    }),
-    prisma.user.update({
-      where: { id: verificationToken.userId },
-      data: {
-        emailVerifiedAt: verificationToken.user.emailVerifiedAt ?? consumedAt,
-      },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        emailVerifiedAt: true,
-      },
-    }),
-  ]);
+  const user = await verifyEmailByToken(token);
 
   res.json({
     success: true,
@@ -227,18 +426,46 @@ export async function verifyEmail(req: Request, res: Response) {
   });
 }
 
+export async function verifyEmailPage(req: Request, res: Response) {
+  const token = extractSingleValue(req.query.token);
+
+  if (!token.trim()) {
+    renderVerificationMessage(res, 400, "Ссылка подтверждения недействительна.", "error");
+    return;
+  }
+
+  try {
+    await verifyEmailByToken(token);
+    renderVerificationMessage(
+      res,
+      200,
+      "Email подтверждён. Можете вернуться в CROSS++.",
+      "success",
+    );
+  } catch (error) {
+    if (error instanceof AppError) {
+      renderVerificationMessage(res, error.statusCode, error.message, "error");
+      return;
+    }
+
+    console.error("Ошибка подтверждения email:", error);
+    renderVerificationMessage(
+      res,
+      500,
+      "Не удалось подтвердить email. Попробуйте позже.",
+      "error",
+    );
+  }
+}
+
 export async function resendVerificationEmail(req: Request, res: Response) {
   const { login } = req.body as ResendVerificationBody;
   const user = await prisma.user.findFirst({
     where: {
-      OR: [
-        { email: login },
-        { username: { equals: login, mode: "insensitive" } },
-      ],
+      OR: [{ email: login }, { username: { equals: login, mode: "insensitive" } }],
     },
     select: {
       id: true,
-      username: true,
       email: true,
       emailVerifiedAt: true,
     },
@@ -266,7 +493,7 @@ export async function forgotPassword(req: Request, res: Response) {
 
   if (user) {
     const resetToken = await issuePasswordResetToken(user.id);
-    const resetUrl = buildAppUrl("/auth/reset-password", {
+    const resetUrl = buildAppUrl("/api/auth/reset-password", {
       token: resetToken.token,
     });
 
@@ -283,50 +510,118 @@ export async function forgotPassword(req: Request, res: Response) {
   });
 }
 
+export async function resetPasswordPage(req: Request, res: Response) {
+  const token = extractSingleValue(req.query.token);
+
+  if (!token.trim()) {
+    renderPasswordResetMessage(
+      res,
+      400,
+      "Ошибка восстановления",
+      "Ссылка восстановления недействительна.",
+      "error",
+    );
+    return;
+  }
+
+  try {
+    await ensurePasswordResetTokenAvailable(token);
+    renderPasswordResetForm(res, 200, { token });
+  } catch (error) {
+    if (error instanceof AppError) {
+      renderPasswordResetMessage(
+        res,
+        error.statusCode,
+        "Ошибка восстановления",
+        error.message,
+        "error",
+      );
+      return;
+    }
+
+    console.error("Ошибка открытия формы сброса пароля:", error);
+    renderPasswordResetMessage(
+      res,
+      500,
+      "Ошибка восстановления",
+      "Не удалось открыть форму сброса пароля. Попробуйте позже.",
+      "error",
+    );
+  }
+}
+
 export async function resetPassword(req: Request, res: Response) {
-  const { token, password } = req.body as ResetPasswordBody;
-  const tokenHash = hashOpaqueToken(token);
-  const resetToken = await prisma.passwordResetToken.findUnique({
-    where: { tokenHash },
-    select: {
-      id: true,
-      userId: true,
-      consumedAt: true,
-      expiresAt: true,
-    },
-  });
+  const formSubmission = isFormSubmission(req);
+  const parsedBody = resetPasswordBodySchema.safeParse(req.body);
 
-  if (!resetToken || resetToken.consumedAt) {
-    throw new AppError("Ссылка восстановления недействительна или уже использована.", 400, undefined, "INVALID_TOKEN");
+  if (!parsedBody.success) {
+    if (!formSubmission) {
+      throw createValidationError(parsedBody.error);
+    }
+
+    const details = formatZodError(parsedBody.error);
+    renderPasswordResetForm(res, 400, {
+      token: extractSingleValue(req.body?.token),
+      message: "Проверьте форму и попробуйте снова.",
+      tone: "error",
+      fieldErrors: getResetPasswordFieldErrors(details),
+    });
+    return;
   }
 
-  if (resetToken.expiresAt.getTime() <= Date.now()) {
-    throw new AppError("Срок действия ссылки восстановления истёк.", 410, undefined, "TOKEN_EXPIRED");
+  const { token, password } = parsedBody.data;
+
+  try {
+    await resetPasswordByToken(token, password);
+  } catch (error) {
+    if (!formSubmission) {
+      throw error;
+    }
+
+    if (error instanceof AppError) {
+      if (error.code === "INVALID_TOKEN" || error.code === "TOKEN_EXPIRED") {
+        renderPasswordResetMessage(
+          res,
+          error.statusCode,
+          "Ошибка восстановления",
+          error.message,
+          "error",
+        );
+        return;
+      }
+
+      renderPasswordResetForm(res, error.statusCode, {
+        token,
+        message: error.message,
+        tone: "error",
+      });
+      return;
+    }
+
+    console.error("Ошибка сброса пароля:", error);
+    renderPasswordResetMessage(
+      res,
+      500,
+      "Ошибка восстановления",
+      "Не удалось обновить пароль. Попробуйте позже.",
+      "error",
+    );
+    return;
   }
-
-  const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-  const consumedAt = new Date();
-
-  await prisma.$transaction([
-    prisma.passwordResetToken.updateMany({
-      where: {
-        userId: resetToken.userId,
-        consumedAt: null,
-      },
-      data: {
-        consumedAt,
-      },
-    }),
-    prisma.user.update({
-      where: { id: resetToken.userId },
-      data: {
-        passwordHash,
-      },
-    }),
-  ]);
 
   // JWT sessions are stateless, so other devices stay signed in until token expiry.
   clearAuthCookie(res);
+
+  if (formSubmission) {
+    renderPasswordResetMessage(
+      res,
+      200,
+      "Пароль обновлён",
+      "Пароль обновлён. Можете вернуться в CROSS++ и войти с новым паролем.",
+      "success",
+    );
+    return;
+  }
 
   res.json({
     success: true,
