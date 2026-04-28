@@ -1,24 +1,16 @@
 import type { Request, Response } from "express";
-import { AppError } from "../lib/errors.js";
 import {
   createProjectLink,
   deleteProjectLink,
   listProjectLinks,
   updateProjectLinkSyncSummary,
 } from "../lib/projectLinks.js";
+import { requireUserId } from "../lib/requestContext.js";
 import type {
   CreateProjectLinkBody,
   ProjectLinkParams,
   UpdateProjectLinkSyncSummaryBody,
 } from "../lib/validation.js";
-
-function requireUserId(req: Request) {
-  if (!req.userId) {
-    throw new AppError("Требуется авторизация", 401);
-  }
-
-  return req.userId;
-}
 
 export async function getProjectLinks(req: Request, res: Response) {
   const userId = requireUserId(req);

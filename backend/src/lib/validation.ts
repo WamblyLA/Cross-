@@ -35,7 +35,7 @@ const projectMemberRoleSchema = z.enum(["editor", "viewer"], {
   message: "Поддерживаются только роли editor и viewer",
 });
 
-const passwordSchema = z
+export const passwordSchema = z
   .string()
   .min(8, "Пароль должен быть не короче 8 символов")
   .refine(
@@ -59,6 +59,7 @@ const themeSchema = z.enum(["dark", "light"], {
   message: "Поддерживаются только темы dark и light",
 });
 
+// Auth and profile
 export const registerBodySchema = z
   .object({
     username: usernameSchema,
@@ -102,6 +103,55 @@ export const loginBodySchema = z
 
 export type LoginBody = z.infer<typeof loginBodySchema>;
 
+export const verifyEmailBodySchema = z
+  .object({
+    token: trimmedString().min(1, "Токен подтверждения обязателен"),
+  })
+  .strict();
+
+export type VerifyEmailBody = z.infer<typeof verifyEmailBodySchema>;
+
+export const resendVerificationBodySchema = z
+  .object({
+    login: trimmedString()
+      .min(3, "Введите email или имя пользователя")
+      .max(320, "Значение слишком длинное"),
+  })
+  .strict()
+  .transform((data) => ({
+    login: data.login.toLowerCase(),
+  }));
+
+export type ResendVerificationBody = z.infer<typeof resendVerificationBodySchema>;
+
+export const forgotPasswordBodySchema = z
+  .object({
+    email: emailSchema,
+  })
+  .strict();
+
+export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;
+
+export const resetPasswordBodySchema = z
+  .object({
+    token: trimmedString().min(1, "Токен восстановления обязателен"),
+    password: passwordSchema,
+    passwordConfirm: z.string().min(1, "Подтвердите пароль"),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.password !== data.passwordConfirm) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["passwordConfirm"],
+        message: "Пароли не совпадают",
+      });
+    }
+  });
+
+export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;
+
+// Projects and collaboration
 export const createProjectBodySchema = z.object({ name: projectNameSchema }).strict();
 export type CreateProjectBody = z.infer<typeof createProjectBodySchema>;
 
@@ -123,16 +173,14 @@ export const projectMemberParamsSchema = z
 
 export type ProjectMemberParams = z.infer<typeof projectMemberParamsSchema>;
 
-export const createProjectMemberBodySchema = z
+const projectInvitationRecipientBodySchema = z
   .object({
     email: emailSchema,
     role: projectMemberRoleSchema,
   })
   .strict();
 
-export type CreateProjectMemberBody = z.infer<typeof createProjectMemberBodySchema>;
-
-export const createProjectInvitationBodySchema = createProjectMemberBodySchema;
+export const createProjectInvitationBodySchema = projectInvitationRecipientBodySchema;
 export type CreateProjectInvitationBody = z.infer<typeof createProjectInvitationBodySchema>;
 
 export const updateProjectMemberBodySchema = z
@@ -155,6 +203,7 @@ export type ProjectInvitationParams = z.infer<typeof projectInvitationParamsSche
 export const invitationActionParamsSchema = z.object({ id: idSchema }).strict();
 export type InvitationActionParams = z.infer<typeof invitationActionParamsSchema>;
 
+// Cloud projects, folders and files
 export const fileParamsSchema = z
   .object({
     projectId: idSchema,
@@ -236,6 +285,7 @@ export const moveFolderBodySchema = z
 
 export type MoveFolderBody = z.infer<typeof moveFolderBodySchema>;
 
+// Project links and settings
 export const projectLinkBodySchema = z
   .object({
     projectId: idSchema,

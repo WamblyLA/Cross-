@@ -1,6 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import { COOKIE_NAME } from "../config.js";
-import { verifyAuthToken } from "../lib/auth.js";
+import { extractBearerToken, verifyAuthToken } from "../lib/auth.js";
 
 function parseCookies(headerValue: string | undefined) {
   const cookies = new Map<string, string>();
@@ -21,16 +21,6 @@ function parseCookies(headerValue: string | undefined) {
 
   return cookies;
 }
-
-function extractBearerToken(headerValue: string | undefined) {
-  if (!headerValue || !headerValue.startsWith("Bearer ")) {
-    return null;
-  }
-
-  const token = headerValue.slice(7).trim();
-  return token || null;
-}
-
 export function authenticateWebSocketRequest(request: IncomingMessage) {
   const cookies = parseCookies(request.headers.cookie);
   const token = cookies.get(COOKIE_NAME) ?? extractBearerToken(request.headers.authorization);

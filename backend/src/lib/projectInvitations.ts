@@ -1,4 +1,9 @@
-import type { ProjectInvitation, ProjectInvitationStatus, ProjectMemberRole } from "../../generated/prisma/index.js";
+import type {
+  Prisma,
+  ProjectInvitation,
+  ProjectInvitationStatus,
+  ProjectMemberRole,
+} from "../../generated/prisma/index.js";
 import { AppError } from "./errors.js";
 import { requireProjectOwnerAccess, requireProjectReadAccess } from "./projectAccess.js";
 import { prisma } from "./prisma.js";
@@ -57,6 +62,23 @@ function createInvitationNotPendingError() {
     undefined,
     "INVITATION_NOT_PENDING",
   );
+}
+
+async function archiveInvitationNotification(
+  transaction: Prisma.TransactionClient,
+  invitationId: string,
+  timestamp: Date,
+) {
+  await transaction.notification.updateMany({
+    where: {
+      projectInvitationId: invitationId,
+      archivedAt: null,
+    },
+    data: {
+      archivedAt: timestamp,
+      readAt: timestamp,
+    },
+  });
 }
 
 export async function listPendingProjectInvitationsForOwnerView(
@@ -245,16 +267,7 @@ export async function revokeProjectInvitation(input: {
       },
     });
 
-    await tx.notification.updateMany({
-      where: {
-        projectInvitationId: invitation.id,
-        archivedAt: null,
-      },
-      data: {
-        archivedAt: now,
-        readAt: now,
-      },
-    });
+    await archiveInvitationNotification(tx, invitation.id, now);
   });
 }
 
@@ -310,16 +323,7 @@ export async function acceptProjectInvitation(userId: string, invitationId: stri
       },
     });
 
-    await tx.notification.updateMany({
-      where: {
-        projectInvitationId: invitation.id,
-        archivedAt: null,
-      },
-      data: {
-        archivedAt: now,
-        readAt: now,
-      },
-    });
+    await archiveInvitationNotification(tx, invitation.id, now);
 
     return {
       invitationId: invitation.id,
@@ -360,16 +364,7 @@ export async function declineProjectInvitation(userId: string, invitationId: str
       },
     });
 
-    await tx.notification.updateMany({
-      where: {
-        projectInvitationId: invitation.id,
-        archivedAt: null,
-      },
-      data: {
-        archivedAt: now,
-        readAt: now,
-      },
-    });
+    await archiveInvitationNotification(tx, invitation.id, now);
 
     return {
       invitationId: invitation.id,
