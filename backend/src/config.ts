@@ -55,13 +55,14 @@ const defaultPublicUrl = DEFAULT_CORS_ORIGINS[0] ?? "http://127.0.0.1:4173";
 const configuredPublicUrl = (env.APP_PUBLIC_URL || env.FRONTEND_PUBLIC_URL || defaultPublicUrl)
   .trim()
   .replace(/\/+$/, "");
-const smtpFields = [
-  env.SMTP_HOST,
-  env.SMTP_PORT,
-  env.SMTP_FROM,
-];
-const hasAnySmtpConfig = smtpFields.some((value) => value !== undefined && value !== "");
-const hasFullSmtpConfig = smtpFields.every((value) => value !== undefined && value !== "");
+const smtpHost = env.SMTP_HOST?.trim();
+const smtpFrom = env.SMTP_FROM?.trim();
+const smtpPort = env.SMTP_PORT;
+
+const smtpRequiredFields = [smtpHost, smtpPort, smtpFrom];
+
+const hasAnySmtpConfig = smtpRequiredFields.some((value) => value !== undefined && value !== "");
+const hasFullSmtpConfig = Boolean(smtpHost) && Boolean(smtpPort) && Boolean(smtpFrom);
 
 if (hasAnySmtpConfig && !hasFullSmtpConfig) {
   throw new Error("SMTP_* переменные должны быть заполнены полностью или не заданы вовсе");
@@ -100,10 +101,10 @@ export const EMAIL_VERIFICATION_TTL_HOURS = env.EMAIL_VERIFICATION_TTL_HOURS;
 export const PASSWORD_RESET_TTL_HOURS = env.PASSWORD_RESET_TTL_HOURS;
 export const SMTP_CONFIG = hasFullSmtpConfig
   ? {
-      host: env.SMTP_HOST!,
-      port: env.SMTP_PORT!,
-      user: env.SMTP_USER!,
-      password: env.SMTP_PASSWORD!,
-      from: env.SMTP_FROM!,
+      host: smtpHost!,
+      port: smtpPort!,
+      user: env.SMTP_USER?.trim() || undefined,
+      password: env.SMTP_PASSWORD?.trim() || undefined,
+      from: smtpFrom!,
     }
   : null;
