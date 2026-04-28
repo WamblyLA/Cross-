@@ -1,13 +1,25 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { login, logout, register } from "../controllers/authController.js";
+import {
+  forgotPassword,
+  login,
+  logout,
+  register,
+  resendVerificationEmail,
+  resetPassword,
+  verifyEmail,
+} from "../controllers/authController.js";
 import {
   AUTH_RATE_LIMIT_MAX,
   AUTH_RATE_LIMIT_WINDOW_MS,
 } from "../config.js";
 import {
+  forgotPasswordBodySchema,
   loginBodySchema,
   registerBodySchema,
+  resendVerificationBodySchema,
+  resetPasswordBodySchema,
+  verifyEmailBodySchema,
 } from "../lib/validation.js";
 import { validateRequest } from "../middleware/validate.js";
 
@@ -20,13 +32,37 @@ const authRateLimiter = rateLimit({
   legacyHeaders: false,
   message: {
     error: {
-      message: "Слишком много попыток авторизации, попробуйте позже",
+      message: "Слишком много попыток авторизации. Попробуйте позже.",
     },
   },
 });
 
 router.post("/register", authRateLimiter, validateRequest({ body: registerBodySchema }), register);
 router.post("/login", authRateLimiter, validateRequest({ body: loginBodySchema }), login);
+router.post(
+  "/verify-email",
+  authRateLimiter,
+  validateRequest({ body: verifyEmailBodySchema }),
+  verifyEmail,
+);
+router.post(
+  "/resend-verification",
+  authRateLimiter,
+  validateRequest({ body: resendVerificationBodySchema }),
+  resendVerificationEmail,
+);
+router.post(
+  "/forgot-password",
+  authRateLimiter,
+  validateRequest({ body: forgotPasswordBodySchema }),
+  forgotPassword,
+);
+router.post(
+  "/reset-password",
+  authRateLimiter,
+  validateRequest({ body: resetPasswordBodySchema }),
+  resetPassword,
+);
 router.post("/logout", logout);
 
 export default router;

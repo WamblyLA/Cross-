@@ -8,6 +8,7 @@ export const selectAuthPending = (state: StateType) => state.auth.authPending;
 export const selectSettingsPending = (state: StateType) => state.auth.settingsPending;
 export const selectSessionError = (state: StateType) => state.auth.sessionError;
 export const selectActionError = (state: StateType) => state.auth.actionError;
+export const selectPendingVerification = (state: StateType) => state.auth.pendingVerification;
 export const selectIsAuthenticated = (state: StateType) =>
   state.auth.sessionStatus === "authenticated";
 export const selectAuthDisplayName = (state: StateType) =>

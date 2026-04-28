@@ -35,7 +35,7 @@ const projectMemberRoleSchema = z.enum(["editor", "viewer"], {
   message: "Поддерживаются только роли editor и viewer",
 });
 
-const passwordSchema = z
+export const passwordSchema = z
   .string()
   .min(8, "Пароль должен быть не короче 8 символов")
   .refine(
@@ -102,6 +102,54 @@ export const loginBodySchema = z
   }));
 
 export type LoginBody = z.infer<typeof loginBodySchema>;
+
+export const verifyEmailBodySchema = z
+  .object({
+    token: trimmedString().min(1, "Токен подтверждения обязателен"),
+  })
+  .strict();
+
+export type VerifyEmailBody = z.infer<typeof verifyEmailBodySchema>;
+
+export const resendVerificationBodySchema = z
+  .object({
+    login: trimmedString()
+      .min(3, "Введите email или имя пользователя")
+      .max(320, "Значение слишком длинное"),
+  })
+  .strict()
+  .transform((data) => ({
+    login: data.login.toLowerCase(),
+  }));
+
+export type ResendVerificationBody = z.infer<typeof resendVerificationBodySchema>;
+
+export const forgotPasswordBodySchema = z
+  .object({
+    email: emailSchema,
+  })
+  .strict();
+
+export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;
+
+export const resetPasswordBodySchema = z
+  .object({
+    token: trimmedString().min(1, "Токен восстановления обязателен"),
+    password: passwordSchema,
+    passwordConfirm: z.string().min(1, "Подтвердите пароль"),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.password !== data.passwordConfirm) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["passwordConfirm"],
+        message: "Пароли не совпадают",
+      });
+    }
+  });
+
+export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;
 
 // Projects and collaboration
 export const createProjectBodySchema = z.object({ name: projectNameSchema }).strict();

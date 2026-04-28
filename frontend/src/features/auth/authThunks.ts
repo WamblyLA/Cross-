@@ -7,6 +7,7 @@ import type {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  RegisterResponse,
   UpdateProfilePayload,
   UpdateSettingsPayload,
 } from "./authTypes";
@@ -58,17 +59,11 @@ export const login = createAsyncThunk<AuthenticatedSession, LoginPayload, AuthTh
   },
 );
 
-export const register = createAsyncThunk<AuthenticatedSession, RegisterPayload, AuthThunkConfig>(
+export const register = createAsyncThunk<RegisterResponse, RegisterPayload, AuthThunkConfig>(
   "auth/register",
   async (payload, { rejectWithValue }) => {
     try {
-      const { user } = await authApi.register(payload);
-      const { settings } = await authApi.fetchSettings();
-
-      return {
-        user,
-        settings,
-      };
+      return await authApi.register(payload);
     } catch (error) {
       return rejectWithValue(normalizeApiError(error));
     }

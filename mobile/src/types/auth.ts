@@ -4,6 +4,7 @@ export type AuthUser = {
   id: string;
   username: string;
   email: string;
+  emailVerified: boolean;
 };
 
 export type LoginPayload = {
@@ -18,8 +19,20 @@ export type RegisterPayload = {
   passwordConfirm: string;
 };
 
+export type RegisterResponse = {
+  message: string;
+  requiresEmailVerification: true;
+  user: AuthUser;
+};
+
 export type AuthResponse = {
   token: string;
   expiresIn: string;
   user: AuthUser;
+};
+
+export type PendingVerificationState = {
+  login: string | null;
+  email: string | null;
+  message: string | null;
 };

@@ -92,7 +92,7 @@ export function clearAuthCookie(res: Response) {
 }
 
 export function createAuthResponse(
-  user: { id: string; username: string; email: string },
+  user: { id: string; username: string; email: string; emailVerified: boolean },
   token: string,
 ) {
   return {

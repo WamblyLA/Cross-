@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { clearActionError } from "../../features/auth/authSlice";
-import { getApiErrorDetail } from "../../lib/api/errorNormalization";
+import { getApiErrorDetail, isApiError } from "../../lib/api/errorNormalization";
 import { useAuth } from "../../hooks/useAuth";
 import { useAppDispatch } from "../../store/hooks";
 import InputField from "../../ui/InputField";
@@ -29,7 +30,8 @@ function validateLogin(values: LoginFormValues) {
 
 export default function LoginForm() {
   const dispatch = useAppDispatch();
-  const { authPending, actionError, login } = useAuth();
+  const navigate = useNavigate();
+  const { authPending, actionError, login, setPendingVerification } = useAuth();
   const [values, setValues] = useState<LoginFormValues>({
     login: "",
     password: "",
@@ -58,8 +60,15 @@ export default function LoginForm() {
         login: values.login.trim(),
         password: values.password,
       }).unwrap();
-    } catch {
-      // TODO
+    } catch (error) {
+      if (isApiError(error) && error.code === "EMAIL_NOT_VERIFIED") {
+        setPendingVerification({
+          login: values.login.trim(),
+          email: values.login.includes("@") ? values.login.trim() : null,
+          message: error.message,
+        });
+        navigate("/auth/check-email");
+      }
     }
   };
 
@@ -83,6 +92,12 @@ export default function LoginForm() {
         error={passwordError}
         placeholder="Введите пароль"
       />
+
+      <div className="flex justify-end">
+        <Link to="/auth/forgot-password" className="text-sm text-secondary transition hover:text-primary">
+          Забыли пароль?
+        </Link>
+      </div>
 
       {generalError ? <div className="text-sm text-error">{generalError}</div> : null}
 

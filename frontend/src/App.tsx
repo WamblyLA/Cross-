@@ -11,8 +11,12 @@ import { hydrateAccountVisualSettings } from "./features/visualSettings/visualSe
 import { writeStoredVisualSettings } from "./features/visualSettings/visualSettingsStorage";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import AccountPage from "./pages/AccountPage";
-import MainPage from "./pages/MainPage";
 import AuthPage from "./pages/AuthPage";
+import CheckEmailPage from "./pages/CheckEmailPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import MainPage from "./pages/MainPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 import AppShellLayout from "./layouts/AppShellLayout";
 
 export default function App() {
@@ -37,12 +41,16 @@ export default function App() {
     <BrowserRouter>
       <AuthBootstrap>
         <Routes>
-          <Route element={<RedirectIfAuthenticated />}>
-            <Route path="/auth" element={<AuthPage />}>
+          <Route path="/auth" element={<AuthPage />}>
+            <Route element={<RedirectIfAuthenticated />}>
               <Route index element={<Navigate to="login" replace />} />
               <Route path="login" element={<LoginForm />} />
               <Route path="register" element={<RegisterForm />} />
+              <Route path="check-email" element={<CheckEmailPage />} />
+              <Route path="forgot-password" element={<ForgotPasswordPage />} />
             </Route>
+            <Route path="verify-email" element={<VerifyEmailPage />} />
+            <Route path="reset-password" element={<ResetPasswordPage />} />
           </Route>
 
           <Route element={<AppShellLayout />}>

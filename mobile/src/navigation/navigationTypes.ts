@@ -10,6 +10,8 @@ export type AuthStackParamList = {
   GuestHome: undefined;
   Login: undefined;
   Register: undefined;
+  CheckEmail: undefined;
+  ForgotPassword: undefined;
 };
 
 export type AuthenticatedStackParamList = {

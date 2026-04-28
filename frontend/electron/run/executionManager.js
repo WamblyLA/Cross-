@@ -1,3 +1,4 @@
+import fs from "fs/promises";
 import { spawn } from "child_process";
 import path from "path";
 import {
@@ -5,8 +6,10 @@ import {
   buildWindowsCommandLine,
   createRunId,
   ensureDirectory,
+  existsFile,
   parseArgumentsText,
   parseEnvironmentText,
+  quoteWindowsArgument,
   toErrorMessage,
 } from "./utils.js";
 
@@ -14,6 +17,8 @@ const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 30;
 const STOP_GRACE_TIMEOUT_MS = 1200;
 const STOP_FORCE_TIMEOUT_MS = 3000;
+const CPP_BUILD_TIMEOUT_MS = 5 * 60 * 1000;
+const CPP_RUN_TIMEOUT_MS = 10 * 60 * 1000;
 
 function isCppSourceExtension(extension) {
   return ["cpp", "cc", "cxx"].includes(`${extension ?? ""}`.trim().toLowerCase());
@@ -67,6 +72,51 @@ function createSerializableSession(session) {
     isBusy: isBusyStatus(session.status),
     canRerun: Boolean(session.launchRequest),
   };
+}
+
+function formatCommandForDisplay(command, args = []) {
+  if (process.platform === "win32") {
+    return buildWindowsCommandLine(command, args);
+  }
+
+  return [command, ...args]
+    .map((part) => (/\s/u.test(part) ? JSON.stringify(part) : part))
+    .join(" ");
+}
+
+function prependPathEntry(environment, pathEntry) {
+  if (!pathEntry) {
+    return environment;
+  }
+
+  const currentPath = environment.PATH ?? process.env.PATH ?? "";
+  return {
+    ...environment,
+    PATH: currentPath ? `${pathEntry}${path.delimiter}${currentPath}` : pathEntry,
+  };
+}
+
+function getToolchainBinDirectory(toolchain) {
+  return toolchain?.path ? path.dirname(toolchain.path) : null;
+}
+
+async function writeMsvcResponseFile(responseFilePath, args) {
+  const responseBody = args.map((arg) => quoteWindowsArgument(arg)).join("\r\n");
+  await fs.writeFile(responseFilePath, responseBody, "utf-8");
+}
+
+function buildStageStartErrorMessage(error, label) {
+  const code = error && typeof error === "object" ? error.code : null;
+
+  if (code === "ENOENT") {
+    return `${label} не найден. Проверьте, что инструмент установлен и доступен в системе.`;
+  }
+
+  if (code === "EPERM") {
+    return `${label} не удалось запустить. Проверьте права доступа и путь к инструменту.`;
+  }
+
+  return toErrorMessage(error, `Не удалось запустить ${label}.`);
 }
 
 async function terminateProcessTree(pid, { force }) {
@@ -156,6 +206,32 @@ export function createExecutionManager({
       clearTimeout(session.finalizeStopTimer);
       session.finalizeStopTimer = null;
     }
+
+    if (session.stageTimeoutTimer) {
+      clearTimeout(session.stageTimeoutTimer);
+      session.stageTimeoutTimer = null;
+    }
+  }
+
+  function queueCleanupPath(session, targetPath) {
+    if (!targetPath) {
+      return;
+    }
+
+    session.cleanupPaths.add(targetPath);
+  }
+
+  function cleanupSessionArtifacts(session) {
+    if (session.cleanupPaths.size === 0) {
+      return;
+    }
+
+    const cleanupPaths = [...session.cleanupPaths];
+    session.cleanupPaths.clear();
+
+    void Promise.all(
+      cleanupPaths.map((targetPath) => fs.rm(targetPath, { recursive: true, force: true })),
+    ).catch(() => undefined);
   }
 
   function finishSession(session, patch) {
@@ -168,6 +244,7 @@ export function createExecutionManager({
     session.activeProcess = null;
     session.childPid = null;
     session.stopSequencePromise = null;
+    session.timeoutFailure = null;
 
     Object.assign(session, {
       ...patch,
@@ -180,7 +257,9 @@ export function createExecutionManager({
     }
 
     lastSession = session;
-    return emitSession(session);
+    const snapshot = emitSession(session);
+    cleanupSessionArtifacts(session);
+    return snapshot;
   }
 
   function createBaseSession(configuration, launchRequest) {
@@ -219,8 +298,11 @@ export function createExecutionManager({
       gracefulStopSent: false,
       forceKillTimer: null,
       finalizeStopTimer: null,
+      stageTimeoutTimer: null,
+      timeoutFailure: null,
       stopSequencePromise: null,
       finalized: false,
+      cleanupPaths: new Set(),
     };
   }
 
@@ -264,7 +346,7 @@ export function createExecutionManager({
       try {
         await terminateProcessTree(pid, { force: false });
       } catch {
-        // DONE
+        // expected on already-exited processes
       }
 
       session.forceKillTimer = setTimeout(() => {
@@ -401,22 +483,29 @@ export function createExecutionManager({
       return null;
     }
 
-    const child = spawn(options.command, options.args, {
-      cwd: options.cwd,
-      env: {
-        ...process.env,
-        ...(options.env ?? {}),
-      },
-      shell: false,
-      windowsHide: true,
-      detached: process.platform !== "win32",
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    let child;
+
+    try {
+      child = spawn(options.command, options.args, {
+        cwd: options.cwd,
+        env: {
+          ...process.env,
+          ...(options.env ?? {}),
+        },
+        shell: false,
+        windowsHide: true,
+        detached: process.platform !== "win32",
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch (error) {
+      throw new Error(buildStageStartErrorMessage(error, options.displayLabel));
+    }
 
     session.activeProcess = child;
     session.childPid = child.pid ?? null;
     session.runtimeLabel = options.runtimeLabel ?? null;
     session.supportsInput = Boolean(options.supportsInput);
+    session.timeoutFailure = null;
 
     updateSession(session, {
       status: options.status,
@@ -446,8 +535,26 @@ export function createExecutionManager({
     });
 
     child.stdin?.on("error", () => {
-      // EXPECTED
+      // expected if the process exits before stdin flushes
     });
+
+    if (options.timeoutMs) {
+      const timeoutMessage = options.timeoutMessage;
+      const timer = setTimeout(() => {
+        if (session.finalized || session.activeProcess !== child || session.stopRequested) {
+          return;
+        }
+
+        session.timeoutFailure = {
+          message: timeoutMessage,
+          exitCode: null,
+        };
+        emitSystemLine(session, timeoutMessage);
+        void terminateProcessTree(session.childPid, { force: true }).catch(() => undefined);
+      }, options.timeoutMs);
+
+      session.stageTimeoutTimer = timer;
+    }
 
     const completionPromise = new Promise((resolve, reject) => {
       let settled = false;
@@ -462,7 +569,10 @@ export function createExecutionManager({
       };
 
       child.once("error", (error) => {
-        finalize(error, reject);
+        finalize(
+          new Error(buildStageStartErrorMessage(error, options.displayLabel)),
+          reject,
+        );
       });
 
       child.once("close", (exitCode) => {
@@ -477,6 +587,11 @@ export function createExecutionManager({
 
     return {
       completionPromise: completionPromise.finally(() => {
+        if (session.stageTimeoutTimer) {
+          clearTimeout(session.stageTimeoutTimer);
+          session.stageTimeoutTimer = null;
+        }
+
         if (session.activeProcess === child) {
           session.activeProcess = null;
           session.childPid = null;
@@ -511,6 +626,7 @@ export function createExecutionManager({
         statusText: "Выполнение",
         runtimeLabel: path.basename(interpreter.path),
         supportsInput: true,
+        displayLabel: "Python",
       });
 
       if (!stage) {
@@ -556,54 +672,87 @@ export function createExecutionManager({
     const compileArguments = parseArgumentsText(configuration.compilerArgumentsText);
     const runtimeArguments = parseArgumentsText(configuration.argumentsText);
     const runtimeEnvironment = parseEnvironmentText(configuration.environmentText);
+    const toolchainBinDirectory = getToolchainBinDirectory(toolchain);
+    const compilerEnvironment = prependPathEntry({}, toolchainBinDirectory);
+    const launchEnvironment = prependPathEntry(runtimeEnvironment, toolchainBinDirectory);
 
     await ensureDirectory(buildDirectory);
+    queueCleanupPath(session, buildDirectory);
     emitSystemLine(session, `Сборка C++: ${toolchain.label}`);
 
-    const compileStage =
-      toolchain.kind === "msvc" && toolchain.setupScriptPath
-        ? {
-            command: process.env.comspec || "cmd.exe",
-            args: [
-              "/d",
-              "/s",
-              "/c",
-              `"${toolchain.setupScriptPath}" && ${buildWindowsCommandLine(
-                toolchain.path ?? "cl.exe",
-                [
-                  "/nologo",
-                  "/std:c++17",
-                  "/EHsc",
-                  "/Zi",
-                  `/Fe:${binaryPath}`,
-                  `/Fo:${path.join(buildDirectory, "")}`,
-                  preparedTarget.targetPath,
-                  ...compileArguments,
-                ],
-              )}`,
-            ],
-          }
-        : {
-            command: toolchain.path ?? "g++",
-            args: [
-              preparedTarget.targetPath,
-              "-std=c++17",
-              "-g",
-              "-o",
-              binaryPath,
-              ...compileArguments,
-            ],
-          };
+    let compileStageConfig;
+
+    if (toolchain.kind === "msvc" && toolchain.setupScriptPath) {
+      const responseFilePath = path.join(buildDirectory, "compile.rsp");
+      const responseFileArguments = [
+        "/nologo",
+        "/std:c++17",
+        "/EHsc",
+        "/Zi",
+        `/Fe:${binaryPath}`,
+        `/Fo:${path.join(buildDirectory, "")}`,
+        preparedTarget.targetPath,
+        ...compileArguments,
+      ];
+
+      await writeMsvcResponseFile(responseFilePath, responseFileArguments);
+
+      const compilerCommand = buildWindowsCommandLine(toolchain.path ?? "cl.exe", [
+        `@${responseFilePath}`,
+      ]);
+
+      compileStageConfig = {
+        command: process.env.comspec || "cmd.exe",
+        args: [
+          "/d",
+          "/s",
+          "/c",
+          `call ${quoteWindowsArgument(toolchain.setupScriptPath)} && ${compilerCommand}`,
+        ],
+        displayCommand: formatCommandForDisplay(process.env.comspec || "cmd.exe", [
+          "/d",
+          "/s",
+          "/c",
+          `call ${quoteWindowsArgument(toolchain.setupScriptPath)} && ${compilerCommand}`,
+        ]),
+      };
+    } else {
+      compileStageConfig = {
+        command: toolchain.path ?? "g++",
+        args: [
+          preparedTarget.targetPath,
+          "-std=c++17",
+          "-g",
+          "-o",
+          binaryPath,
+          ...compileArguments,
+        ],
+        displayCommand: formatCommandForDisplay(toolchain.path ?? "g++", [
+          preparedTarget.targetPath,
+          "-std=c++17",
+          "-g",
+          "-o",
+          binaryPath,
+          ...compileArguments,
+        ]),
+      };
+    }
+
+    emitSystemLine(session, `Команда сборки: ${compileStageConfig.displayCommand}`);
 
     const buildStage = spawnStage(session, {
-      command: compileStage.command,
-      args: compileStage.args,
+      command: compileStageConfig.command,
+      args: compileStageConfig.args,
       cwd: preparedTarget.workingDirectory,
+      env: compilerEnvironment,
       status: "building",
       stage: "build",
       statusText: "Сборка",
       runtimeLabel: toolchain.label,
       supportsInput: false,
+      timeoutMs: CPP_BUILD_TIMEOUT_MS,
+      timeoutMessage: "Сборка C++ превысила лимит времени и была остановлена.",
+      displayLabel: "компилятор C++",
     });
 
     if (!buildStage) {
@@ -613,6 +762,17 @@ export function createExecutionManager({
     void buildStage.completionPromise
       .then((buildExitInfo) => {
         if (session.finalized) {
+          return;
+        }
+
+        if (session.timeoutFailure) {
+          finishSession(session, {
+            status: "failed",
+            stage: "finish",
+            statusText: "Таймаут сборки",
+            exitCode: buildExitInfo.exitCode,
+            errorMessage: session.timeoutFailure.message,
+          });
           return;
         }
 
@@ -632,18 +792,36 @@ export function createExecutionManager({
           return;
         }
 
+        if (!existsFile(binaryPath)) {
+          finishSession(session, {
+            status: "failed",
+            stage: "finish",
+            statusText: "Ошибка сборки",
+            exitCode: null,
+            errorMessage: "Компилятор завершился без ошибки, но выходной файл не был создан.",
+          });
+          return;
+        }
+
         emitSystemLine(session, "Сборка завершена успешно. Запуск программы...");
+        emitSystemLine(
+          session,
+          `Команда запуска: ${formatCommandForDisplay(binaryPath, runtimeArguments)}`,
+        );
 
         const runtimeStage = spawnStage(session, {
           command: binaryPath,
           args: runtimeArguments,
           cwd: preparedTarget.workingDirectory,
-          env: runtimeEnvironment,
+          env: launchEnvironment,
           status: "running",
           stage: "run",
           statusText: "Выполнение",
           runtimeLabel: path.basename(binaryPath),
           supportsInput: true,
+          timeoutMs: CPP_RUN_TIMEOUT_MS,
+          timeoutMessage: "Выполнение C++ превысило лимит времени и было остановлено.",
+          displayLabel: "собранная C++ программа",
         });
 
         if (!runtimeStage) {
@@ -653,6 +831,17 @@ export function createExecutionManager({
         void runtimeStage.completionPromise
           .then((runtimeExitInfo) => {
             if (session.finalized) {
+              return;
+            }
+
+            if (session.timeoutFailure) {
+              finishSession(session, {
+                status: "failed",
+                stage: "finish",
+                statusText: "Таймаут выполнения",
+                exitCode: runtimeExitInfo.exitCode,
+                errorMessage: session.timeoutFailure.message,
+              });
               return;
             }
 
@@ -838,6 +1027,7 @@ export function createExecutionManager({
   function dispose() {
     if (activeSession?.childPid) {
       void terminateProcessTree(activeSession.childPid, { force: true }).catch(() => undefined);
+      cleanupSessionArtifacts(activeSession);
     }
 
     activeSession = null;
