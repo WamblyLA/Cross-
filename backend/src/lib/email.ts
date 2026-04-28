@@ -15,16 +15,21 @@ function getTransporter() {
     return null;
   }
 
+  const transportOptions: any = {
+    host: SMTP_CONFIG.host,
+    port: SMTP_CONFIG.port,
+    secure: SMTP_CONFIG.port === 465,
+  };
+
+  if (SMTP_CONFIG.user && SMTP_CONFIG.password) {
+    transportOptions.auth = {
+      user: SMTP_CONFIG.user,
+      pass: SMTP_CONFIG.password,
+    };
+  }
+
   transporterPromise ??= Promise.resolve(
-    nodemailer.createTransport({
-      host: SMTP_CONFIG.host,
-      port: SMTP_CONFIG.port,
-      secure: SMTP_CONFIG.port === 465,
-      auth: {
-        user: SMTP_CONFIG.user,
-        pass: SMTP_CONFIG.password,
-      },
-    }),
+    nodemailer.createTransport(transportOptions),
   );
 
   return transporterPromise;

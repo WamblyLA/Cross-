@@ -58,8 +58,6 @@ const configuredPublicUrl = (env.APP_PUBLIC_URL || env.FRONTEND_PUBLIC_URL || de
 const smtpFields = [
   env.SMTP_HOST,
   env.SMTP_PORT,
-  env.SMTP_USER,
-  env.SMTP_PASSWORD,
   env.SMTP_FROM,
 ];
 const hasAnySmtpConfig = smtpFields.some((value) => value !== undefined && value !== "");
