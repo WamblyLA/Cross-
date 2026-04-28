@@ -8,7 +8,7 @@ export default function TopBarAccountControls() {
   const navigate = useNavigate();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const { displayName, isAuthenticated, authPending, logout } = useAuth();
+  const { user, displayName, isAuthenticated, authPending, logout } = useAuth();
   const resolvedDisplayName = displayName ?? "Профиль";
 
   const menuSections = useMemo<MenuSection[]>(
@@ -16,14 +16,29 @@ export default function TopBarAccountControls() {
       {
         id: "account-meta",
         title: isAuthenticated ? "Аккаунт" : "Гость",
-        items: [
-          {
-            id: "account-label",
-            label: isAuthenticated ? resolvedDisplayName : "Вход не выполнен",
-            disabled: true,
-            onSelect: () => undefined,
-          },
-        ],
+        items: isAuthenticated
+          ? [
+              {
+                id: "account-name",
+                label: resolvedDisplayName,
+                disabled: true,
+                onSelect: () => undefined,
+              },
+              {
+                id: "account-email",
+                label: user?.email ?? "Email недоступен",
+                disabled: true,
+                onSelect: () => undefined,
+              },
+            ]
+          : [
+              {
+                id: "account-label",
+                label: "Вход не выполнен",
+                disabled: true,
+                onSelect: () => undefined,
+              },
+            ],
       },
       {
         id: "account-actions",
@@ -62,7 +77,7 @@ export default function TopBarAccountControls() {
             ],
       },
     ],
-    [authPending, isAuthenticated, logout, navigate, resolvedDisplayName],
+    [authPending, isAuthenticated, logout, navigate, resolvedDisplayName, user?.email],
   );
 
   const anchorRect = triggerRef.current?.getBoundingClientRect() ?? null;

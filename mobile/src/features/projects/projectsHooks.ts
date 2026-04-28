@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as projectsApi from "./projectsApi";
 import type { ApiError } from "../../types/api";
 
@@ -15,6 +15,35 @@ export function useProjectsQuery() {
     queryFn: async () => {
       const response = await projectsApi.listProjects();
       return response.projects;
+    },
+  });
+}
+
+export function useCreateProjectMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    Awaited<ReturnType<typeof projectsApi.createProject>>,
+    ApiError,
+    { name: string }
+  >({
+    mutationFn: (payload) => projectsApi.createProject(payload),
+    onSuccess: (response) => {
+      queryClient.setQueryData(projectsQueryKeys.detail(response.project.id), response.project);
+      queryClient.setQueryData<
+        Awaited<ReturnType<typeof projectsApi.listProjects>>["projects"] | undefined
+      >(projectsQueryKeys.all, (currentProjects) => {
+        if (!currentProjects) {
+          return [response.project];
+        }
+
+        if (currentProjects.some((project) => project.id === response.project.id)) {
+          return currentProjects;
+        }
+
+        return [response.project, ...currentProjects];
+      });
+      void queryClient.invalidateQueries({ queryKey: projectsQueryKeys.all });
     },
   });
 }

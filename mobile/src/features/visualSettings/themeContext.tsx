@@ -22,21 +22,43 @@ type ThemeContextValue = {
   isThemeSyncPending: boolean;
   themeError: string | null;
   applyTheme: (theme: ThemeName) => Promise<void>;
+  updateVisualSettings: (patch: Partial<VisualSettings>) => Promise<void>;
   clearThemeError: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function getThemeErrorMessage(error: ApiError) {
+function getVisualSettingsErrorMessage(
+  error: ApiError,
+  changedFields: Array<keyof VisualSettings>,
+) {
+  const isThemeOnly = changedFields.length === 1 && changedFields[0] === "theme";
+
   if (error.status === 401) {
-    return "Не удалось сохранить тему. Сессия истекла.";
+    return isThemeOnly
+      ? "Не удалось сохранить тему. Сессия истекла."
+      : "Не удалось сохранить настройки редактора. Сессия истекла.";
   }
 
   if (error.isNetworkError || error.isTimeoutError) {
-    return "Не удалось сохранить тему. Проверьте подключение к сети.";
+    return isThemeOnly
+      ? "Не удалось сохранить тему. Проверьте подключение к сети."
+      : "Не удалось сохранить настройки редактора. Проверьте подключение к сети.";
   }
 
-  return "Не удалось сохранить тему оформления.";
+  return isThemeOnly
+    ? "Не удалось сохранить тему оформления."
+    : "Не удалось сохранить настройки редактора.";
+}
+
+function mergeVisualSettings(
+  currentSettings: VisualSettings,
+  patch: Partial<VisualSettings>,
+) {
+  return {
+    ...currentSettings,
+    ...patch,
+  };
 }
 
 export function ThemeProvider({ children }: PropsWithChildren) {
@@ -102,18 +124,25 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     };
   }, [sessionStatus, user?.id]);
 
-  const applyTheme = useCallback(
-    async (theme: ThemeName) => {
-      if (theme === visualSettings.theme) {
+  const updateVisualSettings = useCallback(
+    async (patch: Partial<VisualSettings>) => {
+      const changedFields = (Object.keys(patch) as Array<keyof VisualSettings>).filter(
+        (field) => patch[field] !== undefined && patch[field] !== visualSettings[field],
+      );
+
+      if (changedFields.length === 0) {
         return;
       }
 
       const previous = visualSettings;
-      const optimistic = { ...visualSettings, theme };
+      const optimistic = mergeVisualSettings(visualSettings, patch);
 
       setVisualSettings(optimistic);
       setThemeError(null);
-      await writeStoredTheme(theme);
+
+      if (patch.theme !== undefined) {
+        await writeStoredTheme(patch.theme);
+      }
 
       if (sessionStatus !== "authenticated") {
         return;
@@ -122,20 +151,34 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       setThemeSyncPending(true);
 
       try {
-        const { settings } = await updateSettings({ theme });
+        const { settings } = await updateSettings(patch);
         setVisualSettings(settings);
-        await writeStoredTheme(settings.theme);
+
+        if (patch.theme !== undefined) {
+          await writeStoredTheme(settings.theme);
+        }
       } catch (error) {
         const normalized = normalizeApiError(error);
 
         setVisualSettings(previous);
-        await writeStoredTheme(previous.theme);
-        setThemeError(getThemeErrorMessage(normalized));
+
+        if (patch.theme !== undefined) {
+          await writeStoredTheme(previous.theme);
+        }
+
+        setThemeError(getVisualSettingsErrorMessage(normalized, changedFields));
       } finally {
         setThemeSyncPending(false);
       }
     },
     [sessionStatus, visualSettings],
+  );
+
+  const applyTheme = useCallback(
+    async (theme: ThemeName) => {
+      await updateVisualSettings({ theme });
+    },
+    [updateVisualSettings],
   );
 
   const themeName = visualSettings.theme;
@@ -155,6 +198,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       isThemeSyncPending,
       themeError,
       applyTheme,
+      updateVisualSettings,
       clearThemeError,
     }),
     [
@@ -165,6 +209,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       themeError,
       themeName,
       themeTokens,
+      updateVisualSettings,
       visualSettings,
     ],
   );

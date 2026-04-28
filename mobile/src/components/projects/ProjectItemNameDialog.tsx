@@ -10,6 +10,8 @@ type ProjectItemNameDialogProps = {
   confirmLabel: string;
   initialValue?: string;
   loading?: boolean;
+  normalizeValue?: (value: string) => string;
+  validateValue?: (value: string) => string | null;
   onClose: () => void;
   onSubmit: (name: string) => void;
 };
@@ -21,6 +23,8 @@ export function ProjectItemNameDialog({
   confirmLabel,
   initialValue = "",
   loading = false,
+  normalizeValue = normalizeCloudItemName,
+  validateValue = validateCloudItemName,
   onClose,
   onSubmit,
 }: ProjectItemNameDialogProps) {
@@ -32,7 +36,7 @@ export function ProjectItemNameDialog({
     }
   }, [initialValue, visible]);
 
-  const validationError = useMemo(() => validateCloudItemName(name), [name]);
+  const validationError = useMemo(() => validateValue(name), [name, validateValue]);
 
   return (
     <AppModal
@@ -42,8 +46,8 @@ export function ProjectItemNameDialog({
       description={description}
       onClose={onClose}
       onConfirm={() => {
-        const normalized = normalizeCloudItemName(name);
-        const nextError = validateCloudItemName(normalized);
+        const normalized = normalizeValue(name);
+        const nextError = validateValue(normalized);
 
         if (nextError) {
           return;

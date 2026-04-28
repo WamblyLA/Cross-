@@ -8,6 +8,9 @@ import {
   selectNotificationsStatus,
 } from "../../features/notifications/notificationsSelectors";
 import {
+  markCollaborationActivityNotificationsRead,
+} from "../../features/notifications/notificationsSlice";
+import {
   acceptNotificationProjectInvitation,
   declineNotificationProjectInvitation,
   fetchNotifications,
@@ -44,6 +47,7 @@ export default function TopBarNotificationsInbox() {
       return;
     }
 
+    dispatch(markCollaborationActivityNotificationsRead());
     void dispatch(fetchNotifications());
   }, [dispatch, isOpen]);
 
@@ -189,11 +193,11 @@ export default function TopBarNotificationsInbox() {
                     </div>
                   ) : null}
 
-                  {notificationsStatus === "loading" ? (
+                  {notificationsStatus === "loading" && notifications.length === 0 ? (
                     <div className="rounded-[14px] border border-default bg-panel px-4 py-4 text-sm text-secondary">
                       Загружаем уведомления...
                     </div>
-                  ) : notificationsStatus === "failed" ? (
+                  ) : notificationsStatus === "failed" && notifications.length === 0 ? (
                     <div className="rounded-[14px] border border-[color:var(--error)] bg-[rgba(217,121,121,0.08)] px-4 py-4 text-sm text-error">
                       {getNotificationsLoadErrorMessage(notificationsError)}
                     </div>
@@ -203,7 +207,33 @@ export default function TopBarNotificationsInbox() {
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      {notificationsStatus === "failed" ? (
+                        <div className="rounded-[14px] border border-[color:var(--error)] bg-[rgba(217,121,121,0.08)] px-4 py-3 text-sm text-error">
+                          {getNotificationsLoadErrorMessage(notificationsError)}
+                        </div>
+                      ) : null}
+
                       {notifications.map((notification) => {
+                        if (notification.type === "COLLABORATION_ACTIVITY") {
+                          return (
+                            <div
+                              key={notification.id}
+                              className="rounded-[16px] border border-default bg-panel px-4 py-4"
+                            >
+                              <div className="text-sm text-primary">Совместная работа</div>
+                              <div className="mt-2 text-sm text-secondary">
+                                <span className="text-primary">{notification.activity.projectName}</span>
+                              </div>
+                              <div className="mt-2 text-xs leading-5 text-secondary">
+                                {notification.activity.message}
+                              </div>
+                              <div className="mt-2 text-xs text-muted">
+                                {new Date(notification.activity.updatedAt).toLocaleString("ru-RU")}
+                              </div>
+                            </div>
+                          );
+                        }
+
                         const invitation = notification.invitation;
                         const isPending = pendingInvitationId === invitation.id;
 

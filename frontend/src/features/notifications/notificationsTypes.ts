@@ -13,7 +13,7 @@ export type ProjectInvitationNotification = {
   updatedAt: string;
 };
 
-export type NotificationItem = {
+export type ProjectInvitationNotificationItem = {
   id: string;
   type: "PROJECT_INVITATION";
   createdAt: string;
@@ -21,8 +21,29 @@ export type NotificationItem = {
   invitation: ProjectInvitationNotification;
 };
 
+export type CollaborationActivityNotificationItem = {
+  id: string;
+  type: "COLLABORATION_ACTIVITY";
+  createdAt: string;
+  readAt: string | null;
+  activity: {
+    projectId: string;
+    projectName: string;
+    fileId: string;
+    fileName: string;
+    updatedAt: string;
+    message: string;
+  };
+};
+
+export type ServerNotificationItem = ProjectInvitationNotificationItem;
+export type NotificationItem =
+  | ServerNotificationItem
+  | CollaborationActivityNotificationItem;
+
 export type NotificationsState = {
-  items: NotificationItem[];
+  serverItems: ServerNotificationItem[];
+  activityItems: CollaborationActivityNotificationItem[];
   status: AsyncStatus;
   error: import("../../lib/api/errorNormalization").ApiError | null;
 };

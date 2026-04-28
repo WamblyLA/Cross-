@@ -1,16 +1,37 @@
+import { useWorkspaceActions } from "../../../hooks/useWorkspaceActions";
+import { useAppSelector } from "../../../store/hooks";
 import FloatingMenu from "../../../ui/FloatingMenu";
 import FileTreeInlineInput from "./FileTreeInlineInput";
 import FileTreeList from "./FileTreeList";
-import { useFileTreeController } from "./useFileTreeController";
 import { getDraftPlaceholder } from "./fileTreeUtils";
+import { useFileTreeController } from "./useFileTreeController";
 
 export default function FileTree() {
   const controller = useFileTreeController();
+  const { openFolder } = useWorkspaceActions();
+  const folderOpenError = useAppSelector((state) => state.workspace.folderOpenError);
+  const explorerError = controller.error ?? folderOpenError;
 
   if (!controller.rootPath) {
     return (
-      <div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted">
-        Папка пока не открыта. Используйте Файл -&gt; Открыть папку в верхнем меню.
+      <div className="flex h-full items-center justify-center px-4">
+        <div className="max-w-[320px] text-center">
+          <div className={`text-sm ${folderOpenError ? "text-error" : "text-muted"}`}>
+            {folderOpenError ??
+              "Папка пока не открыта. Используйте Файл -> Открыть папку в верхнем меню."}
+          </div>
+          {folderOpenError ? (
+            <button
+              type="button"
+              className="ui-button-primary ui-control mt-4 h-9 px-4 text-sm"
+              onClick={() => {
+                void openFolder();
+              }}
+            >
+              Выбрать другую папку
+            </button>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -21,9 +42,20 @@ export default function FileTree() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {controller.error ? (
-        <div className="border-b border-default px-3 py-2 text-sm text-error">
-          {controller.error}
+      {explorerError ? (
+        <div className="border-b border-default px-3 py-2">
+          <div className="text-sm text-error">{explorerError}</div>
+          <div className="mt-2">
+            <button
+              type="button"
+              className="ui-button-secondary ui-control h-8 px-3 text-sm"
+              onClick={() => {
+                void openFolder();
+              }}
+            >
+              Выбрать другую папку
+            </button>
+          </div>
         </div>
       ) : null}
 

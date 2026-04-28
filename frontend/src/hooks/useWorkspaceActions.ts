@@ -43,7 +43,11 @@ import {
   isCloudRealtimeHandlingFile,
 } from "../features/cloud/realtime/cloudRealtimeClient";
 import { selectActiveFile, selectOpenedFiles } from "../features/files/filesSelectors";
-import { setRootPath, setWorkspaceSource } from "../features/workspace/workspaceSlice";
+import {
+  setFolderOpenError,
+  setRootPath,
+  setWorkspaceSource,
+} from "../features/workspace/workspaceSlice";
 import { createApiError, normalizeApiError } from "../lib/api/errorNormalization";
 import { getReadOnlyCloudMessage } from "../features/cloud/projectCollaborationMessages";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
@@ -271,6 +275,11 @@ export function useWorkspaceActions() {
       return result.folderPath;
     } catch (error) {
       console.error("Ошибка при открытии папки", error);
+      dispatch(
+        setFolderOpenError(
+          "Не удалось открыть выбранную папку. Проверьте, что она существует и доступна, затем выберите другую папку.",
+        ),
+      );
       return null;
     }
   }, [dispatch]);

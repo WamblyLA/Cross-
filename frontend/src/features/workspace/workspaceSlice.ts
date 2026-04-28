@@ -22,6 +22,7 @@ type WorkspaceState = {
   activeBindingId: string | null;
   source: WorkspaceSource;
   rootPath: string | null;
+  folderOpenError: string | null;
   selectedPath: string | null;
   selectedType: FsNodeType | null;
   selectionCount: number;
@@ -34,6 +35,7 @@ const initialState: WorkspaceState = {
   activeBindingId: null,
   source: "local",
   rootPath: null,
+  folderOpenError: null,
   selectedPath: null,
   selectedType: null,
   selectionCount: 0,
@@ -53,6 +55,7 @@ const workspaceSlice = createSlice({
     },
     setWorkspaceSource(state, action: PayloadAction<WorkspaceSource>) {
       state.source = action.payload;
+      state.folderOpenError = null;
       state.explorerIntent = null;
     },
     setRootPath(state, action: PayloadAction<string | null>) {
@@ -60,11 +63,15 @@ const workspaceSlice = createSlice({
       state.mode = action.payload ? "local" : state.mode === "linked" ? "linked" : "local";
       state.activeBindingId = action.payload ? state.activeBindingId : null;
       state.rootPath = action.payload;
+      state.folderOpenError = null;
       state.selectedPath = null;
       state.selectedType = null;
       state.selectionCount = 0;
       state.searchQuery = "";
       state.explorerIntent = null;
+    },
+    setFolderOpenError(state, action: PayloadAction<string | null>) {
+      state.folderOpenError = action.payload;
     },
     selectNode(
       state,
@@ -118,6 +125,7 @@ export const {
   setActiveBindingId,
   setWorkspaceSource,
   setRootPath,
+  setFolderOpenError,
   selectNode,
   setExplorerSelectionSummary,
   setSearchQuery,

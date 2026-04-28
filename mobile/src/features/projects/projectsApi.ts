@@ -27,6 +27,14 @@ export function listProjects() {
   });
 }
 
+export function createProject(payload: { name: string }) {
+  return request<ProjectResponse, { name: string }>({
+    url: "/api/projects",
+    method: "POST",
+    body: payload,
+  });
+}
+
 export function getProject(projectId: string) {
   return request<ProjectResponse>({
     url: `/api/projects/${projectId}`,

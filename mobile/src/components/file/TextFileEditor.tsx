@@ -1,4 +1,5 @@
 import { TextInput } from "react-native";
+import { useTheme } from "../../hooks/useTheme";
 import { useThemeVariable } from "../../hooks/useThemeVariable";
 
 type TextFileEditorProps = {
@@ -13,6 +14,8 @@ export function TextFileEditor({
   editable,
 }: TextFileEditorProps) {
   const placeholderTextColor = useThemeVariable("--text-muted", "#8ea28f");
+  const { visualSettings } = useTheme();
+  const fontSize = visualSettings.fontSize;
 
   return (
     <TextInput
@@ -23,6 +26,7 @@ export function TextFileEditor({
       placeholder="Файл пуст"
       placeholderTextColor={placeholderTextColor}
       scrollEnabled
+      style={{ fontSize, lineHeight: Math.round(fontSize * 1.6) }}
       textAlignVertical="top"
       value={value}
     />

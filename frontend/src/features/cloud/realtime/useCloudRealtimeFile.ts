@@ -5,14 +5,16 @@ import {
   setCloudFileJoinedVersion,
   setCloudFileSyncStatus,
 } from "../../files/filesSlice";
+import { selectCloudProjects } from "../cloudSelectors";
 import type { CloudOpenedFile, OpenedFile } from "../../files/fileTypes";
-import { useAppDispatch } from "../../../store/hooks";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import {
   cloudRealtimeClient,
   registerActiveCloudRealtimeBridge,
 } from "./cloudRealtimeClient";
 import { isRealtimeSupportedCloudFileName } from "./cloudRealtimeSupport";
 import type { CloudFileSyncStatus } from "./cloudRealtimeTypes";
+import { addCollaborationActivityNotification } from "../../notifications/notificationsSlice";
 
 const CLOUD_REALTIME_DEBOUNCE_MS = 200;
 
@@ -37,6 +39,7 @@ function isRealtimeCloudFile(file: OpenedFile | null): file is CloudOpenedFile {
 
 export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
   const dispatch = useAppDispatch();
+  const projects = useAppSelector(selectCloudProjects);
   const debounceTimerRef = useRef<number | null>(null);
   const remoteAppliedContentRef = useRef<string | null>(null);
   const activeCloudFileRef = useRef<CloudOpenedFile | null>(null);
@@ -152,6 +155,30 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
             remoteAppliedContentRef.current = event.payload.content;
           }
 
+          if (activeCloudFileRef.current?.fileId === event.payload.fileId) {
+            const activeCloudFile = activeCloudFileRef.current;
+            const projectName =
+              projects.find((project) => project.id === activeCloudFile.projectId)?.name ??
+              "Облачный проект";
+
+            dispatch(
+              addCollaborationActivityNotification({
+                id: `realtime:${event.payload.fileId}:${event.payload.version}`,
+                type: "COLLABORATION_ACTIVITY",
+                createdAt: event.payload.updatedAt,
+                readAt: null,
+                activity: {
+                  projectId: activeCloudFile.projectId,
+                  projectName,
+                  fileId: event.payload.fileId,
+                  fileName: activeCloudFile.name,
+                  updatedAt: event.payload.updatedAt,
+                  message: `Другой участник обновил файл "${activeCloudFile.name}".`,
+                },
+              }),
+            );
+          }
+
           dispatch(
             applyCloudFileRemoteUpdate({
               fileId: event.payload.fileId,
@@ -173,7 +200,7 @@ export function useCloudRealtimeFile(activeFile: OpenedFile | null) {
         }
       }
     });
-  }, [dispatch, updateFileSyncStatus]);
+  }, [dispatch, projects, updateFileSyncStatus]);
 
   useEffect(() => {
     registerActiveCloudRealtimeBridge(

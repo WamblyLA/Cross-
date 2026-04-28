@@ -10,7 +10,7 @@ import type {
   CloudProjectTree,
   ProjectMemberRole,
 } from "./cloudTypes";
-import type { NotificationItem } from "../notifications/notificationsTypes";
+import type { ServerNotificationItem } from "../notifications/notificationsTypes";
 
 type ProjectsResponse = {
   projects: CloudProject[];
@@ -73,7 +73,7 @@ type ProjectInvitationResponse = {
 };
 
 type NotificationsResponse = {
-  notifications: NotificationItem[];
+  notifications: ServerNotificationItem[];
 };
 
 type InvitationActionResponse = {

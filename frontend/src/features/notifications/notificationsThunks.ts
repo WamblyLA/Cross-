@@ -3,7 +3,7 @@ import { normalizeApiError, type ApiError } from "../../lib/api/errorNormalizati
 import type { StateType } from "../../store/store";
 import { fetchProjects } from "../cloud/cloudThunks";
 import * as cloudApi from "../cloud/cloudApi";
-import type { NotificationItem } from "./notificationsTypes";
+import type { ServerNotificationItem } from "./notificationsTypes";
 
 type NotificationsThunkConfig = {
   state: StateType;
@@ -11,7 +11,7 @@ type NotificationsThunkConfig = {
 };
 
 export const fetchNotifications = createAsyncThunk<
-  { notifications: NotificationItem[] },
+  { notifications: ServerNotificationItem[] },
   void,
   NotificationsThunkConfig
 >("notifications/fetchNotifications", async (_, { rejectWithValue }) => {
