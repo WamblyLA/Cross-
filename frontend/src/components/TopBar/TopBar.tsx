@@ -33,15 +33,24 @@ import {
   OVERFLOW_PANEL_WIDTH,
 } from "./topBarPanelPosition";
 import { TOP_BAR_STRINGS } from "./topBarStrings";
-import type { OverflowSubmenuState, TopBarMenuItem } from "./topBarMenuTypes";
+import type {
+  OverflowSubmenuState,
+  TopBarMenuConfig,
+  TopBarMenuItem,
+} from "./topBarMenuTypes";
 import { useTopBarMenus } from "./useTopBarMenus";
 
 type TopBarProps = {
+  onOpenBugReport: () => void;
   onOpenProjectMembers: () => void;
   onOpenVisualSettings: () => void;
 };
 
-export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: TopBarProps) {
+export default function TopBar({
+  onOpenBugReport,
+  onOpenProjectMembers,
+  onOpenVisualSettings,
+}: TopBarProps) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const menuRootRef = useRef<HTMLDivElement | null>(null);
@@ -61,6 +70,7 @@ export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: T
     "view",
     "terminal",
     "run",
+    "help",
   ]);
   const [overflowSubmenu, setOverflowSubmenu] =
     useState<OverflowSubmenuState | null>(null);
@@ -224,15 +234,37 @@ export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: T
     openTerminal,
     rerun,
   });
+  const primaryMenusWithHelp = useMemo<TopBarMenuConfig[]>(
+    () => [
+      ...primaryMenus,
+      {
+        id: "help",
+        label: "Help",
+        sections: [
+          {
+            id: "help-main",
+            items: [
+              {
+                id: "report-bug",
+                label: "Сообщить об ошибке",
+                onSelect: onOpenBugReport,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    [onOpenBugReport, primaryMenus],
+  );
 
   const visibleMenus = useMemo(
-    () => primaryMenus.filter((menu) => visibleMenuIds.includes(menu.id)),
-    [primaryMenus, visibleMenuIds],
+    () => primaryMenusWithHelp.filter((menu) => visibleMenuIds.includes(menu.id)),
+    [primaryMenusWithHelp, visibleMenuIds],
   );
 
   const hiddenMenus = useMemo(
-    () => primaryMenus.filter((menu) => !visibleMenuIds.includes(menu.id)),
-    [primaryMenus, visibleMenuIds],
+    () => primaryMenusWithHelp.filter((menu) => !visibleMenuIds.includes(menu.id)),
+    [primaryMenusWithHelp, visibleMenuIds],
   );
 
   useEffect(() => {
@@ -316,14 +348,14 @@ export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: T
 
     const recalculateMenus = () => {
       const availableWidth = viewport.clientWidth;
-      const totalMenuWidth = primaryMenus.reduce(
+      const totalMenuWidth = primaryMenusWithHelp.reduce(
         (sum, menu) => sum + (measureRefs.current[menu.id]?.offsetWidth ?? 68),
         0,
       );
 
       if (totalMenuWidth <= availableWidth) {
         setVisibleMenuIds((currentIds) => {
-          const nextIds = primaryMenus.map((menu) => menu.id);
+          const nextIds = primaryMenusWithHelp.map((menu) => menu.id);
 
           if (
             currentIds.length === nextIds.length &&
@@ -342,7 +374,7 @@ export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: T
       let usedWidth = 0;
       const nextVisibleIds: string[] = [];
 
-      for (const menu of primaryMenus) {
+      for (const menu of primaryMenusWithHelp) {
         const itemWidth = measureRefs.current[menu.id]?.offsetWidth ?? 68;
 
         if (usedWidth + itemWidth <= visibleLimit) {
@@ -354,8 +386,8 @@ export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: T
         break;
       }
 
-      if (nextVisibleIds.length === 0 && primaryMenus.length > 0) {
-        nextVisibleIds.push(primaryMenus[0].id);
+      if (nextVisibleIds.length === 0 && primaryMenusWithHelp.length > 0) {
+        nextVisibleIds.push(primaryMenusWithHelp[0].id);
       }
 
       setVisibleMenuIds((currentIds) => {
@@ -380,7 +412,7 @@ export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: T
     return () => {
       observer.disconnect();
     };
-  }, [primaryMenus]);
+  }, [primaryMenusWithHelp]);
 
   const handleMenuAction = useCallback(
     async (item: TopBarMenuItem) => {
@@ -449,7 +481,7 @@ export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: T
     }
 
     const anchorRef = triggerRefs.current[openMenuId];
-    const menuConfig = primaryMenus.find((menu) => menu.id === openMenuId) ?? null;
+    const menuConfig = primaryMenusWithHelp.find((menu) => menu.id === openMenuId) ?? null;
 
     if (!anchorRef || !menuConfig) {
       return null;
@@ -498,7 +530,7 @@ export default function TopBar({ onOpenProjectMembers, onOpenVisualSettings }: T
           </button>
 
           <TopBarMenuBar
-            primaryMenus={primaryMenus}
+            primaryMenus={primaryMenusWithHelp}
             visibleMenus={visibleMenus}
             hiddenMenus={hiddenMenus}
             openMenuId={openMenuId}

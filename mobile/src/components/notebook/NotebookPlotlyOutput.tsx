@@ -57,7 +57,11 @@ export function NotebookPlotlyOutput({
               var root = document.getElementById("plotly-root");
 
               function showFallback(message) {
-                root.innerHTML = '<div class="plotly-fallback">' + message + '</div>';
+                root.replaceChildren();
+                var fallback = document.createElement("div");
+                fallback.className = "plotly-fallback";
+                fallback.textContent = String(message || "");
+                root.appendChild(fallback);
               }
 
               function render() {

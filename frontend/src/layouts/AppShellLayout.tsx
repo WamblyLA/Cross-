@@ -5,6 +5,7 @@ import {
 import { useProjectMembersDialog } from "../components/CodeWithMe/useProjectMembersDialog";
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import BugReportDialog from "../components/bugReport/BugReportDialog";
 import VisualSettingsDialog from "../components/settings/VisualSettingsDialog";
 import TopBar from "../components/TopBar/TopBar";
 import { selectIsAuthenticated } from "../features/auth/authSelectors";
@@ -45,6 +46,7 @@ function AppShellLayoutContent() {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const cloudProjectsStatus = useAppSelector(selectCloudProjectsStatus);
   const notificationsStatus = useAppSelector(selectNotificationsStatus);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [isVisualSettingsOpen, setIsVisualSettingsOpen] = useState(false);
   const { closeProjectMembers, isOpen, openProjectMembers, projectId } = useProjectMembersDialog();
 
@@ -133,6 +135,7 @@ function AppShellLayoutContent() {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-app text-primary">
       <TopBar
+        onOpenBugReport={() => setIsBugReportOpen(true)}
         onOpenProjectMembers={() => openProjectMembers(projectId)}
         onOpenVisualSettings={() => setIsVisualSettingsOpen(true)}
       />
@@ -143,6 +146,10 @@ function AppShellLayoutContent() {
         isOpen={isOpen}
         projectId={projectId}
         onClose={closeProjectMembers}
+      />
+      <BugReportDialog
+        isOpen={isBugReportOpen}
+        onClose={() => setIsBugReportOpen(false)}
       />
       <VisualSettingsDialog
         isOpen={isVisualSettingsOpen}

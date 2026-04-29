@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { View } from "react-native";
+import { BugReportCard } from "../../components/account/BugReportCard";
 import { LocalFilesCard } from "../../components/account/LocalFilesCard";
 import { ProfileCard } from "../../components/account/ProfileCard";
 import { ThemeSettingsCard } from "../../components/account/ThemeSettingsCard";
@@ -48,6 +49,7 @@ export function AccountScreen() {
         <SectionTitle title="Аккаунт" />
         {meQuery.data ? <ProfileCard user={meQuery.data} /> : null}
         <ThemeSettingsCard />
+        <BugReportCard />
         <LocalFilesCard />
         <AppButton
           loading={authPending}

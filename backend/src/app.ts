@@ -6,6 +6,7 @@ import helmet from "helmet";
 import { CORS_ORIGINS, IS_PROD, JSON_BODY_LIMIT } from "./config.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import authRouter from "./routes/auth.js";
+import bugReportsRouter from "./routes/bugReports.js";
 import filesRouter from "./routes/files.js";
 import foldersRouter from "./routes/folders.js";
 import meRouter from "./routes/me.js";
@@ -49,6 +50,7 @@ app.get("/health", healthHandler);
 app.get("/api/health", healthHandler);
 
 app.use("/api/auth", authRouter);
+app.use("/api/bug-reports", bugReportsRouter);
 app.use("/api/me", meRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/project-invitations", projectInvitationActionsRouter);
