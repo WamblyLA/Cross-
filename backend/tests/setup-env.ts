@@ -7,6 +7,8 @@ process.env.JWT_EXPIRES_IN = "7d";
 process.env.CORS_ORIGIN = "http://127.0.0.1:4173";
 process.env.COOKIE_SAME_SITE = "lax";
 process.env.COOKIE_SECURE = "false";
+process.env.TELEGRAM_BOT_TOKEN = "test-telegram-token";
+process.env.TELEGRAM_BUG_REPORT_CHAT_ID = "123456789";
 
 afterAll(async () => {
   const { prisma } = await import("../src/lib/prisma.js");

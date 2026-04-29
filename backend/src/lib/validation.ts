@@ -307,3 +307,16 @@ export const updateSettingsBodySchema = z
   });
 
 export type UpdateSettingsBody = z.infer<typeof updateSettingsBodySchema>;
+
+export const bugReportBodySchema = z
+  .object({
+    title: trimmedString()
+      .min(3, "Тема должна быть не короче 3 символов")
+      .max(120, "Тема должна быть не длиннее 120 символов"),
+    description: trimmedString()
+      .min(10, "Описание должно быть не короче 10 символов")
+      .max(4000, "Описание должно быть не длиннее 4000 символов"),
+  })
+  .strict();
+
+export type BugReportBody = z.infer<typeof bugReportBodySchema>;

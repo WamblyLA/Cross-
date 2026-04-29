@@ -14,6 +14,8 @@ export const notFoundHandler: RequestHandler = (req, _, next) => {
 };
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next: NextFunction) => {
+  void _next;
+
   if (error instanceof AppError) {
     res.status(error.statusCode).json({
       error: buildErrorPayload(error),

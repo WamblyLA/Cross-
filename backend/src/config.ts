@@ -3,6 +3,17 @@ import { z } from "zod";
 const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_PORT = 3000;
 const DEFAULT_CORS_ORIGINS = ["http://127.0.0.1:4173", "http://localhost:4173"];
+const BUG_REPORT_RATE_LIMIT_WINDOW_MS_VALUE = 10 * 60 * 1000;
+const BUG_REPORT_RATE_LIMIT_MAX_VALUE = 3;
+
+const optionalNonEmptyStringSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : undefined;
+}, z.string().min(1).optional());
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -15,6 +26,8 @@ const envSchema = z.object({
   JSON_BODY_LIMIT: z.string().default("1mb"),
   COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).optional(),
   COOKIE_SECURE: z.enum(["true", "false"]).optional(),
+  TELEGRAM_BOT_TOKEN: optionalNonEmptyStringSchema,
+  TELEGRAM_BUG_REPORT_CHAT_ID: optionalNonEmptyStringSchema,
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -51,3 +64,7 @@ export const COOKIE_NAME = "token";
 export const BCRYPT_SALT_ROUNDS = 12;
 export const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 export const AUTH_RATE_LIMIT_MAX = 10;
+export const TELEGRAM_BOT_TOKEN = env.TELEGRAM_BOT_TOKEN;
+export const TELEGRAM_BUG_REPORT_CHAT_ID = env.TELEGRAM_BUG_REPORT_CHAT_ID;
+export const BUG_REPORT_RATE_LIMIT_WINDOW_MS = BUG_REPORT_RATE_LIMIT_WINDOW_MS_VALUE;
+export const BUG_REPORT_RATE_LIMIT_MAX = BUG_REPORT_RATE_LIMIT_MAX_VALUE;
