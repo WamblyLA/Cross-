@@ -41,6 +41,5 @@ docs
 !backend/docs/**
 !frontend/docs/
 !frontend/docs/**
-report_by_file.cs
-report.csv
+summary.csv
 README.md
