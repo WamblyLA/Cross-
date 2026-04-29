@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useInsertionEffect } from "react";
 import AuthBootstrap from "./components/Auth/AuthBootstrap";
 import LoginForm from "./components/Auth/LoginForm";
@@ -34,7 +34,7 @@ export default function App() {
   }, [authSettings, dispatch]);
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthBootstrap>
         <Routes>
           <Route element={<RedirectIfAuthenticated />}>
@@ -55,6 +55,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthBootstrap>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

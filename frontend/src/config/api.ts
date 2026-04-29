@@ -1,4 +1,7 @@
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:3000";
+const DEFAULT_API_BASE_URL =
+  window.location.protocol === "file:"
+    ? "https://api.crosspp.ru"
+    : "http://127.0.0.1:3000";
 
 type AppConfigBridge = {
   getAppConfig?: () => {
@@ -27,11 +30,14 @@ function readRuntimeApiBaseUrl() {
     return null;
   }
 
-  const bridge = (window as Window & { electronAPI?: AppConfigBridge }).electronAPI;
+  const bridge = (window as Window & { electronAPI?: AppConfigBridge })
+    .electronAPI;
   return bridge?.getAppConfig?.().apiBaseUrl?.trim() || null;
 }
 
-export const API_BASE_URL = trimTrailingSlash(readRuntimeApiBaseUrl() || DEFAULT_API_BASE_URL);
+export const API_BASE_URL = trimTrailingSlash(
+  readRuntimeApiBaseUrl() || DEFAULT_API_BASE_URL
+);
 
 export const WS_URL = toWsUrl(API_BASE_URL);
 
