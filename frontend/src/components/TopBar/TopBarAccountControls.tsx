@@ -26,7 +26,7 @@ export default function TopBarAccountControls() {
               },
               {
                 id: "account-email",
-                label: user?.email ?? "Email недоступен",
+                label: user?.email ?? "Электронная почта недоступна",
                 disabled: true,
                 onSelect: () => undefined,
               },

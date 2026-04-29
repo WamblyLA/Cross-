@@ -26,7 +26,9 @@ export function ProfileCard({ user }: ProfileCardProps) {
         </View>
 
         <View className="gap-1">
-          <Text className="will-change-variable text-xs font-bold text-secondary">Email</Text>
+          <Text className="will-change-variable text-xs font-bold text-secondary">
+            Электронная почта
+          </Text>
           <Text className="will-change-variable text-sm font-bold text-primary">
             {user.email}
           </Text>

@@ -346,11 +346,11 @@ export function FileScreen({ navigation, route }: FileScreenProps) {
       : syncStatus === "syncing"
         ? "Идёт синхронизация изменений."
         : syncStatus === "connecting"
-          ? "Подключаем realtime-синхронизацию."
+          ? "Подключаем синхронизацию."
           : syncStatus === "offline" && isRealtimeSupported
-            ? "Realtime временно офлайн."
+            ? "Синхронизация временно недоступна."
             : syncStatus === "error"
-              ? "Realtime сообщил об ошибке."
+              ? "Произошла ошибка синхронизации."
               : isDirty
                 ? "Есть несохранённые изменения."
                 : "Изменений нет.";
@@ -399,9 +399,9 @@ export function FileScreen({ navigation, route }: FileScreenProps) {
         notice={
           notice ??
           (syncStatus === "connecting"
-            ? { tone: "info", text: "Подключение к realtime..." }
+            ? { tone: "info", text: "Подключаем синхронизацию..." }
             : syncStatus === "offline" && isRealtimeSupported
-              ? { tone: "warning", text: "Realtime временно недоступен. Можно обновить файл вручную." }
+              ? { tone: "warning", text: "Синхронизация временно недоступна. Можно обновить файл вручную." }
               : null)
         }
         onChangeText={(value) => {

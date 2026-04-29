@@ -42,9 +42,23 @@ export function NotebookPlotlyOutput({
               min-height: 220px;
             }
             .plotly-fallback {
-              padding: 12px;
-              white-space: pre-wrap;
+              display: flex;
+              min-height: 220px;
+              flex-direction: column;
+              justify-content: center;
+              gap: 8px;
+              padding: 16px;
               overflow-wrap: anywhere;
+              text-align: center;
+            }
+            .plotly-fallback-title {
+              font-size: 15px;
+              font-weight: 600;
+            }
+            .plotly-fallback-detail {
+              font-size: 13px;
+              line-height: 1.5;
+              opacity: 0.84;
             }
           </style>
           <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
@@ -56,17 +70,32 @@ export function NotebookPlotlyOutput({
               var payload = ${payload};
               var root = document.getElementById("plotly-root");
 
-              function showFallback(message) {
+              function notifyHeight() {
+                var height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, 220);
+                if (window.ReactNativeWebView) {
+                  window.ReactNativeWebView.postMessage(String(height));
+                }
+              }
+
+              function showFallback() {
                 root.replaceChildren();
                 var fallback = document.createElement("div");
                 fallback.className = "plotly-fallback";
-                fallback.textContent = String(message || "");
+                var title = document.createElement("div");
+                title.className = "plotly-fallback-title";
+                title.textContent = "Не удалось отобразить интерактивный график";
+                var detail = document.createElement("div");
+                detail.className = "plotly-fallback-detail";
+                detail.textContent = "Проверьте подключение к интернету или откройте файл позже";
+                fallback.appendChild(title);
+                fallback.appendChild(detail);
                 root.appendChild(fallback);
+                notifyHeight();
               }
 
               function render() {
                 if (!window.Plotly) {
-                  showFallback("Не удалось загрузить Plotly renderer.");
+                  showFallback();
                   return;
                 }
 
@@ -80,12 +109,9 @@ export function NotebookPlotlyOutput({
                   layout,
                   Object.assign({ responsive: true, displayModeBar: false, displaylogo: false }, config),
                 ).then(function () {
-                  var height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, 220);
-                  if (window.ReactNativeWebView) {
-                    window.ReactNativeWebView.postMessage(String(height));
-                  }
+                  notifyHeight();
                 }).catch(function () {
-                  showFallback("Не удалось отрисовать Plotly output.");
+                  showFallback();
                 });
               }
 

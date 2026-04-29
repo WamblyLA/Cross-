@@ -61,9 +61,9 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         autoCapitalize="none"
         error={errors.login}
         keyboardType="email-address"
-        label="Логин или email"
+        label="Логин или электронная почта"
         onChangeText={(value) => setForm((current) => ({ ...current, login: value }))}
-        placeholder="Введите логин или email"
+        placeholder="Введите логин или электронную почту"
         value={form.login}
       />
 

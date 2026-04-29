@@ -7,7 +7,7 @@ export function validateLoginPayload(payload: LoginPayload): AuthFormErrors {
   const errors: AuthFormErrors = {};
 
   if (!payload.login.trim()) {
-    errors.login = "Введите логин или email.";
+    errors.login = "Введите логин или электронную почту.";
   }
 
   if (!payload.password) {
@@ -25,7 +25,7 @@ export function validateRegisterPayload(payload: RegisterPayload): AuthFormError
   }
 
   if (!validateEmail(payload.email)) {
-    errors.email = "Введите корректный email.";
+    errors.email = "Введите корректный адрес электронной почты.";
   }
 
   if (payload.password.length < 8) {

@@ -13,7 +13,7 @@ export default function CloudAuthPrompt() {
         <h3 className="mt-4 text-base text-primary">Облачные проекты доступны после входа</h3>
         <p className="mt-2 text-sm leading-6 text-secondary">
           Войдите в аккаунт, чтобы создавать проекты в облаке, открывать их прямо в IDE и
-          сохранять изменения на backend.
+          сохранять изменения в облаке.
         </p>
 
         <div className="mt-5 flex flex-col gap-2">

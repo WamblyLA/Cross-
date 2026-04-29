@@ -239,7 +239,7 @@ export default function TopBar({
       ...primaryMenus,
       {
         id: "help",
-        label: "Help",
+        label: "Помощь",
         sections: [
           {
             id: "help-main",

@@ -453,7 +453,7 @@ export function createPythonJupyterBridge() {
       if (message.ok) {
         request.resolve(message.result ?? null);
       } else {
-        request.reject(new Error(message.error?.message ?? "Bridge request failed."));
+        request.reject(new Error(message.error?.message ?? "Не удалось выполнить запрос к Jupyter."));
       }
 
       return;

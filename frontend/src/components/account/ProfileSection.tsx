@@ -104,7 +104,7 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
           placeholder="Иван Иванов"
         />
 
-        <ReadOnlyField label="Email" value={user.email} />
+        <ReadOnlyField label="Электронная почта" value={user.email} />
 
         {generalError ? <div className="text-sm text-error">{generalError}</div> : null}
 

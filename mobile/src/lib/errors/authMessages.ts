@@ -10,7 +10,7 @@ export function getLoginErrorMessage(error: ApiError | null | undefined) {
   }
 
   if (error.isNetworkError) {
-    return "Не удалось подключиться к серверу. Проверьте адрес backend.";
+    return "Не удалось подключиться к серверу. Проверьте адрес сервера.";
   }
 
   return "Не удалось войти в аккаунт.";
@@ -22,11 +22,11 @@ export function getRegisterErrorMessage(error: ApiError | null | undefined) {
   }
 
   if (error.status === 409) {
-    return "Пользователь с таким именем или email уже существует.";
+    return "Пользователь с таким именем или адресом электронной почты уже существует.";
   }
 
   if (error.isNetworkError) {
-    return "Не удалось подключиться к серверу. Проверьте адрес backend.";
+    return "Не удалось подключиться к серверу. Проверьте адрес сервера.";
   }
 
   return "Не удалось создать аккаунт.";

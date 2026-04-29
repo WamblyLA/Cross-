@@ -70,7 +70,7 @@ export default function LoginForm() {
         value={values.login}
         onChange={(loginValue) => setValues((current) => ({ ...current, login: loginValue }))}
         error={loginError}
-        placeholder="username или user@example.com"
+        placeholder="имя пользователя или user@example.com"
       />
 
       <InputField

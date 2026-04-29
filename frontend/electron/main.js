@@ -395,13 +395,13 @@ app.whenReady().then(() => {
     const trimmedName = name?.trim();
 
     if (!trimmedName) {
-      throw new Error("РРјСЏ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј.");
+      throw new Error("Имя не может быть пустым.");
     }
 
     const fullPath = path.join(parentPath, trimmedName);
 
     if (fsSync.existsSync(fullPath)) {
-      throw new Error("РўР°РєРѕР№ СЌР»РµРјРµРЅС‚ СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓРµС‚.");
+      throw new Error("Такой элемент уже существует.");
     }
 
     if (isFolder) {
@@ -417,7 +417,7 @@ app.whenReady().then(() => {
     const trimmedName = newName?.trim();
 
     if (!trimmedName) {
-      throw new Error("РРјСЏ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј.");
+      throw new Error("Имя не может быть пустым.");
     }
 
     const nextPath = path.join(path.dirname(targetPath), trimmedName);
@@ -427,7 +427,7 @@ app.whenReady().then(() => {
     }
 
     if (fsSync.existsSync(nextPath)) {
-      throw new Error("Р­Р»РµРјРµРЅС‚ СЃ С‚Р°РєРёРј РёРјРµРЅРµРј СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓРµС‚.");
+      throw new Error("Элемент с таким именем уже существует.");
     }
 
     await withWorkspaceWatcherPaused(targetPath, async () => {
@@ -451,7 +451,7 @@ app.whenReady().then(() => {
     }
 
     if (!targetDirectory || !fsSync.existsSync(targetDirectory)) {
-      throw new Error("Р¦РµР»РµРІР°СЏ РїР°РїРєР° РЅРµ РЅР°Р№РґРµРЅР°.");
+      throw new Error("Целевая папка не найдена.");
     }
 
     const createdPaths = await withWorkspaceWatcherPausedForPaths(
@@ -463,7 +463,7 @@ app.whenReady().then(() => {
           const resolvedSourcePath = path.resolve(sourcePath);
 
           if (isPathInsideRoot(targetDirectory, resolvedSourcePath)) {
-            throw new Error("РќРµР»СЊР·СЏ РєРѕРїРёСЂРѕРІР°С‚СЊ РїР°РїРєСѓ РІ РЅРµС‘ СЃР°РјСѓ РёР»Рё РІ РµС‘ РІР»РѕР¶РµРЅРЅСѓСЋ РїР°РїРєСѓ.");
+            throw new Error("Нельзя копировать папку в неё саму или в её вложенную папку.");
           }
 
           results.push(await copyFileSystemEntry(resolvedSourcePath, targetDirectory));
@@ -482,7 +482,7 @@ app.whenReady().then(() => {
     }
 
     if (!targetDirectory || !fsSync.existsSync(targetDirectory)) {
-      throw new Error("Р¦РµР»РµРІР°СЏ РїР°РїРєР° РЅРµ РЅР°Р№РґРµРЅР°.");
+      throw new Error("Целевая папка не найдена.");
     }
 
     const movedPaths = await withWorkspaceWatcherPausedForPaths(
@@ -494,7 +494,7 @@ app.whenReady().then(() => {
           const resolvedSourcePath = path.resolve(sourcePath);
 
           if (isPathInsideRoot(targetDirectory, resolvedSourcePath)) {
-            throw new Error("РќРµР»СЊР·СЏ РїРµСЂРµРјРµС‰Р°С‚СЊ РїР°РїРєСѓ РІ РЅРµС‘ СЃР°РјСѓ РёР»Рё РІ РµС‘ РІР»РѕР¶РµРЅРЅСѓСЋ РїР°РїРєСѓ.");
+            throw new Error("Нельзя перемещать папку в неё саму или в её вложенную папку.");
           }
 
           results.push(await moveFileSystemEntry(resolvedSourcePath, targetDirectory));

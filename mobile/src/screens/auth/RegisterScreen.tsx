@@ -63,7 +63,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         autoCapitalize="none"
         error={errors.email}
         keyboardType="email-address"
-        label="Email"
+        label="Электронная почта"
         onChangeText={(value) => setForm((current) => ({ ...current, email: value }))}
         placeholder="you@example.com"
         value={form.email}

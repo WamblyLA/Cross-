@@ -146,7 +146,7 @@ export default function BugReportDialog({
       >
         <div className="flex items-center justify-between border-b border-default px-5 py-4">
           <div>
-            <div className="ui-eyebrow">Help</div>
+            <div className="ui-eyebrow">Помощь</div>
             <div className="text-base text-primary">Сообщить об ошибке</div>
           </div>
 
@@ -162,7 +162,7 @@ export default function BugReportDialog({
 
         <div className="ui-scrollbar-thin min-h-0 overflow-y-auto p-5">
           <div className="mb-4 text-sm leading-6 text-secondary">
-            Опишите проблему кратко и по существу. Сообщение уйдет разработчику в Telegram, а если вы вошли в аккаунт, backend добавит ваш user id, email и username.
+            Опишите проблему кратко и по существу. Сообщение уйдёт разработчику в Telegram, а если вы вошли в аккаунт, мы добавим данные вашего профиля.
           </div>
 
           {successMessage ? (

@@ -131,10 +131,10 @@ export function BugReportCard() {
         <View className="gap-4">
           <View className="gap-1">
             <Text className="will-change-variable text-xs font-bold uppercase tracking-[2.4px] text-muted">
-              Help
+              Помощь
             </Text>
             <Text className="will-change-variable text-sm leading-6 text-secondary">
-              Если что-то сломалось или работает странно, отправьте короткий bug report прямо из приложения.
+              Если что-то сломалось или работает странно, отправьте сообщение об ошибке прямо из приложения.
             </Text>
           </View>
 
@@ -149,7 +149,7 @@ export function BugReportCard() {
       <AppModal
         visible={isDialogOpen}
         title="Сообщить об ошибке"
-        description="Сообщение уйдет разработчику в Telegram. Если вы вошли в аккаунт, backend добавит ваш user id, email и username."
+        description="Сообщение уйдёт разработчику в Telegram. Если вы вошли в аккаунт, мы добавим данные вашего профиля."
         confirmLabel="Отправить"
         confirmLoading={isSubmitting}
         onConfirm={() => {

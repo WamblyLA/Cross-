@@ -54,11 +54,11 @@ function validateEmail(email: string) {
   const trimmed = email.trim();
 
   if (!trimmed) {
-    return "Введите email пользователя";
+    return "Введите адрес электронной почты пользователя";
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-    return "Введите корректный email";
+    return "Введите корректный адрес электронной почты";
   }
 
   return null;

@@ -23,7 +23,7 @@ export default function ProjectMemberInviteForm({
     <div className="rounded-[18px] border border-default bg-panel px-4 py-4">
       <div className="text-sm text-primary">Пригласить пользователя</div>
       <div className="mt-1 text-xs leading-5 text-secondary">
-        Отправьте приглашение по email и сразу назначьте права доступа к проекту.
+        Отправьте приглашение по электронной почте и сразу назначьте права доступа к проекту.
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]">
@@ -32,7 +32,7 @@ export default function ProjectMemberInviteForm({
             type="email"
             className="ui-input w-full px-3 py-2"
             value={email}
-            placeholder="Email пользователя"
+            placeholder="Электронная почта пользователя"
             disabled={isSubmitting}
             onChange={(event) => onEmailChange(event.target.value)}
           />
