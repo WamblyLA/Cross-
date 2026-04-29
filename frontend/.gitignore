@@ -20,3 +20,4 @@ dist-ssr
 *.sw?
 __tests__
 docs/
+release
