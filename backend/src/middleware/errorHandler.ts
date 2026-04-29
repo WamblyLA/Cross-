@@ -1,4 +1,4 @@
-import type { ErrorRequestHandler, RequestHandler } from "express";
+import type { ErrorRequestHandler, NextFunction, RequestHandler } from "express";
 import { AppError, isPrismaKnownRequestError } from "../lib/errors.js";
 
 function buildErrorPayload(error: AppError) {
@@ -13,7 +13,7 @@ export const notFoundHandler: RequestHandler = (req, _, next) => {
   next(new AppError(`Маршрут ${req.method} ${req.originalUrl} не найден`, 404, undefined, "NOT_FOUND"));
 };
 
-export const errorHandler: ErrorRequestHandler = (error, _req, res) => {
+export const errorHandler: ErrorRequestHandler = (error, _req, res, _next: NextFunction) => {
   if (error instanceof AppError) {
     res.status(error.statusCode).json({
       error: buildErrorPayload(error),
