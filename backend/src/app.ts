@@ -1,13 +1,10 @@
-﻿import "dotenv/config";
-import { createServer } from "node:http";
+import "dotenv/config";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
-import { API_URL, CORS_ORIGINS, HOST, IS_PROD, JSON_BODY_LIMIT, PORT } from "./config.js";
-import { prisma } from "./lib/prisma.js";
+import { CORS_ORIGINS, IS_PROD, JSON_BODY_LIMIT } from "./config.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
-import { setupWebSocketServer } from "./realtime/wsServer.js";
 import authRouter from "./routes/auth.js";
 import filesRouter from "./routes/files.js";
 import foldersRouter from "./routes/folders.js";
@@ -15,8 +12,8 @@ import meRouter from "./routes/me.js";
 import notificationsRouter from "./routes/notifications.js";
 import projectInvitationActionsRouter from "./routes/projectInvitationActions.js";
 import projectInvitationsRouter from "./routes/projectInvitations.js";
-import projectMembersRouter from "./routes/projectMembers.js";
 import projectLinksRouter from "./routes/projectLinks.js";
+import projectMembersRouter from "./routes/projectMembers.js";
 import projectsRouter from "./routes/projects.js";
 
 const app = express();
@@ -65,32 +62,4 @@ app.use("/api/projects", projectsRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-const server = createServer(app);
-setupWebSocketServer(server);
-
-server.listen(PORT, HOST, () => {
-  console.log(`Сервер запущен на ${HOST}:${PORT}`);
-  console.log(`API: ${API_URL}`);
-  console.log(`Разрешённые origin: ${CORS_ORIGINS.join(", ")}`);
-});
-
-async function shutdown(signal: string) {
-  console.log(`Получен сигнал ${signal}, завершаюсь`);
-
-  server.close(async () => {
-    await prisma.$disconnect();
-    process.exit(0);
-  });
-
-  setTimeout(() => {
-    process.exit(1);
-  }, 5000).unref();
-}
-
-process.on("SIGINT", () => {
-  void shutdown("SIGINT");
-});
-
-process.on("SIGTERM", () => {
-  void shutdown("SIGTERM");
-});
+export default app;
