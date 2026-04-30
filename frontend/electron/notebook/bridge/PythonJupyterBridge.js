@@ -13,12 +13,27 @@ import {
 const BRIDGE_READY_TIMEOUT_MS = 15000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
 const SESSION_REQUEST_TIMEOUT_MS = 30000;
-const BRIDGE_SCRIPT_PATH = path.join(
+const SOURCE_BRIDGE_SCRIPT_PATH = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "python",
   "jupyter_bridge.py",
 );
+
+function resolveBridgeScriptPath(app) {
+  if (app?.isPackaged) {
+    return path.join(
+      process.resourcesPath,
+      "app.asar.unpacked",
+      "electron",
+      "notebook",
+      "python",
+      "jupyter_bridge.py",
+    );
+  }
+
+  return SOURCE_BRIDGE_SCRIPT_PATH;
+}
 
 function buildProbeScript() {
   return [
@@ -41,6 +56,15 @@ function createDiagnostic(message, details = null, interpreterPath = null) {
     ...(details ? { details } : {}),
     ...(interpreterPath ? { interpreterPath } : {}),
   };
+}
+
+function createMissingBridgeScriptError(bridgeScriptPath) {
+  const error = new Error(`Jupyter bridge script is missing: ${bridgeScriptPath}`);
+  error.code = "BRIDGE_SCRIPT_MISSING";
+  error.diagnostics = [
+    createDiagnostic("Jupyter bridge script is missing.", bridgeScriptPath),
+  ];
+  return error;
 }
 
 function isPythonKernel(kernel) {
@@ -397,7 +421,8 @@ function parseJsonLines(buffer, chunk, onMessage) {
   return remainder;
 }
 
-export function createPythonJupyterBridge() {
+export function createPythonJupyterBridge({ app } = {}) {
+  const bridgeScriptPath = resolveBridgeScriptPath(app);
   let bridgeProcess = null;
   let bridgeInterpreter = null;
   let stdoutBuffer = "";
@@ -503,10 +528,14 @@ export function createPythonJupyterBridge() {
       return bridgeProcess;
     }
 
+    if (!existsFile(bridgeScriptPath)) {
+      throw createMissingBridgeScriptError(bridgeScriptPath);
+    }
+
     startPromise = (async () => {
       const resolved = await resolveBridgeInterpreter(options.workspaceRootPath ?? null);
       bridgeInterpreter = resolved.interpreter;
-      const childProcess = spawn(bridgeInterpreter.path, [BRIDGE_SCRIPT_PATH], {
+      const childProcess = spawn(bridgeInterpreter.path, [bridgeScriptPath], {
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
         env: {

@@ -149,7 +149,7 @@ export function BugReportCard() {
       <AppModal
         visible={isDialogOpen}
         title="Сообщить об ошибке"
-        description="Сообщение уйдёт разработчику в Telegram. Если вы вошли в аккаунт, мы добавим данные вашего профиля."
+        description="Сообщение будет обработано в скором времени!"
         confirmLabel="Отправить"
         confirmLoading={isSubmitting}
         onConfirm={() => {

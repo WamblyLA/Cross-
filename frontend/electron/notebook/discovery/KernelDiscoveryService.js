@@ -9,6 +9,19 @@ function createDiagnostic(message, details = null) {
   };
 }
 
+function getErrorDiagnostics(error) {
+  if (!error || typeof error !== "object" || !Array.isArray(error.diagnostics)) {
+    return [];
+  }
+
+  return error.diagnostics.filter(
+    (diagnostic) =>
+      diagnostic &&
+      typeof diagnostic === "object" &&
+      typeof diagnostic.message === "string",
+  );
+}
+
 function getCacheKey(options) {
   return options.workspaceRootPath ?? "__global__";
 }
@@ -45,14 +58,18 @@ export function createKernelDiscoveryService({ bridge }) {
         cache.set(cacheKey, nextResult);
         return nextResult;
       } catch (error) {
+        const diagnostics = getErrorDiagnostics(error);
         const nextResult = {
           kernels: [],
-          diagnostics: [
-            createDiagnostic(
-              "Не удалось загрузить список ядер Jupyter.",
-              toErrorMessage(error, "Kernel discovery failed."),
-            ),
-          ],
+          diagnostics:
+            diagnostics.length > 0
+                ? diagnostics
+              : [
+                  createDiagnostic(
+                    "Failed to load Jupyter kernels.",
+                    toErrorMessage(error, "Kernel discovery failed."),
+                  ),
+                ],
           refreshId: ++refreshCounter,
           durationMs: Date.now() - startedAt,
         };

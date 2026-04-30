@@ -14,7 +14,7 @@ const HANDLERS = [
 ];
 
 export function registerNotebookKernelIpc({ app, ipcMain, sendToRenderer }) {
-  const bridge = createPythonJupyterBridge();
+  const bridge = createPythonJupyterBridge({ app });
   const discoveryService = createKernelDiscoveryService({ bridge });
   const materializer = createNotebookExecutionMaterializer({ app });
   const sessionService = createNotebookSessionService({

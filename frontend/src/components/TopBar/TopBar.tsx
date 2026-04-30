@@ -6,6 +6,7 @@ import { IoIosSquareOutline } from "react-icons/io";
 import { IoSearchOutline } from "react-icons/io5";
 import { RxCross1 } from "react-icons/rx";
 import { TfiLayoutLineSolid } from "react-icons/tfi";
+import logoUrl from "../../assets/logo.svg";
 import { selectIsAuthenticated } from "../../features/auth/authSelectors";
 import {
   selectCloudActiveProjectId,
@@ -526,7 +527,7 @@ export default function TopBar({
             aria-label="Перейти в IDE"
             title="Cross++"
           >
-            <img src="/logo.svg" alt="Cross++" className="h-6 w-auto shrink-0" />
+            <img src={logoUrl} alt="Cross++" className="h-6 w-auto shrink-0" />
           </button>
 
           <TopBarMenuBar

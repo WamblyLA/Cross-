@@ -28,6 +28,9 @@
       "electron/**",
       "package.json"
     ],
+    "asarUnpack": [
+      "electron/notebook/python/**"
+    ],
     "win": {
       "target": "nsis"
     },
