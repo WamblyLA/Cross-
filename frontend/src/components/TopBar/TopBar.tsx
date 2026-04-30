@@ -14,6 +14,7 @@ import {
   selectCloudCanRenameSingle,
   selectCloudCanWriteProject,
 } from "../../features/cloud/cloudSelectors";
+import { selectOpenedFiles } from "../../features/files/filesSelectors";
 import { requestExplorerAction, setWorkspaceSource } from "../../features/workspace/workspaceSlice";
 import { useAppCommandExecutor } from "../../hooks/useAppCommandExecutor";
 import { useDesktopActions } from "../../hooks/useDesktopActions";
@@ -83,6 +84,7 @@ export default function TopBar({
   const selectionCount = useAppSelector((state) => state.workspace.selectionCount);
   const activeSearchQuery = useAppSelector((state) => state.workspace.searchQuery);
   const activeCloudProjectId = useAppSelector(selectCloudActiveProjectId);
+  const openedFiles = useAppSelector(selectOpenedFiles);
   const activeCloudProject = useAppSelector((state) =>
     state.cloud.projects.find((project) => project.id === activeCloudProjectId) ?? null,
   );
@@ -201,6 +203,10 @@ export default function TopBar({
   const primaryMenus = useTopBarMenus({
     source,
     activeFile,
+    hasOpenedFiles: openedFiles.length > 0,
+    canSaveAllFiles: openedFiles.some(
+      (file) => file.isDirty && !(file.kind === "cloud" && file.canWrite === false),
+    ),
     activeSearchQuery,
     activeTerminalId,
     activeCloudProjectId,

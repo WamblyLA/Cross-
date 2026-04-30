@@ -422,6 +422,7 @@
   }
 
   .markdown-preview {
+    min-width: 0;
     color: var(--text-primary);
     line-height: 1.75;
   }
@@ -500,6 +501,17 @@
 
   .markdown-preview li {
     margin: 0.3rem 0;
+  }
+
+  .markdown-preview p,
+  .markdown-preview li,
+  .markdown-preview blockquote,
+  .markdown-preview td,
+  .markdown-preview th,
+  .markdown-preview span,
+  .markdown-preview a {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .markdown-preview li::marker {

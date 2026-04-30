@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { VscCloudDownload, VscCloudUpload, VscDebugDisconnect } from "react-icons/vsc";
 import { selectIsAuthenticated } from "../../../features/auth/authSelectors";
 import { selectCloudProjects } from "../../../features/cloud/cloudSelectors";
 import { SYNC_UI_TEXT } from "../../../features/sync/syncUiText";
@@ -34,33 +35,39 @@ export default function LinkedWorkspaceBanner() {
               </div>
               <button
                 type="button"
-                className="ui-control px-2 py-1 text-xs"
+                className="ui-control h-8 w-8 rounded-md border border-default bg-editor text-secondary"
                 onClick={() => {
                   void unlinkWorkspace(activeBinding);
                 }}
+                aria-label={SYNC_UI_TEXT.unlinkWorkspace}
+                title={SYNC_UI_TEXT.unlinkWorkspace}
               >
-                {SYNC_UI_TEXT.unlinkWorkspace}
+                <VscDebugDisconnect className="h-4 w-4" />
               </button>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className="ui-button-primary ui-control px-3 py-2 text-xs"
+                className="ui-button-primary ui-control h-8 w-8 rounded-md"
                 onClick={() => {
                   void openSyncPreview(activeBinding, "push", "workspace");
                 }}
+                aria-label={SYNC_UI_TEXT.pushToCloud}
+                title={SYNC_UI_TEXT.pushToCloud}
               >
-                {SYNC_UI_TEXT.pushToCloud}
+                <VscCloudUpload className="h-4 w-4" />
               </button>
               <button
                 type="button"
-                className="ui-control px-3 py-2 text-xs"
+                className="ui-control h-8 w-8 rounded-md border border-default bg-editor text-secondary"
                 onClick={() => {
                   void openSyncPreview(activeBinding, "pull", "workspace");
                 }}
+                aria-label={SYNC_UI_TEXT.pullFromCloud}
+                title={SYNC_UI_TEXT.pullFromCloud}
               >
-                {SYNC_UI_TEXT.pullFromCloud}
+                <VscCloudDownload className="h-4 w-4" />
               </button>
             </div>
           </div>

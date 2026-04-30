@@ -15,9 +15,12 @@ type SyncPreviewDialogProps = {
   preview: SyncPreview | null;
   isLoading: boolean;
   isApplying: boolean;
+  isSavingAll: boolean;
+  dirtyOpenFilesCount: number;
   error: string | null;
   onClose: () => void;
   onApply: (selectedItemKeys: Set<string>) => Promise<void>;
+  onSaveAll: () => Promise<void>;
 };
 
 function getDirectionTitle(direction: SyncPreview["direction"]) {
@@ -49,9 +52,12 @@ export default function SyncPreviewDialog({
   preview,
   isLoading,
   isApplying,
+  isSavingAll,
+  dirtyOpenFilesCount,
   error,
   onClose,
   onApply,
+  onSaveAll,
 }: SyncPreviewDialogProps) {
   const [selectedItemKeys, setSelectedItemKeys] = useState<Set<string>>(new Set());
   const selectAllRef = useRef<HTMLInputElement | null>(null);
@@ -104,17 +110,30 @@ export default function SyncPreviewDialog({
             <div className="text-base text-primary">
               {preview ? getDirectionTitle(preview.direction) : "Синхронизация"}
             </div>
-            <div className="mt-2 text-sm leading-6 text-secondary">
-              {isLoading
-                ? "Подготавливаем список изменений. Большие файлы и блокноты могут занять немного времени."
-                : "Выберите изменения для синхронизации. Удаление подтверждается обычной галочкой выбора, как и остальные операции."}
-            </div>
           </div>
 
           <button type="button" className="ui-control h-8 w-8" onClick={onClose}>
             X
           </button>
         </div>
+
+        {dirtyOpenFilesCount > 0 ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-default bg-panel px-4 py-3">
+            <div className="text-sm text-secondary">
+              Есть несохранённые вкладки: {dirtyOpenFilesCount}
+            </div>
+            <button
+              type="button"
+              className="ui-button-primary ui-control h-8 px-3 text-xs"
+              disabled={isLoading || isApplying || isSavingAll}
+              onClick={() => {
+                void onSaveAll().catch(() => undefined);
+              }}
+            >
+              {isSavingAll ? "Сохраняем..." : "Сохранить всё"}
+            </button>
+          </div>
+        ) : null}
 
         {preview ? (
           <>

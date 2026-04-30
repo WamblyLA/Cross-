@@ -10,6 +10,8 @@ import { TOP_BAR_STRINGS } from "./topBarStrings";
 type UseTopBarMenusParams = {
   source: WorkspaceSource;
   activeFile: { extension?: string | null; kind?: "local" | "cloud"; canWrite?: boolean } | null;
+  hasOpenedFiles: boolean;
+  canSaveAllFiles: boolean;
   activeSearchQuery: string;
   activeTerminalId: string | null;
   activeCloudProjectId: string | null;
@@ -48,6 +50,8 @@ type UseTopBarMenusParams = {
 export function useTopBarMenus({
   source,
   activeFile,
+  hasOpenedFiles,
+  canSaveAllFiles,
   activeSearchQuery,
   activeTerminalId,
   canCollapseExplorer,
@@ -133,6 +137,21 @@ export function useTopBarMenus({
                 onSelect: () =>
                   executeCommand(APP_COMMANDS.WORKSPACE_SAVE_ACTIVE_FILE),
               },
+              ...(hasOpenedFiles
+                ? [
+                    {
+                      id: "save-all-files",
+                      label: "Сохранить всё",
+                      shortcut:
+                        APP_COMMAND_SHORTCUTS[
+                          APP_COMMANDS.WORKSPACE_SAVE_ALL_FILES
+                        ],
+                      disabled: !canSaveAllFiles,
+                      onSelect: () =>
+                        executeCommand(APP_COMMANDS.WORKSPACE_SAVE_ALL_FILES),
+                    },
+                  ]
+                : []),
             ],
           },
         ],
@@ -335,6 +354,7 @@ export function useTopBarMenus({
     ],
     [
       activeFile,
+      canSaveAllFiles,
       activeSearchQuery,
       activeTerminalId,
       activateTerminal,
@@ -343,6 +363,7 @@ export function useTopBarMenus({
       canCreateFolder,
       canCreateProject,
       canDeleteSelectedNode,
+      hasOpenedFiles,
       canRenameSelectedNode,
       canRefreshExplorer,
       canRunActiveTarget,

@@ -33,10 +33,8 @@ function MarkdownPreviewPane({
   filePath: string;
 }) {
   return (
-    <div className="ui-scrollbar h-full overflow-y-auto px-3 py-3">
-      <div className="rounded-[10px] border border-default bg-input px-4 py-4">
-        <MarkdownRenderer source={source} filePath={filePath} />
-      </div>
+    <div className="ui-scrollbar h-full overflow-y-auto px-4 py-3">
+      <MarkdownRenderer source={source} filePath={filePath} />
     </div>
   );
 }

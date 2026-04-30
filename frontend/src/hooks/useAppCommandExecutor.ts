@@ -12,7 +12,7 @@ export function useAppCommandExecutor() {
   const rootPath = useAppSelector((state) => state.workspace.rootPath);
   const { createTerminal, toggleTerminal } = useDesktopActions();
   const { runSelectedConfiguration, stopRun } = useRunActions();
-  const { openFolder, saveActiveFile } = useWorkspaceActions();
+  const { openFolder, saveActiveFile, saveAllOpenedFiles } = useWorkspaceActions();
 
   return useCallback(
     async (commandId: AppCommandId | string) => {
@@ -22,6 +22,9 @@ export function useAppCommandExecutor() {
           return;
         case APP_COMMANDS.WORKSPACE_SAVE_ACTIVE_FILE:
           await saveActiveFile();
+          return;
+        case APP_COMMANDS.WORKSPACE_SAVE_ALL_FILES:
+          await saveAllOpenedFiles();
           return;
         case APP_COMMANDS.WORKSPACE_CREATE_FILE:
           if (source === "local" && !rootPath) {
@@ -59,6 +62,7 @@ export function useAppCommandExecutor() {
       rootPath,
       runSelectedConfiguration,
       saveActiveFile,
+      saveAllOpenedFiles,
       source,
       stopRun,
       toggleTerminal,

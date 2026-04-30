@@ -295,6 +295,36 @@ export function useWorkspaceActions() {
     return saveFileByTabId(activeFile.tabId);
   }, [activeFile, saveFileByTabId]);
 
+  const saveAllOpenedFiles = useCallback(async () => {
+    const savableFiles = openedFiles.filter(
+      (file) => file.isDirty && !(file.kind === "cloud" && file.canWrite === false),
+    );
+
+    if (savableFiles.length === 0) {
+      return {
+        ok: true as const,
+        savedCount: 0,
+        failedCount: 0,
+        failures: [],
+      };
+    }
+
+    const results = await Promise.all(
+      savableFiles.map(async (file) => ({
+        tabId: file.tabId,
+        result: await saveFileByTabId(file.tabId),
+      })),
+    );
+    const failures = results.filter((item) => !item.result.ok);
+
+    return {
+      ok: failures.length === 0,
+      savedCount: results.length - failures.length,
+      failedCount: failures.length,
+      failures,
+    };
+  }, [openedFiles, saveFileByTabId]);
+
   const runActivePythonFile = useCallback(async () => {
     return runSelectedConfiguration();
   }, [runSelectedConfiguration]);
@@ -757,6 +787,7 @@ export function useWorkspaceActions() {
     activeCloudProject,
     openFolder,
     saveActiveFile,
+    saveAllOpenedFiles,
     saveFileByTabId,
     runActivePythonFile,
     refreshCloudProjects,
