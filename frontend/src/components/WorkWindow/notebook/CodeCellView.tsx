@@ -233,6 +233,7 @@ export default function CodeCellView({
           {hasOutputs ? (
             <div className="border-t border-default bg-panel px-3 py-2">
               <OutputRenderer
+                cellLocalId={cell.localId}
                 outputs={cell.outputs}
                 hasUnsupportedOutputs={cell.hasUnsupportedOutputs}
                 filePath={filePath}

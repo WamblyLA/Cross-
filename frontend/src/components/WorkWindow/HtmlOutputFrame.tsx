@@ -64,12 +64,14 @@ function buildFrameDocument({
       }
 
       body {
-        overflow-x: hidden;
+        overflow-x: auto;
+        overflow-y: hidden;
       }
 
       table {
         border-collapse: collapse;
-        width: 100%;
+        width: max-content;
+        min-width: 100%;
       }
 
       th, td {
@@ -83,12 +85,18 @@ function buildFrameDocument({
       }
 
       pre {
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
+        white-space: pre;
+        overflow-x: auto;
+        overflow-wrap: normal;
         background: ${colors.code};
         border: 1px solid ${colors.border};
         border-radius: 12px;
         padding: 12px 14px;
+      }
+
+      code {
+        overflow-wrap: normal;
+        word-break: normal;
       }
 
       blockquote {
