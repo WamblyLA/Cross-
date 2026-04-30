@@ -44,7 +44,7 @@ export function AppButton({
       disabled={isDisabled}
       onPress={onPress}
       className={cn(
-        "will-change-variable min-h-11 flex-row items-center justify-center rounded-md border px-4",
+        "will-change-variable min-h-10 flex-row items-center justify-center rounded-md border px-3",
         variantClassName,
         isDisabled ? "opacity-60" : "active:translate-y-px",
       )}

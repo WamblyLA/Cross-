@@ -19,7 +19,7 @@ export function TextFileEditor({
 
   return (
     <TextInput
-      className="will-change-variable flex-1 min-h-56 rounded-lg border border-default bg-input p-4 font-mono text-sm leading-6 text-primary"
+      className="will-change-variable flex-1 min-h-48 rounded-md border border-default bg-input px-3 py-2.5 font-mono text-sm leading-6 text-primary"
       editable={editable}
       multiline
       onChangeText={onChangeText}

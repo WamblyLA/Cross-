@@ -23,7 +23,7 @@ export function NotebookView({ content }: NotebookViewProps) {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
       {parsed.parseError ? <InlineNotice text={parsed.parseError} tone="warning" /> : null}
 
       {parsed.document.cells.length > 0 ? (

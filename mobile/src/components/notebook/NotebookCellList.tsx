@@ -10,7 +10,7 @@ type NotebookCellListProps = {
 
 export function NotebookCellList({ cells }: NotebookCellListProps) {
   return (
-    <View className="gap-3">
+    <View className="gap-2">
       {cells.map((cell, index) => {
         if (cell.cellType === "markdown") {
           return <NotebookMarkdownCell index={index} key={cell.localId} source={cell.source} />;

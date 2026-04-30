@@ -1,4 +1,4 @@
-﻿import { Editor } from "@monaco-editor/react";
+import { Editor } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { VscCode, VscEye, VscSplitHorizontal } from "react-icons/vsc";
@@ -33,11 +33,23 @@ function MarkdownPreviewPane({
   filePath: string;
 }) {
   return (
-    <div className="ui-scrollbar h-full overflow-y-auto px-6 py-5">
-      <MarkdownRenderer source={source} filePath={filePath} />
+    <div className="ui-scrollbar h-full overflow-y-auto px-3 py-3">
+      <div className="rounded-[10px] border border-default bg-input px-4 py-4">
+        <MarkdownRenderer source={source} filePath={filePath} />
+      </div>
     </div>
   );
 }
+
+const VIEW_MODE_BUTTONS: Array<{
+  mode: MarkdownViewMode;
+  label: string;
+  icon: typeof VscCode;
+}> = [
+  { mode: "code", label: "Code", icon: VscCode },
+  { mode: "split", label: "Split", icon: VscSplitHorizontal },
+  { mode: "preview", label: "Preview", icon: VscEye },
+];
 
 export default function MarkdownEditor({
   filePath,
@@ -181,34 +193,40 @@ export default function MarkdownEditor({
     [commitDraft, viewMode],
   );
 
+  const statusLabel = readOnly ? "Только чтение" : isDirty ? "Есть изменения" : null;
+
   const editorPane = (
-    <Editor
-      path={filePath}
-      height="100%"
-      language="markdown"
-      value={draftContent}
-      onChange={(value) => handleDraftChange(value ?? "")}
-      beforeMount={beforeMount}
-      onMount={handleMount}
-      theme={getMonacoThemeName(theme)}
-      options={{
-        minimap: { enabled: false },
-        fontSize,
-        lineNumbers: "on",
-        automaticLayout: true,
-        readOnly,
-        wordWrap: "on",
-        scrollBeyondLastLine: false,
-        smoothScrolling: true,
-        renderWhitespace: "selection",
-        tabSize,
-        insertSpaces: true,
-        padding: {
-          top: 16,
-          bottom: 18,
-        },
-      }}
-    />
+    <div className="h-full min-h-0 bg-editor">
+      <Editor
+        path={filePath}
+        height="100%"
+        language="markdown"
+        value={draftContent}
+        onChange={(value) => handleDraftChange(value ?? "")}
+        beforeMount={beforeMount}
+        onMount={handleMount}
+        theme={getMonacoThemeName(theme)}
+        options={{
+          minimap: { enabled: false },
+          fontSize,
+          lineNumbers: "on",
+          automaticLayout: true,
+          readOnly,
+          wordWrap: "on",
+          scrollBeyondLastLine: false,
+          smoothScrolling: true,
+          renderWhitespace: "selection",
+          tabSize,
+          insertSpaces: true,
+          lineDecorationsWidth: 12,
+          lineNumbersMinChars: 2,
+          padding: {
+            top: 8,
+            bottom: 8,
+          },
+        }}
+      />
+    </div>
   );
 
   const previewPane = (
@@ -218,41 +236,26 @@ export default function MarkdownEditor({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-default bg-panel px-4 py-3">
-        <div>
-          <div className="text-sm text-primary">
-            {readOnly ? "Редактор Markdown (только чтение)" : "Редактор Markdown"}
+    <div className="flex h-full min-h-0 flex-col bg-editor">
+      <div className="sticky top-0 z-10 border-b border-default bg-chrome/95 px-3 py-2 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="ui-segmented-control">
+            {VIEW_MODE_BUTTONS.map(({ mode, label, icon: Icon }) => (
+              <button
+                key={mode}
+                type="button"
+                className={`ui-control ui-segmented-control-button rounded-md ${
+                  viewMode === mode ? "ui-segmented-control-button-active" : ""
+                }`}
+                onClick={() => handleViewModeChange(mode)}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className={`ui-control h-9 px-3 ${viewMode === "code" ? "border-default bg-editor text-primary" : ""}`}
-            onClick={() => handleViewModeChange("code")}
-          >
-            <VscCode className="h-4 w-4" />
-            <span>Код</span>
-          </button>
-
-          <button
-            type="button"
-            className={`ui-control h-9 px-3 ${viewMode === "split" ? "border-default bg-editor text-primary" : ""}`}
-            onClick={() => handleViewModeChange("split")}
-          >
-            <VscSplitHorizontal className="h-4 w-4" />
-            <span>Разделить</span>
-          </button>
-
-          <button
-            type="button"
-            className={`ui-control h-9 px-3 ${viewMode === "preview" ? "border-default bg-editor text-primary" : ""}`}
-            onClick={() => handleViewModeChange("preview")}
-          >
-            <VscEye className="h-4 w-4" />
-            <span>Предпросмотр</span>
-          </button>
+          {statusLabel ? <div className="px-1 text-xs text-secondary">{statusLabel}</div> : null}
         </div>
       </div>
 
@@ -265,7 +268,7 @@ export default function MarkdownEditor({
           <div className="flex h-full min-h-0">
             <div className="min-w-0 flex-1">{editorPane}</div>
 
-            <ResizeableBlock minSize={280} maxSize={900} defaultSize={520} direction="l">
+            <ResizeableBlock minSize={240} maxSize={820} defaultSize={420} direction="l">
               <div className="h-full min-h-0 border-l border-default bg-panel">{previewPane}</div>
             </ResizeableBlock>
           </div>

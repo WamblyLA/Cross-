@@ -58,7 +58,7 @@ export function FileDocumentView({
   }, [editable, fileName]);
 
   return (
-    <View className="flex-1 gap-3">
+    <View className="flex-1 gap-2">
       <FileInfoCard
         badgeText={fileInfo.badgeText}
         badgeTone={fileInfo.badgeTone}
@@ -71,7 +71,7 @@ export function FileDocumentView({
       {readOnlyReason ? <ReadOnlyBanner text={readOnlyReason} /> : null}
       {notice ? <InlineNotice text={notice.text} tone={notice.tone} /> : null}
 
-      <View className="flex-1">
+      <View className="min-h-0 flex-1">
         {kind === "markdown" ? (
           <MarkdownEditorPanel
             editable={editable}

@@ -514,7 +514,7 @@ export default function TopBar({
   };
 
   return (
-    <div className="relative h-12 w-full overflow-visible border-b border-default bg-chrome px-3">
+    <div className="electron-drag relative h-12 w-full overflow-visible border-b border-default bg-chrome px-3">
       <div className="flex h-full items-center justify-between gap-3">
         <div
           ref={menuRootRef}

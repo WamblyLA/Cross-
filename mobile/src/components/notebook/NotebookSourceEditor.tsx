@@ -21,7 +21,7 @@ export function NotebookSourceEditor({
 
   return (
     <TextInput
-      className="will-change-variable min-h-32 rounded-md border border-default bg-input p-3 text-sm leading-6 text-primary"
+      className="will-change-variable min-h-24 rounded-md border border-default bg-input px-3 py-2.5 text-sm leading-6 text-primary"
       editable={editable}
       multiline
       onChangeText={onChangeText}

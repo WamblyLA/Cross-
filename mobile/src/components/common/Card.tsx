@@ -1,6 +1,20 @@
 import type { PropsWithChildren } from "react";
 import { View } from "react-native";
+import { cn } from "../../lib/utils/cn";
 
-export function Card({ children }: PropsWithChildren) {
-  return <View className="will-change-variable rounded-md border border-default bg-panel p-4">{children}</View>;
+type CardProps = PropsWithChildren<{
+  className?: string;
+}>;
+
+export function Card({ children, className }: CardProps) {
+  return (
+    <View
+      className={cn(
+        "will-change-variable rounded-md border border-default bg-panel p-3",
+        className,
+      )}
+    >
+      {children}
+    </View>
+  );
 }

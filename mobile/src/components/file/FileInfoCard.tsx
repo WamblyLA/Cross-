@@ -30,38 +30,47 @@ export function FileInfoCard({
 }: FileInfoCardProps) {
   return (
     <Card>
-      <View className="gap-3">
-        <View className="gap-1">
-          <Text className="will-change-variable text-lg font-extrabold text-primary">
-            {fileName}
-          </Text>
-          <Text className="will-change-variable text-xs text-secondary">{statusText}</Text>
-        </View>
-        <Badge text={badgeText} tone={badgeTone} />
-      </View>
+      <View className="gap-2">
+        <View className="flex-row items-start justify-between gap-3">
+          <View className="min-w-0 flex-1 gap-1">
+            <Text className="will-change-variable text-base font-extrabold text-primary" numberOfLines={2}>
+              {fileName}
+            </Text>
+            <Text className="will-change-variable text-xs text-secondary">{statusText}</Text>
+          </View>
 
-      {primaryAction || secondaryAction ? (
-        <View className="gap-3">
-          {primaryAction ? (
-            <AppButton
-              disabled={primaryAction.disabled}
-              loading={primaryAction.loading}
-              onPress={primaryAction.onPress}
-              title={primaryAction.label}
-              variant={primaryAction.variant}
-            />
-          ) : null}
-          {secondaryAction ? (
-            <AppButton
-              disabled={secondaryAction.disabled}
-              loading={secondaryAction.loading}
-              onPress={secondaryAction.onPress}
-              title={secondaryAction.label}
-              variant={secondaryAction.variant ?? "secondary"}
-            />
-          ) : null}
+          <View className="shrink-0">
+            <Badge text={badgeText} tone={badgeTone} />
+          </View>
         </View>
-      ) : null}
+
+        {(primaryAction || secondaryAction) ? (
+          <View className="flex-row gap-2">
+            {primaryAction ? (
+              <View className="flex-1">
+                <AppButton
+                  disabled={primaryAction.disabled}
+                  loading={primaryAction.loading}
+                  onPress={primaryAction.onPress}
+                  title={primaryAction.label}
+                  variant={primaryAction.variant}
+                />
+              </View>
+            ) : null}
+            {secondaryAction ? (
+              <View className="flex-1">
+                <AppButton
+                  disabled={secondaryAction.disabled}
+                  loading={secondaryAction.loading}
+                  onPress={secondaryAction.onPress}
+                  title={secondaryAction.label}
+                  variant={secondaryAction.variant ?? "secondary"}
+                />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
     </Card>
   );
 }

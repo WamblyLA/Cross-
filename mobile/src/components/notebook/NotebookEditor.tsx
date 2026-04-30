@@ -87,7 +87,16 @@ export function NotebookEditor({ content, onChangeContent }: NotebookEditorProps
   const hasOutdatedOutputs = hasNotebookOutdatedOutputs(document);
 
   return (
-    <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+      <View className="flex-row gap-2">
+        <View className="flex-1">
+          <AppButton onPress={() => handleCreateCell("code")} title="Code" variant="secondary" />
+        </View>
+        <View className="flex-1">
+          <AppButton onPress={() => handleCreateCell("markdown")} title="Markdown" variant="ghost" />
+        </View>
+      </View>
+
       {parseError ? <InlineNotice text={parseError} tone="warning" /> : null}
       {hasOutdatedOutputs ? (
         <InlineNotice
@@ -97,7 +106,7 @@ export function NotebookEditor({ content, onChangeContent }: NotebookEditorProps
       ) : null}
 
       {document.cells.length > 0 ? (
-        <View className="gap-3">
+        <View className="gap-2">
           {document.cells.map((cell, index) => (
             <NotebookEditableCell
               cell={cell}
@@ -126,12 +135,12 @@ export function NotebookEditor({ content, onChangeContent }: NotebookEditorProps
           ))}
         </View>
       ) : (
-        <View className="gap-3">
+        <View className="gap-2">
           <EmptyState
             description="Добавьте первую ячейку и сохраните notebook обратно в .ipynb."
             title="Пустой notebook"
           />
-          <View className="gap-3">
+          <View className="gap-2">
             <AppButton onPress={() => handleCreateCell("markdown")} title="Добавить markdown-ячейку" />
             <AppButton
               onPress={() => handleCreateCell("code")}

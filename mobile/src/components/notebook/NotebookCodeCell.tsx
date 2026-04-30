@@ -20,9 +20,9 @@ export function NotebookCodeCell({
   hasUnsupportedOutputs,
 }: NotebookCodeCellProps) {
   return (
-    <Card>
-      <Text className="will-change-variable mb-1 text-xs font-bold text-secondary">
-        {`Code-ячейка ${index + 1}${executionCount != null ? ` • In [${executionCount}]` : ""}`}
+    <Card className="gap-2">
+      <Text className="will-change-variable text-[11px] font-bold uppercase tracking-[1.4px] text-secondary">
+        {`Code ${index + 1}${executionCount != null ? ` - In [${executionCount}]` : ""}`}
       </Text>
       <MonospaceBlock text={source} />
       <NotebookOutputList hasUnsupportedOutputs={hasUnsupportedOutputs} outputs={outputs} />

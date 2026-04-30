@@ -18,7 +18,9 @@ export function NotebookOutputList({
 
   return (
     <View className="gap-2">
-      <Text className="will-change-variable text-xs font-bold text-secondary">Вывод</Text>
+      <Text className="will-change-variable text-[11px] font-bold uppercase tracking-[1.4px] text-secondary">
+        Output
+      </Text>
 
       {outputs.map((output, index) => {
         if (output.outputType === "stream") {
@@ -39,7 +41,9 @@ export function NotebookOutputList({
       })}
 
       {hasUnsupportedOutputs ? (
-        <Text className="will-change-variable text-xs text-muted">Часть вывода показана в упрощённом виде.</Text>
+        <Text className="will-change-variable text-xs leading-5 text-muted">
+          Часть вывода показана в упрощенном виде.
+        </Text>
       ) : null}
     </View>
   );

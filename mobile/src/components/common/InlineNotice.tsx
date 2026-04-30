@@ -10,7 +10,7 @@ export function InlineNotice({ tone, text }: InlineNoticeProps) {
   return (
     <View
       className={cn(
-        "will-change-variable rounded-md border px-4 py-3",
+        "will-change-variable rounded-md border px-3 py-2",
         tone === "info"
           ? "border-default bg-active"
           : tone === "success"
@@ -20,7 +20,7 @@ export function InlineNotice({ tone, text }: InlineNoticeProps) {
               : "border-warning bg-active",
       )}
     >
-      <Text className="will-change-variable text-sm leading-6 text-primary">{text}</Text>
+      <Text className="will-change-variable text-sm leading-5 text-primary">{text}</Text>
     </View>
   );
 }

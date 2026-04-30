@@ -21,6 +21,20 @@ body {
   font-family: "Segoe UI", "Inter", system-ui, sans-serif;
 }
 
+.electron-drag {
+  -webkit-app-region: drag;
+}
+
+.electron-drag button,
+.electron-drag input,
+.electron-drag textarea,
+.electron-drag select,
+.electron-drag a,
+.electron-drag [role="button"],
+.electron-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 button,
 input {
   font: inherit;

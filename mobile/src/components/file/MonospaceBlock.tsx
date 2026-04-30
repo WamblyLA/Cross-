@@ -10,12 +10,12 @@ export function MonospaceBlock({ text, compact = false }: MonospaceBlockProps) {
     <View
       className={
         compact
-          ? "will-change-variable rounded-lg bg-editor px-4 py-3"
-          : "will-change-variable rounded-lg bg-editor p-4"
+          ? "will-change-variable rounded-md bg-editor px-3 py-2"
+          : "will-change-variable rounded-md bg-editor px-3 py-2.5"
       }
     >
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <Text className="will-change-variable font-mono text-sm leading-6 text-primary">{text || " "}</Text>
+        <Text className="will-change-variable font-mono text-sm leading-5 text-primary">{text || " "}</Text>
       </ScrollView>
     </View>
   );

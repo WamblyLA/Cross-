@@ -17,7 +17,7 @@ export function NotebookCellActionButton({
   return (
     <Pressable
       className={cn(
-        "will-change-variable min-h-9 rounded-md border px-3 py-2",
+        "will-change-variable min-h-8 rounded-md border px-2.5 py-1.5",
         tone === "danger" ? "border-error bg-transparent" : "border-default bg-transparent",
         disabled ? "opacity-50" : "active:bg-hover",
       )}
@@ -26,7 +26,7 @@ export function NotebookCellActionButton({
     >
       <Text
         className={cn(
-          "will-change-variable text-xs font-bold",
+          "will-change-variable text-[11px] font-bold",
           tone === "danger" ? "text-error" : "text-secondary",
         )}
       >

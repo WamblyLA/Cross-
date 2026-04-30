@@ -9,9 +9,11 @@ type NotebookMarkdownCellProps = {
 
 export function NotebookMarkdownCell({ index, source }: NotebookMarkdownCellProps) {
   return (
-    <Card>
-      <Text className="will-change-variable text-xs font-bold text-secondary">{`Markdown-ячейка ${index + 1}`}</Text>
-      <MarkdownPreview content={source} scrollable={false} />
+    <Card className="gap-2">
+      <Text className="will-change-variable text-[11px] font-bold uppercase tracking-[1.4px] text-secondary">
+        {`Markdown-ячейка ${index + 1}`}
+      </Text>
+      <MarkdownPreview content={source} framed={false} scrollable={false} />
     </Card>
   );
 }

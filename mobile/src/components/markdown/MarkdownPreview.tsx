@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useThemeVariable } from "../../hooks/useThemeVariable";
 import { Card } from "../common/Card";
 import { AutoHeightHtmlWebView } from "../common/AutoHeightHtmlWebView";
@@ -9,11 +9,13 @@ import { renderMarkdownToHtml } from "./markdownRenderer";
 type MarkdownPreviewProps = {
   content: string;
   scrollable?: boolean;
+  framed?: boolean;
 };
 
 export function MarkdownPreview({
   content,
   scrollable = true,
+  framed = true,
 }: MarkdownPreviewProps) {
   const background = useThemeVariable("--bg-input", "#101913");
   const panelBackground = useThemeVariable("--bg-panel", "#16201a");
@@ -41,10 +43,18 @@ export function MarkdownPreview({
     });
   }, [accent, background, border, codeBackground, content, editorBackground, panelBackground, secondary, text]);
 
-  const body = (
-    <Card>
-      <AutoHeightHtmlWebView html={html} maxHeight={scrollable ? 3200 : 20000} minHeight={120} />
+  const previewContent = (
+    <AutoHeightHtmlWebView html={html} maxHeight={scrollable ? 3200 : 20000} minHeight={120} />
+  );
+
+  const body = framed ? (
+    <Card className="overflow-hidden p-2">
+      {previewContent}
     </Card>
+  ) : (
+    <View className="will-change-variable overflow-hidden rounded-md border border-default bg-input p-2">
+      {previewContent}
+    </View>
   );
 
   if (!scrollable) {

@@ -20,17 +20,20 @@ type NotebookEditableCellProps = {
   onSwitchType: (localId: string, nextType: EditableNotebookCellType) => void;
 };
 
-function getCellTitle(cell: NotebookCellModel, index: number) {
+function getCellLabel(cell: NotebookCellModel) {
+  return cell.cellType === "markdown" ? "Markdown" : cell.cellType === "code" ? "Code" : "Cell";
+}
+
+function getCellMeta(cell: NotebookCellModel, index: number) {
   if (cell.cellType === "markdown") {
-    return `Markdown-ячейка ${index + 1}`;
+    return `Cell ${index + 1} - ${cell.mode === "preview" ? "preview" : "edit"}`;
   }
 
-  if (cell.cellType === "code") {
-    const suffix = cell.executionCount != null ? ` • In [${cell.executionCount}]` : "";
-    return `Code-ячейка ${index + 1}${suffix}`;
+  if (cell.cellType === "code" && cell.executionCount != null) {
+    return `Cell ${index + 1} - In [${cell.executionCount}]`;
   }
 
-  return `Ячейка ${index + 1}`;
+  return `Cell ${index + 1}`;
 }
 
 export function NotebookEditableCell({
@@ -46,12 +49,13 @@ export function NotebookEditableCell({
 }: NotebookEditableCellProps) {
   if (!cell.isEditable) {
     return (
-      <Card>
-        <Text className="will-change-variable text-sm font-extrabold text-primary">
-          {`Ячейка ${index + 1}`}
+      <Card className="gap-2">
+        <Text className="will-change-variable text-[11px] font-bold uppercase tracking-[1.4px] text-secondary">
+          Unsupported
         </Text>
-        <Text className="will-change-variable text-sm leading-6 text-secondary">
-          {`Тип "${cell.cellType}" пока доступен только для просмотра.`}
+        <Text className="will-change-variable text-sm text-primary">{`Cell ${index + 1}`}</Text>
+        <Text className="will-change-variable text-sm leading-5 text-secondary">
+          {`Type "${cell.cellType}" is available in read-only mode.`}
         </Text>
       </Card>
     );
@@ -60,105 +64,100 @@ export function NotebookEditableCell({
   const isMarkdown = cell.cellType === "markdown";
 
   return (
-    <Card>
-      <View className="gap-3">
-        <View className="gap-1">
-          <Text className="will-change-variable text-xs font-bold text-secondary">
-            {getCellTitle(cell, index)}
+    <Card className="gap-2.5">
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text className="will-change-variable text-[11px] font-bold uppercase tracking-[1.4px] text-secondary">
+            {getCellLabel(cell)}
           </Text>
-          <Text className="will-change-variable text-xs text-muted">
-            {isMarkdown ? "Без выполнения" : "Код редактируется как обычный текст"}
-          </Text>
+          <Text className="will-change-variable text-xs text-primary">{getCellMeta(cell, index)}</Text>
         </View>
 
-        {isMarkdown ? (
-          <View className="will-change-variable flex-row gap-2 rounded-md border border-default bg-editor p-1">
-            <Pressable
-              className={cn(
-                "will-change-variable min-h-9 flex-1 items-center justify-center rounded-sm border px-3",
-                cell.mode === "edit" ? "border-default bg-active" : "border-transparent bg-transparent",
-              )}
-              onPress={() => onChangeMode(cell.localId, "edit")}
-            >
-              <Text
-                className={cn(
-                  "will-change-variable text-xs font-bold uppercase tracking-[1.6px]",
-                  cell.mode === "edit" ? "text-primary" : "text-secondary",
-                )}
-              >
-                Редактирование
-              </Text>
-            </Pressable>
-            <Pressable
-              className={cn(
-                "will-change-variable min-h-9 flex-1 items-center justify-center rounded-sm border px-3",
-                cell.mode === "preview"
-                  ? "border-default bg-active"
-                  : "border-transparent bg-transparent",
-              )}
-              onPress={() => onChangeMode(cell.localId, "preview")}
-            >
-              <Text
-                className={cn(
-                  "will-change-variable text-xs font-bold uppercase tracking-[1.6px]",
-                  cell.mode === "preview" ? "text-primary" : "text-secondary",
-                )}
-              >
-                Просмотр
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        {isMarkdown && cell.mode === "preview" ? (
-          <MarkdownPreview content={cell.source} scrollable={false} />
-        ) : (
-          <NotebookSourceEditor
-            editable
-            onChangeText={(value) => onChangeSource(cell.localId, value)}
-            placeholder={isMarkdown ? "Markdown-ячейка пуста" : "Code-ячейка пуста"}
-            value={cell.source}
-          />
-        )}
-
-        {cell.hasOutdatedOutputs ? (
-          <InlineNotice
-            text="Вывод сохранён как в файле и может быть устаревшим после правок."
-            tone="warning"
-          />
-        ) : null}
-
-        {cell.cellType === "code" ? (
-          <NotebookOutputList hasUnsupportedOutputs={cell.hasUnsupportedOutputs} outputs={cell.outputs} />
-        ) : null}
-
-        <View className="flex-row flex-wrap gap-2">
-          <NotebookCellActionButton
-            label="Добавить markdown"
-            onPress={() => onAddBelow(index, "markdown")}
-          />
-          <NotebookCellActionButton label="Добавить code" onPress={() => onAddBelow(index, "code")} />
+        <View className="flex-row gap-1.5">
           <NotebookCellActionButton
             disabled={index === 0}
-            label="Вверх"
+            label="Up"
             onPress={() => onMove(cell.localId, -1)}
           />
           <NotebookCellActionButton
             disabled={index === cellCount - 1}
-            label="Вниз"
+            label="Down"
             onPress={() => onMove(cell.localId, 1)}
           />
           <NotebookCellActionButton
-            label={isMarkdown ? "В code" : "В markdown"}
-            onPress={() => onSwitchType(cell.localId, isMarkdown ? "code" : "markdown")}
-          />
-          <NotebookCellActionButton
-            disabled={cellCount === 0}
-            label="Удалить"
+            label="Del"
             onPress={() => onDelete(cell.localId)}
             tone="danger"
           />
         </View>
+      </View>
+
+      {isMarkdown ? (
+        <View className="will-change-variable flex-row gap-1.5 rounded-md border border-default bg-panel p-1">
+          <Pressable
+            className={cn(
+              "will-change-variable min-h-8 flex-1 items-center justify-center rounded-sm border px-3",
+              cell.mode === "edit" ? "border-default bg-active" : "border-transparent bg-transparent",
+            )}
+            onPress={() => onChangeMode(cell.localId, "edit")}
+          >
+            <Text
+              className={cn(
+                "will-change-variable text-[11px] font-bold uppercase tracking-[1.6px]",
+                cell.mode === "edit" ? "text-primary" : "text-secondary",
+              )}
+            >
+              Edit
+            </Text>
+          </Pressable>
+          <Pressable
+            className={cn(
+              "will-change-variable min-h-8 flex-1 items-center justify-center rounded-sm border px-3",
+              cell.mode === "preview" ? "border-default bg-active" : "border-transparent bg-transparent",
+            )}
+            onPress={() => onChangeMode(cell.localId, "preview")}
+          >
+            <Text
+              className={cn(
+                "will-change-variable text-[11px] font-bold uppercase tracking-[1.6px]",
+                cell.mode === "preview" ? "text-primary" : "text-secondary",
+              )}
+            >
+              Preview
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {isMarkdown && cell.mode === "preview" ? (
+        <MarkdownPreview content={cell.source} framed={false} scrollable={false} />
+      ) : (
+        <NotebookSourceEditor
+          editable
+          onChangeText={(value) => onChangeSource(cell.localId, value)}
+          placeholder={isMarkdown ? "Markdown cell" : "Code cell"}
+          value={cell.source}
+        />
+      )}
+
+      {cell.hasOutdatedOutputs ? (
+        <InlineNotice
+          text="Вывод сохранен из файла и может быть неактуален после правок."
+          tone="warning"
+        />
+      ) : null}
+
+      {cell.cellType === "code" ? (
+        <NotebookOutputList hasUnsupportedOutputs={cell.hasUnsupportedOutputs} outputs={cell.outputs} />
+      ) : null}
+
+      <View className="flex-row flex-wrap gap-1.5">
+        <NotebookCellActionButton label="+ MD" onPress={() => onAddBelow(index, "markdown")} />
+        <NotebookCellActionButton label="+ Code" onPress={() => onAddBelow(index, "code")} />
+        <NotebookCellActionButton
+          label={isMarkdown ? "To code" : "To md"}
+          onPress={() => onSwitchType(cell.localId, isMarkdown ? "code" : "markdown")}
+        />
       </View>
     </Card>
   );
