@@ -162,7 +162,7 @@ export default function BugReportDialog({
 
         <div className="ui-scrollbar-thin min-h-0 overflow-y-auto p-5">
           <div className="mb-4 text-sm leading-6 text-secondary">
-            Опишите проблему кратко и по существу
+            Опишите вашу проблему и она решится в скором времени!
           </div>
 
           {successMessage ? (
