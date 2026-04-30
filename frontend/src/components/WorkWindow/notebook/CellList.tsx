@@ -1,5 +1,6 @@
 import type * as Monaco from "monaco-editor";
 import { type ThemeName } from "../../../styles/tokens";
+import type { NotebookCellExecutionState } from "./execution/types";
 import CodeCellView from "./CodeCellView";
 import MarkdownCellView from "./MarkdownCellView";
 import UnsupportedCellView from "./UnsupportedCellView";
@@ -14,13 +15,7 @@ type CellListProps = {
   tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
   readOnly?: boolean;
-  cellExecutionState: Record<
-    string,
-    {
-      isRunning: boolean;
-      lastStatus: NotebookExecutionStatus | null;
-    }
-  >;
+  cellExecutionState: Record<string, NotebookCellExecutionState>;
   canExecuteCodeCells: boolean;
   selectedCellId: string | null;
   focusTargetCellId: string | null;
@@ -63,7 +58,7 @@ export default function CellList({
   onSaveRequest,
 }: CellListProps) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       {cells.map((cell, index) => {
         const focusToken = focusTargetCellId === cell.localId ? focusSequence : 0;
         const isSelected = selectedCellId === cell.localId;
@@ -84,6 +79,8 @@ export default function CellList({
                 cellExecutionState[cell.localId] ?? {
                   isRunning: false,
                   lastStatus: null,
+                  startedAtMs: null,
+                  lastDurationMs: null,
                 }
               }
               canExecute={canExecuteCodeCells}

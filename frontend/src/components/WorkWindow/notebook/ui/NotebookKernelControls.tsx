@@ -60,9 +60,9 @@ function renderStatusClass(status: NotebookSessionStatus) {
     case "disconnected":
       return "border-[color:var(--error)] bg-[rgba(217,121,121,0.08)] text-error";
     case "idle":
-      return "border-default bg-editor text-primary";
+      return "border-default bg-panel text-primary";
     default:
-      return "border-default bg-input text-secondary";
+      return "border-default bg-editor text-secondary";
   }
 }
 
@@ -108,36 +108,29 @@ export default function NotebookKernelControls({
   }, [isSelectorOpen]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div ref={rootRef} className="relative min-w-[320px]">
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
+      <div ref={rootRef} className="relative min-w-[220px] max-w-[360px] flex-1">
         <button
           type="button"
-          className="ui-control h-auto min-h-9 w-full justify-between px-3 py-2 text-left"
+          className="ui-control h-8 w-full justify-between rounded-md border border-default bg-panel px-3 text-left"
           onClick={() => setIsSelectorOpen((current) => !current)}
           disabled={kernelsLoading || readOnly}
-          title="Выбор ядра Jupyter"
+          title={selectedKernel?.secondaryLabel ?? "Выбор Jupyter-ядра"}
         >
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm text-primary">
-              {selectedKernel?.primaryLabel ?? "Выберите ядро"}
-            </div>
-            <div className="truncate text-xs text-secondary">
-              {selectedKernel?.secondaryLabel ??
-                (kernelsLoading
-                  ? "Загружаем доступные ядра..."
-                  : "Ноутбук останется редактируемым, пока ядро не выбрано.")}
-            </div>
-          </div>
-          <VscChevronDown className={`h-4 w-4 shrink-0 transition-transform ${isSelectorOpen ? "rotate-180" : ""}`} />
+          <span className="min-w-0 truncate text-xs text-primary">
+            {selectedKernel?.primaryLabel ??
+              (kernelsLoading ? "Загрузка ядер..." : "Выберите ядро")}
+          </span>
+          <VscChevronDown
+            className={`h-4 w-4 shrink-0 transition-transform ${isSelectorOpen ? "rotate-180" : ""}`}
+          />
         </button>
 
         {isSelectorOpen ? (
-          <div className="ui-menu ui-scrollbar-thin absolute left-0 right-0 top-[calc(100%+8px)] z-20 max-h-80 overflow-y-auto rounded-[16px] p-2">
+          <div className="ui-menu ui-scrollbar-thin absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-72 overflow-y-auto rounded-[10px] p-1">
             {kernels.length === 0 ? (
               <div className="px-3 py-2 text-sm text-secondary">
-                {kernelsLoading
-                  ? "Загрузка ядер..."
-                  : "Jupyter-ядра не найдены."}
+                {kernelsLoading ? "Загрузка ядер..." : "Jupyter-ядра не найдены."}
               </div>
             ) : (
               kernels.map((kernel) => {
@@ -147,7 +140,7 @@ export default function NotebookKernelControls({
                   <button
                     key={kernel.id}
                     type="button"
-                    className={`flex w-full items-start justify-between rounded-[12px] px-3 py-2 text-left transition-colors ${
+                    className={`flex w-full items-start justify-between rounded-[8px] px-3 py-2 text-left transition-colors ${
                       isActive ? "bg-editor text-primary" : "hover:bg-editor/80"
                     }`}
                     onClick={() => {
@@ -172,7 +165,7 @@ export default function NotebookKernelControls({
 
       <button
         type="button"
-        className="ui-control h-9 w-9"
+        className="ui-control h-8 w-8 rounded-md border border-default bg-panel"
         onClick={onRefresh}
         disabled={readOnly}
         title="Обновить список ядер"
@@ -181,50 +174,41 @@ export default function NotebookKernelControls({
       </button>
 
       <div
-        className={`ui-pill border px-3 py-2 text-xs ${renderStatusClass(sessionStatus)}`}
-        title={sessionDetail ?? renderStatusLabel(sessionStatus)}
+        className={`inline-flex h-8 items-center rounded-md border px-2 text-[11px] ${renderStatusClass(sessionStatus)}`}
+        title={kernelsError ?? sessionDetail ?? renderStatusLabel(sessionStatus)}
       >
         {renderStatusLabel(sessionStatus)}
       </div>
 
       <button
         type="button"
-        className="ui-control h-9 px-3"
+        className="ui-control h-8 w-8 rounded-md border border-default bg-panel"
         onClick={onRunAll}
         disabled={readOnly || !canExecute || isRunningAnyCell}
         title="Выполнить весь ноутбук"
       >
         <VscRunAll className="h-4 w-4" />
-        <span>Выполнить всё</span>
       </button>
 
       <button
         type="button"
-        className="ui-control h-9 px-3"
+        className="ui-control h-8 w-8 rounded-md border border-default bg-panel"
         onClick={onInterrupt}
         disabled={readOnly || !isRunningAnyCell}
         title="Прервать выполнение"
       >
         <VscDebugPause className="h-4 w-4" />
-        <span>Прервать</span>
       </button>
 
       <button
         type="button"
-        className="ui-control h-9 px-3"
+        className="ui-control h-8 w-8 rounded-md border border-default bg-panel"
         onClick={onRestart}
         disabled={readOnly || !selectedKernelId || isRunningAnyCell}
         title="Перезапустить ядро"
       >
         <VscDebugRestart className="h-4 w-4" />
-        <span>Перезапустить</span>
       </button>
-
-      {kernelsError ? (
-        <span className="text-xs text-error">{kernelsError}</span>
-      ) : sessionDetail ? (
-        <span className="text-xs text-secondary">{sessionDetail}</span>
-      ) : null}
     </div>
   );
 }

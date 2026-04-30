@@ -65,12 +65,35 @@ function getPreferredKernelId(document: NotebookDocumentModel) {
 function buildRunningMap(
   cellStates: NotebookExecutionViewState["cellStates"],
   targetCellId: string,
-  nextState: { isRunning: boolean; lastStatus: NotebookExecutionStatus | null },
+  nextState: NotebookExecutionViewState["cellStates"][string],
 ) {
   return {
     ...cellStates,
     [targetCellId]: nextState,
   };
+}
+
+function completeRunningCellStates(
+  cellStates: NotebookExecutionViewState["cellStates"],
+  lastStatus: NotebookExecutionStatus,
+  finishedAtMs: number,
+): NotebookExecutionViewState["cellStates"] {
+  return Object.fromEntries(
+    Object.entries(cellStates).map(([cellId, cellState]) => [
+      cellId,
+      cellState.isRunning
+        ? {
+            isRunning: false,
+            lastStatus,
+            startedAtMs: null,
+            lastDurationMs:
+              cellState.startedAtMs != null
+                ? Math.max(0, finishedAtMs - cellState.startedAtMs)
+                : cellState.lastDurationMs,
+          }
+        : cellState,
+    ]),
+  );
 }
 
 export function useNotebookExecution({
@@ -389,16 +412,20 @@ export function useNotebookExecution({
       }
 
       if (event.type === "session-error") {
+        const finishedAtMs = Date.now();
         setState((current) => ({
           ...current,
           executionMessage: event.message,
           sessionStatus: "failed",
           sessionDetail: event.message,
+          isRunningAnyCell: false,
+          cellStates: completeRunningCellStates(current.cellStates, "error", finishedAtMs),
         }));
         return;
       }
 
       if (event.type === "execution-started") {
+        const startedAtMs = Date.now();
         applyDocumentUpdate((currentDocument) =>
           clearNotebookCellExecution(currentDocument, event.cellId),
         );
@@ -408,6 +435,8 @@ export function useNotebookExecution({
           cellStates: buildRunningMap(current.cellStates, event.cellId, {
             isRunning: true,
             lastStatus: null,
+            startedAtMs,
+            lastDurationMs: null,
           }),
         }));
         return;
@@ -439,6 +468,7 @@ export function useNotebookExecution({
       }
 
       if (event.type === "execution-finished") {
+        const finishedAtMs = Date.now();
         applyDocumentUpdate((currentDocument) =>
           replaceNotebookCellOutputs(
             currentDocument,
@@ -448,9 +478,15 @@ export function useNotebookExecution({
           ),
         );
         setState((current) => {
+          const previousState = current.cellStates[event.cellId];
           const nextCellStates = buildRunningMap(current.cellStates, event.cellId, {
             isRunning: false,
             lastStatus: event.status,
+            startedAtMs: null,
+            lastDurationMs:
+              previousState?.startedAtMs != null
+                ? Math.max(0, finishedAtMs - previousState.startedAtMs)
+                : previousState?.lastDurationMs ?? null,
           });
 
           return {
@@ -518,23 +554,33 @@ export function useNotebookExecution({
           source: targetCell.source,
         });
       } catch (error) {
+        const finishedAtMs = Date.now();
         const message =
           error instanceof Error && error.message
             ? error.message
             : "Не удалось выполнить ячейку.";
 
         if (mountedRef.current) {
-          setState((current) => ({
-            ...current,
-            executionMessage: message,
-            sessionStatus: "failed",
-            sessionDetail: message,
-            isRunningAnyCell: false,
-            cellStates: buildRunningMap(current.cellStates, cellId, {
-              isRunning: false,
-              lastStatus: "error",
-            }),
-          }));
+          setState((current) => {
+            const previousState = current.cellStates[cellId];
+
+            return {
+              ...current,
+              executionMessage: message,
+              sessionStatus: "failed",
+              sessionDetail: message,
+              isRunningAnyCell: false,
+              cellStates: buildRunningMap(current.cellStates, cellId, {
+                isRunning: false,
+                lastStatus: "error",
+                startedAtMs: null,
+                lastDurationMs:
+                  previousState?.startedAtMs != null
+                    ? Math.max(0, finishedAtMs - previousState.startedAtMs)
+                    : previousState?.lastDurationMs ?? null,
+              }),
+            };
+          });
         }
 
         return null;

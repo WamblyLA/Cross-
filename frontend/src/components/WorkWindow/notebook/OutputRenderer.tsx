@@ -20,13 +20,13 @@ export default function OutputRenderer({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {outputs.map((output, index) => {
         if (output.output_type === "stream") {
           return (
             <pre
               key={`${output.output_type}-${index}`}
-              className={`ui-scrollbar-x overflow-x-auto rounded-[14px] border px-4 py-3 text-xs leading-6 ${
+              className={`ui-scrollbar-x overflow-x-auto rounded-[10px] border px-3 py-2 text-xs leading-6 ${
                 output.name === "stderr"
                   ? "border-[color:var(--error)] bg-[rgba(217,121,121,0.08)] text-error"
                   : "border-default bg-input text-secondary"
@@ -43,14 +43,14 @@ export default function OutputRenderer({
           return (
             <div
               key={`${output.output_type}-${index}`}
-              className="rounded-[14px] border border-[color:var(--error)] bg-[rgba(217,121,121,0.08)] px-4 py-3"
+              className="rounded-[10px] border border-[color:var(--error)] bg-[rgba(217,121,121,0.08)] px-3 py-2"
             >
               <div className="text-sm font-medium text-error">
                 {output.ename}
                 {output.evalue ? `: ${output.evalue}` : ""}
               </div>
               {traceback ? (
-                <pre className="ui-scrollbar-x mt-3 overflow-x-auto text-xs leading-6 text-error">{traceback}</pre>
+                <pre className="ui-scrollbar-x mt-2 overflow-x-auto text-xs leading-6 text-error">{traceback}</pre>
               ) : null}
             </div>
           );
@@ -64,7 +64,7 @@ export default function OutputRenderer({
       })}
 
       {hasUnsupportedOutputs ? (
-        <div className="rounded-[14px] border border-dashed border-default px-4 py-3 text-xs leading-6 text-secondary">
+        <div className="rounded-[10px] border border-dashed border-default px-3 py-2 text-xs leading-6 text-secondary">
           В этом ноутбуке есть сохранённые выводы, которые этот просмотрщик пока не умеет
           отображать
         </div>

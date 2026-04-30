@@ -1,9 +1,7 @@
-﻿import { VscAdd, VscMarkdown } from "react-icons/vsc";
+import { VscAdd, VscMarkdown } from "react-icons/vsc";
 import NotebookKernelControls from "./ui/NotebookKernelControls";
 
 type NotebookToolbarProps = {
-  cellCount: number;
-  isDirty: boolean;
   isBlocked: boolean;
   readOnly?: boolean;
   statusMessage: string | null;
@@ -27,8 +25,6 @@ type NotebookToolbarProps = {
 };
 
 export default function NotebookToolbar({
-  cellCount,
-  isDirty,
   isBlocked,
   readOnly = false,
   statusMessage,
@@ -36,52 +32,39 @@ export default function NotebookToolbar({
   onAddCodeCell,
   onAddMarkdownCell,
 }: NotebookToolbarProps) {
-  return (
-    <div className="sticky top-0 z-10 border-b border-default bg-panel/95 px-4 py-3 backdrop-blur">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-sm text-primary">Редактор ноутбука</div>
-        </div>
+  const toolbarMessage = readOnly
+    ? statusMessage
+      ? `${statusMessage} - Только чтение`
+      : "Только чтение"
+    : statusMessage;
 
-        <div className="flex flex-wrap items-center gap-2">
+  return (
+    <div className="sticky top-0 z-10 border-b border-default bg-chrome/95 px-3 py-2 backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            className="ui-control h-9 px-3"
+            className="ui-control h-8 rounded-md border border-default bg-panel px-3 text-xs text-primary"
             onClick={onAddCodeCell}
             disabled={isBlocked || readOnly}
+            title="Добавить code cell"
           >
             <VscAdd className="h-4 w-4" />
-            <span>Код</span>
+            <span>Code</span>
           </button>
 
           <button
             type="button"
-            className="ui-control h-9 px-3"
+            className="ui-control h-8 rounded-md border border-default bg-panel px-3 text-xs text-primary"
             onClick={onAddMarkdownCell}
             disabled={isBlocked || readOnly}
+            title="Добавить markdown cell"
           >
             <VscMarkdown className="h-4 w-4" />
             <span>Markdown</span>
           </button>
         </div>
-      </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-secondary">
-        <span>{`${cellCount} ячеек`}</span>
-        <span>
-          {readOnly
-            ? "Режим только чтения"
-            : isDirty
-              ? "Есть несохранённые изменения"
-              : "Все изменения сохранены"}
-        </span>
-      </div>
-
-      <div className="mt-2 min-h-[18px] text-xs text-secondary">
-        {statusMessage ? <span>{statusMessage}</span> : <span className="invisible">status</span>}
-      </div>
-
-      <div className="mt-3">
         <NotebookKernelControls
           kernels={execution.kernels}
           kernelsLoading={execution.kernelsLoading}
@@ -99,6 +82,10 @@ export default function NotebookToolbar({
           onRestart={execution.onRestartKernel}
         />
       </div>
+
+      {toolbarMessage ? (
+        <div className="mt-2 truncate px-1 text-xs text-secondary">{toolbarMessage}</div>
+      ) : null}
     </div>
   );
 }

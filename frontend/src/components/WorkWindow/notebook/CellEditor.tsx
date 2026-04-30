@@ -69,7 +69,7 @@ export default function CellEditor({
       editorRef.current = editor;
 
       const syncHeight = () => {
-        const nextHeight = Math.max(minHeight, Math.min(editor.getContentHeight() + 4, 720));
+        const nextHeight = Math.max(minHeight, Math.min(editor.getContentHeight() + 2, 640));
         setHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
       };
 
@@ -156,11 +156,11 @@ export default function CellEditor({
         glyphMargin: false,
         folding: false,
         readOnly,
-        lineDecorationsWidth: lineNumbers === "off" ? 8 : 16,
-        lineNumbersMinChars: lineNumbers === "off" ? 0 : 3,
+        lineDecorationsWidth: lineNumbers === "off" ? 6 : 12,
+        lineNumbersMinChars: lineNumbers === "off" ? 0 : 2,
         padding: {
-          top: 14,
-          bottom: 14,
+          top: 8,
+          bottom: 8,
         },
       }}
     />

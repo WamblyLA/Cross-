@@ -1,6 +1,8 @@
 export type NotebookCellExecutionState = {
   isRunning: boolean;
   lastStatus: NotebookExecutionStatus | null;
+  startedAtMs: number | null;
+  lastDurationMs: number | null;
 };
 
 export type NotebookExecutionViewState = {

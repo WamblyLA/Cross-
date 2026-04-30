@@ -463,9 +463,7 @@ export default function NotebookEditorHost({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-editor">
-        <NotebookToolbar
-          cellCount={document.cells.length}
-          isDirty={isDirty}
+      <NotebookToolbar
           isBlocked={Boolean(parseError)}
           readOnly={readOnly}
           statusMessage={toolbarStatusMessage}
@@ -493,21 +491,21 @@ export default function NotebookEditorHost({
       />
 
       {parseError ? (
-        <div className="border-b border-[color:var(--warning)] bg-[rgba(210,161,91,0.12)] px-4 py-3 text-sm text-primary">
+        <div className="border-b border-[color:var(--warning)] bg-[rgba(210,161,91,0.12)] px-3 py-2 text-sm text-primary">
           <div>
             {`Не удалось разобрать JSON ноутбука: ${parseError}`}
           </div>
           <div className="mt-2">
-            <button type="button" className="ui-control h-9 px-3" onClick={handleResetNotebook}>
+            <button type="button" className="ui-control h-8 rounded-md border border-default bg-panel px-3" onClick={handleResetNotebook}>
               {"Создать новый ноутбук"}
             </button>
           </div>
         </div>
       ) : null}
 
-      <div className="ui-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div className="ui-scrollbar min-h-0 flex-1 overflow-y-auto px-2 py-2 sm:px-3 sm:py-3">
         {parseError ? (
-          <div className="rounded-[18px] border border-dashed border-default bg-panel px-6 py-8 text-center">
+          <div className="rounded-[10px] border border-dashed border-default bg-panel px-5 py-7 text-center">
             <div className="text-base text-primary">
               {"Редактирование ноутбука недоступно"}
             </div>
@@ -518,7 +516,7 @@ export default function NotebookEditorHost({
             </div>
           </div>
         ) : document.cells.length === 0 ? (
-          <div className="rounded-[18px] border border-dashed border-default bg-panel px-6 py-8 text-center">
+          <div className="rounded-[10px] border border-dashed border-default bg-panel px-5 py-7 text-center">
             <div className="text-base text-primary">{"Ноутбук пуст"}</div>
             <div className="mt-2 text-sm text-secondary">
               {
@@ -528,7 +526,7 @@ export default function NotebookEditorHost({
             <div className="mt-4 flex justify-center gap-2">
               <button
                 type="button"
-                className="ui-control h-9 px-3"
+                className="ui-control h-8 rounded-md border border-default bg-panel px-3"
                 onClick={() => {
                   void handleAddCell("code");
                 }}
@@ -538,7 +536,7 @@ export default function NotebookEditorHost({
               </button>
               <button
                 type="button"
-                className="ui-control h-9 px-3"
+                className="ui-control h-8 rounded-md border border-default bg-panel px-3"
                 onClick={() => {
                   void handleAddCell("markdown");
                 }}
