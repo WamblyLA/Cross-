@@ -3,7 +3,7 @@ import MarkdownIt from "markdown-it";
 import texmath from "markdown-it-texmath";
 
 const markdownRenderer = new MarkdownIt({
-  html: false,
+  html: true,
   breaks: true,
   linkify: true,
 });
