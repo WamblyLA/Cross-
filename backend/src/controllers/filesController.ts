@@ -1,294 +1,180 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
+import { AppError } from "../lib/errors.js";
+import {
+  findSiblingFile,
+  moveProjectFileForAccess,
+} from "../lib/cloudExplorer.js";
+import {
+  assertFolderInProject,
+  getProjectFileForAccess,
+  requireProjectReadAccess,
+  requireProjectWriteAccess,
+} from "../lib/projectAccess.js";
 import { prisma } from "../lib/prisma.js";
-import { broadcast } from "../services/ws.js";
+import { requireUserId } from "../lib/requestContext.js";
+import type {
+  CreateFileBody,
+  MoveFileBody,
+  ProjectFileParams,
+  ProjectFilesParams,
+  UpdateFileBody,
+} from "../lib/validation.js";
 
-async function checkProjectAccess(projectId: string, userId: string) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId }
+export async function getProjectFiles(req: Request, res: Response) {
+  const { projectId } = req.params as ProjectFilesParams;
+  const userId = requireUserId(req, "UNAUTHORIZED");
+
+  await requireProjectReadAccess(userId, projectId);
+
+  const files = await prisma.file.findMany({
+    where: { projectId },
+    orderBy: [{ createdAt: "asc" }],
+    select: {
+      id: true,
+      projectId: true,
+      folderId: true,
+      name: true,
+      version: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   });
 
-  if (!project) {
-    return { ok: false, reason: "Проект не найден" as const };
-  }
-
-  if (project.ownerId !== userId) {
-    return { ok: false, reason: "Запрещено" as const };
-  }
-
-  return { ok: true, project };
+  res.json({ files });
 }
 
-export async function getElemsInFolder(req: Request, res: Response) {
-  try {
-    const userId = req.userId;
-    const projectId = req.query.projectId as string;
-    const folderPath = ((req.query.path as string) || "").trim();
+export async function createFile(req: Request, res: Response) {
+  const { projectId } = req.params as ProjectFilesParams;
+  const { name, content, folderId } = req.body as CreateFileBody;
+  const userId = requireUserId(req, "UNAUTHORIZED");
 
-    if (!userId) {
-      return res.status(401).json({ error: "Не авторизован" });
-    }
+  await requireProjectWriteAccess(userId, projectId);
+  await assertFolderInProject(userId, projectId, folderId ?? null, "write");
 
-    if (!projectId) {
-      return res.status(400).json({ error: "Нет ID проекта" });
-    }
+  const existingFile = await findSiblingFile(projectId, folderId ?? null, name);
 
-    const access = await checkProjectAccess(projectId, userId);
-
-    if (!access.ok) {
-      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
-        error: access.reason
-      });
-    }
-
-    const files = await prisma.file.findMany({
-      where: { projectId }
-    });
-
-    const normalizedFolder = folderPath.replace(/^\/+|\/+$/g, "");
-    const prefix = normalizedFolder ? `${normalizedFolder}/` : "";
-
-    const map = new Map<string, { name: string; isDirectory: boolean }>();
-
-    for (const file of files) {
-      if (!file.path.startsWith(prefix)) {
-        continue;
-      }
-
-      const rest = file.path.slice(prefix.length);
-      if (!rest) {
-        continue;
-      }
-
-      const parts = rest.split("/").filter(Boolean);
-      if (parts.length === 0) {
-        continue;
-      }
-
-      const name = parts[0]!;
-      const isDirectory = parts.length > 1;
-
-      const prev = map.get(name);
-      if (!prev || isDirectory) {
-        map.set(name, { name, isDirectory });
-      }
-    }
-
-    return res.json({ files: Array.from(map.values()) });
-  } catch (err) {
-    console.error("getElemsInFolder error", err);
-    return res.status(500).json({ error: "Внутренняя ошибка сервера" });
+  if (existingFile) {
+    throw new AppError("Файл с таким именем уже существует", 409, undefined, "CONFLICT");
   }
-}
 
-export async function getFileContent(req: Request, res: Response) {
-  try {
-    const userId = req.userId;
-    const projectId = req.query.projectId as string;
-    const filePath = req.query.path as string;
-
-    if (!userId) {
-      return res.status(401).json({ error: "Не авторизован" });
-    }
-
-    if (!projectId || !filePath) {
-      return res.status(400).json({ error: "Нет ID проекта или пути" });
-    }
-
-    const access = await checkProjectAccess(projectId, userId);
-
-    if (!access.ok) {
-      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
-        error: access.reason
-      });
-    }
-
-    const file = await prisma.file.findUnique({
-      where: {
-        projectId_path: {
-          projectId,
-          path: filePath
-        }
-      }
-    });
-
-    if (!file) {
-      return res.status(404).json({ error: "Нет такого файла" });
-    }
-
-    return res.json({ content: file.content });
-  } catch (err) {
-    console.error("getFileContent error", err);
-    return res.status(500).json({ error: "Внутренняя ошибка сервера" });
-  }
-}
-
-export async function saveFileChanges(req: Request, res: Response) {
-  try {
-    const userId = req.userId;
-    const { projectId, path: filePath, content } = req.body;
-
-    if (!userId) {
-      return res.status(401).json({ error: "Не авторизован" });
-    }
-
-    if (!projectId || !filePath) {
-      return res.status(400).json({ error: "Нет ID проекта или пути" });
-    }
-
-    const access = await checkProjectAccess(projectId, userId);
-
-    if (!access.ok) {
-      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
-        error: access.reason
-      });
-    }
-
-    const name = filePath.split("/").filter(Boolean).pop();
-
-    if (!name) {
-      return res.status(400).json({ error: "Invalid file path" });
-    }
-
-    const file = await prisma.file.upsert({
-      where: {
-        projectId_path: {
-          projectId,
-          path: filePath
-        }
-      },
-      update: {
-        content: content ?? ""
-      },
-      create: {
-        projectId,
-        path: filePath,
-        name,
-        content: content ?? ""
-      }
-    });
-
-    broadcast({
-      type: "file-updated",
+  const file = await prisma.file.create({
+    data: {
       projectId,
-      path: file.path
-    });
+      folderId: folderId ?? null,
+      name,
+      content,
+    },
+  });
 
-    return res.json({ success: true, file });
-  } catch (err) {
-    console.error("saveFileChanges error", err);
-    return res.status(500).json({ error: "Не удалось сохранить файл" });
-  }
+  res.status(201).json({ file });
 }
 
-export async function createFilder(req: Request, res: Response) {
-  try {
-    const userId = req.userId;
-    const { projectId, path: parentPath = "", name, isFolder } = req.body;
+export async function getProjectFile(req: Request, res: Response) {
+  const { projectId, id } = req.params as ProjectFileParams;
+  const userId = requireUserId(req, "UNAUTHORIZED");
+  const file = await getProjectFileForAccess(userId, projectId, id);
+  const access = await requireProjectReadAccess(userId, projectId);
 
-    if (!userId) {
-      return res.status(401).json({ error: "Не авторизован" });
-    }
-
-    if (!projectId || !name) {
-      return res.status(400).json({ error: "Нет ID проекта или имени" });
-    }
-
-    const access = await checkProjectAccess(projectId, userId);
-
-    if (!access.ok) {
-      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
-        error: access.reason
-      });
-    }
-
-    const normalizedParent = String(parentPath).replace(/^\/+|\/+$/g, "");
-    const fullPath = normalizedParent ? `${normalizedParent}/${name}` : name;
-
-    if (isFolder) {
-      broadcast({
-        type: "folder-created",
-        projectId,
-        path: fullPath
-      });
-
-      return res.json({ success: true });
-    }
-
-    const exists = await prisma.file.findUnique({
-      where: {
-        projectId_path: {
-          projectId,
-          path: fullPath
-        }
-      }
-    });
-
-    if (exists) {
-      return res.status(400).json({ error: "Такой объект уже существует" });
-    }
-
-    const file = await prisma.file.create({
-      data: {
-        projectId,
-        path: fullPath,
-        name,
-        content: ""
-      }
-    });
-
-    broadcast({
-      type: "file-created",
-      projectId,
-      path: file.path
-    });
-
-    return res.json({ success: true, file });
-  } catch (err) {
-    console.error("createFilder error", err);
-    return res.status(500).json({ error: "Не удалось создать объект" });
-  }
+  res.json({
+    file: {
+      ...file,
+      canWrite: access.role !== "viewer",
+    },
+  });
 }
 
-export async function deleteFilder(req: Request, res: Response) {
-  try {
-    const userId = req.userId;
-    const { projectId, path: targetPath } = req.body;
+export async function updateProjectFile(req: Request, res: Response) {
+  const { projectId, id } = req.params as ProjectFileParams;
+  const { name, content, expectedVersion } = req.body as UpdateFileBody;
+  const userId = requireUserId(req, "UNAUTHORIZED");
 
-    if (!userId) {
-      return res.status(401).json({ error: "Не авторизован" });
+  const file = await getProjectFileForAccess(userId, projectId, id, "write");
+
+  if (name && name !== file.name) {
+    const duplicate = await findSiblingFile(projectId, file.folderId ?? null, name);
+
+    if (duplicate && duplicate.id !== file.id) {
+      throw new AppError("Файл с таким именем уже существует", 409, undefined, "CONFLICT");
     }
-
-    if (!projectId || !targetPath) {
-      return res.status(400).json({ error: "Нет ID проекта или пути" });
-    }
-
-    const access = await checkProjectAccess(projectId, userId);
-
-    if (!access.ok) {
-      return res.status(access.reason === "Проект не найден" ? 404 : 403).json({
-        error: access.reason
-      });
-    }
-
-    const deleted = await prisma.file.deleteMany({
-      where: {
-        projectId,
-        OR: [
-          { path: targetPath },
-          { path: { startsWith: `${targetPath}/` } }
-        ]
-      }
-    });
-
-    broadcast({
-      type: "file-removed",
-      projectId,
-      path: targetPath
-    });
-
-    return res.json({ success: true, deletedCount: deleted.count });
-  } catch (err) {
-    console.error("deleteFilder error", err);
-    return res.status(500).json({ error: "Не удалось удалить объект" });
   }
+
+  if (expectedVersion !== undefined && expectedVersion !== file.version) {
+    throw new AppError(
+      "Версия облачного файла устарела. Пересчитайте изменения и повторите попытку.",
+      409,
+      undefined,
+      "CONFLICT",
+    );
+  }
+
+  const updatedFile =
+    expectedVersion === undefined
+      ? await prisma.file.update({
+          where: { id: file.id },
+          data: {
+            ...(name !== undefined ? { name } : {}),
+            ...(content !== undefined ? { content } : {}),
+            ...(content !== undefined ? { version: { increment: 1 } } : {}),
+          },
+        })
+      : await prisma.$transaction(async (tx) => {
+          const updateResult = await tx.file.updateMany({
+            where: {
+              id: file.id,
+              version: expectedVersion,
+            },
+            data: {
+              ...(name !== undefined ? { name } : {}),
+              ...(content !== undefined ? { content } : {}),
+              ...(content !== undefined ? { version: { increment: 1 } } : {}),
+            },
+          });
+
+          if (updateResult.count !== 1) {
+            throw new AppError(
+              "Версия облачного файла устарела. Пересчитайте изменения и повторите попытку.",
+              409,
+              undefined,
+              "CONFLICT",
+            );
+          }
+
+          return tx.file.findUniqueOrThrow({
+            where: { id: file.id },
+          });
+        });
+
+  res.json({
+    file: {
+      ...updatedFile,
+      canWrite: true,
+    },
+  });
+}
+
+export async function deleteProjectFile(req: Request, res: Response) {
+  const { projectId, id } = req.params as ProjectFileParams;
+  const userId = requireUserId(req, "UNAUTHORIZED");
+  const file = await getProjectFileForAccess(userId, projectId, id, "write");
+
+  await prisma.file.delete({
+    where: { id: file.id },
+  });
+
+  res.status(204).send();
+}
+
+export async function moveProjectFile(req: Request, res: Response) {
+  const { projectId, id } = req.params as ProjectFileParams;
+  const { targetProjectId, targetFolderId } = req.body as MoveFileBody;
+  const userId = requireUserId(req, "UNAUTHORIZED");
+  const result = await moveProjectFileForAccess(
+    userId,
+    projectId,
+    id,
+    targetProjectId,
+    targetFolderId ?? null,
+  );
+
+  res.json(result);
 }

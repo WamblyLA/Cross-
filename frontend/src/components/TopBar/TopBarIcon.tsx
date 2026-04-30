@@ -7,11 +7,7 @@ interface TopBarIconProps {
 
 export default function TopBarIcon({ icon: Icon, onClick }: TopBarIconProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="p-1 rounded"
-    >
+    <button type="button" onClick={onClick} className="ui-control h-8 w-8">
       <Icon className="h-4 w-4" />
     </button>
   );

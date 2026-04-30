@@ -1,0 +1,16 @@
+export const TERMINAL_UI_STRINGS = {
+  title: "Терминал",
+  emptySubtitle: "Локальная shell-сессия внутри IDE",
+  newTerminal: "Новый терминал",
+  terminalProfiles: "Профили терминала",
+  interruptTerminal: "Прервать терминал",
+  clearTerminal: "Очистить терминал",
+  hideBottomPanel: "Скрыть нижнюю панель",
+  closeTerminal: "Закрыть терминал",
+  profilesLoading: "Ищем доступные терминалы...",
+  createTerminalSection: "Новый терминал",
+  emptyProfiles: "Профили терминалов пока недоступны",
+  defaultProfileSection: "Профиль по умолчанию",
+  noSessions: "Создайте первый терминал",
+  selectedMark: "●",
+} as const;

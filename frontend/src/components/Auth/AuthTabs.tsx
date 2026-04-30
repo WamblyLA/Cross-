@@ -1,27 +1,32 @@
-type AuthMode = "signin" | "signup";
+import { NavLink } from "react-router-dom";
 
-type AuthTabsProps = {
-  mode: AuthMode;
-  setMode: (mode: AuthMode) => void;
-};
+const tabs = [
+  {
+    to: "/auth/login",
+    label: "Вход",
+  },
+  {
+    to: "/auth/register",
+    label: "Регистрация",
+  },
+];
 
-export default function AuthTabs({ mode, setMode }: AuthTabsProps) {
+export default function AuthTabs() {
   return (
-    <div className="flex gap-2">
-      <button
-        type="button"
-        onClick={() => setMode("signin")}
-        className={`px-3 py-1 rounded ${mode === "signin" ? "bg-white/20" : "bg-transparent"}`}
-      >
-        Войти
-      </button>
-      <button
-        type="button"
-        onClick={() => setMode("signup")}
-        className={`px-3 py-1 rounded ${mode === "signup" ? "bg-white/20" : "bg-transparent"}`}
-      >
-        Зарегистрироваться
-      </button>
+    <div className="flex gap-2 rounded-md border border-default bg-chrome p-1">
+      {tabs.map((tab) => (
+        <NavLink
+          key={tab.to}
+          to={tab.to}
+          className={({ isActive }) =>
+            `ui-control flex-1 px-3 py-1.5 text-sm ${
+              isActive ? "border border-default bg-active text-primary" : "text-secondary"
+            }`
+          }
+        >
+          {tab.label}
+        </NavLink>
+      ))}
     </div>
   );
 }

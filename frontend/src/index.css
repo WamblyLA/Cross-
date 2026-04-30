@@ -1,12 +1,47 @@
+@import "./styles/theme.css";
+@import "./styles/ui.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
+
 html, body, #root {
   height: 100%;
-  color: #e1fae3;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+}
+
+.electron-drag {
+  -webkit-app-region: drag;
+}
+
+.electron-drag button,
+.electron-drag input,
+.electron-drag textarea,
+.electron-drag select,
+.electron-drag a,
+.electron-drag [role="button"],
+.electron-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--selection);
+  color: var(--text-primary);
 }

@@ -1,0 +1,28 @@
+@theme {
+  --color-app: var(--bg-app);
+  --color-chrome: var(--bg-chrome);
+  --color-panel: var(--bg-panel);
+  --color-editor: var(--bg-editor);
+  --color-input: var(--bg-input);
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-inverse: var(--text-inverse);
+  --color-default: var(--border-default);
+  --color-strong: var(--border-strong);
+  --color-focus: var(--border-focus);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-selection: var(--selection);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --shadow-panel: 0 14px 30px rgba(3, 8, 4, 0.24);
+  --shadow-overlay: 0 18px 36px rgba(3, 8, 4, 0.34);
+}

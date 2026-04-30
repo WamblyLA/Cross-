@@ -3,6 +3,7 @@ type PrimaryButtonProps = {
   onClick?: () => void;
   type?: "button" | "submit";
   disabled?: boolean;
+  className?: string;
 };
 
 export default function PrimaryButton({
@@ -10,13 +11,14 @@ export default function PrimaryButton({
   onClick,
   type = "button",
   disabled = false,
+  className = "",
 }: PrimaryButtonProps) {
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className="px-4 py-2 rounded bg-green-900 text-white disabled:opacity-50"
+      className={`ui-button-primary ui-control px-4 py-2 ${className}`.trim()}
     >
       {children}
     </button>

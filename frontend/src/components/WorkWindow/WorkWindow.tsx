@@ -1,219 +1,365 @@
-import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { useRef, useCallback, useEffect, useState } from "react";
+import { Editor } from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { selectIsAuthenticated } from "../../features/auth/authSelectors";
+import { selectCloudActiveProject } from "../../features/cloud/cloudSelectors";
+import { useCloudRealtimeFile } from "../../features/cloud/realtime/useCloudRealtimeFile";
 import {
   closeFile,
+  markFileDirty,
   setActiveFile,
   updateFileContent,
 } from "../../features/files/filesSlice";
-import { RxCross1 } from "react-icons/rx";
-import { Editor } from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
+import {
+  selectActiveFile,
+  selectActiveTabId,
+  selectOpenedFiles,
+} from "../../features/files/filesSelectors";
+import { selectCurrentVisualSettings } from "../../features/visualSettings/visualSettingsSelectors";
+import { useWorkspaceActions } from "../../hooks/useWorkspaceActions";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { registerMonacoThemes } from "../../styles/monacoTheme";
+import { getMonacoThemeName, type ThemeName } from "../../styles/tokens";
+import MarkdownEditor from "./MarkdownEditor";
+import NotebookEditor from "./NotebookEditor";
+import UnsavedFileCloseDialog from "./UnsavedFileCloseDialog";
+import WorkWindowTabs from "./WorkWindowTabs";
+import { getEditorLanguage } from "./workWindowLanguage";
+import { getWorkWindowEmptyStateContent } from "./workWindowEmptyStateContent";
+import { EmptyEditorState } from "./workWindowEmptyState";
 
-function extToLang(ext: string | null | undefined) {
-  if (!ext) {
-    return "plaintext";
-  }
+type WorkWindowProps = {
+  theme: ThemeName;
+};
 
-  const extL = ext.toLowerCase();
-
-  switch (extL) {
-    case "cpp":
-      return "cpp";
-    case "h":
-      return "cpp";
-    case "json":
-      return "json";
-    case "md":
-      return "markdown";
-    default:
-      return "plaintext";
-  }
-}
-
-export default function WorkWindow() {
+export default function WorkWindow({ theme }: WorkWindowProps) {
   const dispatch = useAppDispatch();
-  const { openedFiles, activeFileId } = useAppSelector((state) => state.files);
-  const activeFile = openedFiles.find((file) => file.id === activeFileId);
+  const source = useAppSelector((state) => state.workspace.source);
+  const rootPath = useAppSelector((state) => state.workspace.rootPath);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const activeCloudProject = useAppSelector(selectCloudActiveProject);
+  const openedFiles = useAppSelector(selectOpenedFiles);
+  const activeTabId = useAppSelector(selectActiveTabId);
+  const activeFile = useAppSelector(selectActiveFile);
+  const visualSettings = useAppSelector(selectCurrentVisualSettings);
+  const { saveActiveFile, saveFileByTabId } = useWorkspaceActions();
+
+  const isNotebookFile = activeFile?.extension?.toLowerCase() === "ipynb";
+  const isMarkdownFile = activeFile?.extension?.toLowerCase() === "md";
+  const isCloudReadOnly = activeFile?.kind === "cloud" && !activeFile.canWrite;
+
+  useCloudRealtimeFile(activeFile);
 
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const timeoutRef = useRef<number | null>(null);
+  const previousNotebookTabIdsRef = useRef<Set<string>>(new Set());
+  const [pendingCloseFile, setPendingCloseFile] = useState<{
+    tabId: string;
+    fileName: string;
+  } | null>(null);
 
-  const [dirtyMap, setDirtyMap] = useState<Record<string, boolean>>({});
+  const handleSave = useCallback(async () => {
+    const result = await saveActiveFile();
 
-  const saveCurrentFile = useCallback(async () => {
-    const editor = editorRef.current;
-    if (!editor) {
-      return;
+    if (!result.ok && result.message) {
+      console.error(result.message);
     }
+  }, [saveActiveFile]);
 
-    const currentFile = openedFiles.find((file) => file.id === activeFileId);
-    if (!currentFile) {
-      return;
-    }
-
-    const content = editor.getValue();
-
-    dispatch(updateFileContent({ id: currentFile.id, content }));
-
-    try {
-      await window.electronAPI.writeFile(currentFile.id, content);
-
-      setDirtyMap((prev) => ({
-        ...prev,
-        [currentFile.id]: false,
-      }));
-
-      console.log("Сохранилось", currentFile.id);
-    } catch (err) {
-      console.error("Ошибка при сохранении файла", err);
-    }
-  }, [activeFileId, openedFiles, dispatch]);
   useEffect(() => {
     if (!editorRef.current) {
       return;
     }
 
-    const editor = editorRef.current;
-
-    const disposable = editor.addAction({
+    const disposable = editorRef.current.addAction({
       id: "save-file",
-      label: "Save File",
+      label: "Сохранить файл",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
       run: async () => {
-        await saveCurrentFile();
+        await handleSave();
       },
     });
 
     return () => {
       disposable.dispose();
     };
-  }, [saveCurrentFile]);
+  }, [handleSave]);
+
+  useEffect(() => {
+    const currentNotebookTabIds = new Set(
+      openedFiles
+        .filter((file) => file.extension?.toLowerCase() === "ipynb")
+        .map((file) => file.tabId),
+    );
+
+    for (const previousTabId of previousNotebookTabIdsRef.current) {
+      if (currentNotebookTabIds.has(previousTabId)) {
+        continue;
+      }
+
+      void window.electronAPI.shutdownNotebookSession(previousTabId).catch(() => {
+        // TODO: сохранить текущее поведение тихого завершения сессии.
+      });
+    }
+
+    previousNotebookTabIdsRef.current = currentNotebookTabIds;
+  }, [openedFiles]);
+
+  useEffect(() => {
+    if (!pendingCloseFile) {
+      return;
+    }
+
+    const fileStillOpen = openedFiles.some((file) => file.tabId === pendingCloseFile.tabId);
+
+    if (!fileStillOpen) {
+      setPendingCloseFile(null);
+    }
+  }, [openedFiles, pendingCloseFile]);
+
+  const beforeMount = useCallback((monacoInstance: typeof monaco) => {
+    registerMonacoThemes(monacoInstance);
+  }, []);
 
   const onMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor) => {
     editorRef.current = editor;
   }, []);
 
-  const before = useCallback((monacoInstance: typeof monaco) => {
-    monacoInstance.editor.defineTheme("defaultDark", {
-      base: "hc-black",
-      inherit: true,
-      colors: {
-        "editor.background": "#0F1710",
-        "editor.lineHighlightBackground": "#101a11",
-        "editor.selectionBackground": "#3b5933",
-        "editorLineNumber.foreground": "#e1fae3",
-      },
-      rules: [
-        { token: "comment", foreground: "#324734", fontStyle: "italic" },
-        { token: "keyword", foreground: "#b0550b", fontStyle: "bold" },
-        { token: "string", foreground: "#24a616" },
-        { token: "number", foreground: "#1a76bd" },
-        { token: "function", foreground: "#10e843" },
-      ],
-    });
-  }, []);
-
-  const editorChange = useCallback(
+  const handleEditorChange = useCallback(
     (value: string | undefined) => {
       if (!activeFile || value === undefined) {
         return;
       }
 
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
+      if (activeFile.kind === "cloud" && !activeFile.canWrite) {
+        return;
       }
 
-      timeoutRef.current = window.setTimeout(() => {
-        dispatch(updateFileContent({ id: activeFile.id, content: value }));
-
-        setDirtyMap((prev) => ({
-          ...prev,
-          [activeFile.id]: true,
-        }));
-      }, 150);
+      dispatch(
+        updateFileContent({
+          tabId: activeFile.tabId,
+          content: value,
+        }),
+      );
     },
     [activeFile, dispatch],
   );
 
-  useEffect(() => {
-    const existingIds = new Set(openedFiles.map((file) => file.id));
+  const handleCommitFileContent = useCallback(
+    (tabId: string, nextContent: string) => {
+      dispatch(
+        updateFileContent({
+          tabId,
+          content: nextContent,
+        }),
+      );
+    },
+    [dispatch],
+  );
 
-    setDirtyMap((prev) => {
-      const next: Record<string, boolean> = {};
-
-      for (const key of Object.keys(prev)) {
-        if (existingIds.has(key)) {
-          next[key] = prev[key];
-        }
+  const handleMarkFileDirty = useCallback(
+    (tabId: string, isDirty: boolean) => {
+      if (isDirty) {
+        return;
       }
 
-      return next;
-    });
-  }, [openedFiles]);
+      dispatch(markFileDirty(tabId));
+    },
+    [dispatch],
+  );
 
-  if (openedFiles.length === 0) {
-    return null;
+  const handleSaveFileContent = useCallback(
+    async (tabId: string, nextContent?: string) => {
+      if (nextContent !== undefined) {
+        const targetFile = openedFiles.find((file) => file.tabId === tabId);
+
+        if (targetFile?.kind === "cloud" && !targetFile.canWrite) {
+          throw new Error("У вас только доступ для чтения.");
+        }
+
+        dispatch(
+          updateFileContent({
+            tabId,
+            content: nextContent,
+          }),
+        );
+      }
+
+      const result = await saveFileByTabId(tabId);
+
+      if (!result.ok) {
+        throw new Error(result.message ?? "Не удалось сохранить файл.");
+      }
+    },
+    [dispatch, openedFiles, saveFileByTabId],
+  );
+
+  const handleRequestCloseFile = useCallback(
+    (tabId: string) => {
+      const file = openedFiles.find((openedFile) => openedFile.tabId === tabId);
+
+      if (!file) {
+        return;
+      }
+
+      if (!file.isDirty) {
+        dispatch(closeFile(tabId));
+        return;
+      }
+
+      setPendingCloseFile({
+        tabId,
+        fileName: file.name,
+      });
+    },
+    [dispatch, openedFiles],
+  );
+
+  const handleCancelCloseFile = useCallback(() => {
+    setPendingCloseFile(null);
+  }, []);
+
+  const handleConfirmCloseFile = useCallback(() => {
+    if (!pendingCloseFile) {
+      return;
+    }
+
+    const fileStillOpen = openedFiles.some((file) => file.tabId === pendingCloseFile.tabId);
+
+    if (fileStillOpen) {
+      dispatch(closeFile(pendingCloseFile.tabId));
+    }
+
+    setPendingCloseFile(null);
+  }, [dispatch, openedFiles, pendingCloseFile]);
+
+  const primaryEmptyState = !activeFile
+    ? getWorkWindowEmptyStateContent({
+        source,
+        isAuthenticated,
+        activeCloudProject,
+        rootPath,
+      })
+    : null;
+
+  if (primaryEmptyState) {
+    return (
+      <div className="min-h-0 flex-1 bg-editor">
+        <EmptyEditorState
+          title={primaryEmptyState.title}
+          description={primaryEmptyState.description}
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className="flex">
-        {openedFiles.map((f) => (
-          <div
-            key={f.id}
-            onClick={() => dispatch(setActiveFile(f.id))}
-            className={`${
-              activeFileId === f.id ? "border-b-2 border-lines-color" : ""
-            } px-2 py-1 flex gap-2 items-center`}
-          >
-            <span className="flex items-center gap-2">
-              <span>
-                {f.name}
-                {f.extencion ? `.${f.extencion}` : ""}
-              </span>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor">
+      <WorkWindowTabs
+        openedFiles={openedFiles}
+        activeTabId={activeTabId}
+        onActivate={(tabId) => dispatch(setActiveFile(tabId))}
+        onRequestClose={handleRequestCloseFile}
+      />
 
-              {dirtyMap[f.id] ? (
-                <span className="text-white text-sm leading-none">●</span>
-              ) : null}
-            </span>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                dispatch(closeFile(f.id));
-              }}
-            >
-              <RxCross1 />
-            </button>
+      <div className="min-h-0 flex-1 border-t border-default">
+        {isCloudReadOnly ? (
+          <div className="border-b border-default bg-panel px-4 py-2 text-sm text-secondary">
+            У вас только доступ для чтения. Редактирование и сохранение отключены.
           </div>
-        ))}
+        ) : null}
+
+        {activeFile ? (
+          isNotebookFile ? (
+            <NotebookEditor
+              key={activeFile.tabId}
+              filePath={activeFile.editorPath}
+              content={activeFile.content}
+              isDirty={activeFile.isDirty}
+              theme={theme}
+              fontSize={visualSettings.fontSize}
+              tabSize={visualSettings.tabSize}
+              beforeMount={beforeMount}
+              readOnly={isCloudReadOnly}
+              runtimeContext={
+                activeFile.kind === "local"
+                  ? {
+                      kind: "local" as const,
+                      runtimeId: activeFile.tabId,
+                      notebookPath: activeFile.path,
+                      workspaceRootPath: rootPath,
+                    }
+                  : {
+                      kind: "cloud" as const,
+                      runtimeId: activeFile.tabId,
+                      editorPath: activeFile.editorPath,
+                      projectId: activeFile.projectId,
+                      fileId: activeFile.fileId,
+                      name: activeFile.name,
+                    }
+              }
+              onCommitContent={(nextContent) =>
+                handleCommitFileContent(activeFile.tabId, nextContent)
+              }
+              onMarkDirty={() => handleMarkFileDirty(activeFile.tabId, activeFile.isDirty)}
+              onSaveContent={(nextContent) => handleSaveFileContent(activeFile.tabId, nextContent)}
+            />
+          ) : isMarkdownFile ? (
+            <MarkdownEditor
+              key={activeFile.tabId}
+              filePath={activeFile.editorPath}
+              content={activeFile.content}
+              isDirty={activeFile.isDirty}
+              theme={theme}
+              fontSize={visualSettings.fontSize}
+              tabSize={visualSettings.tabSize}
+              beforeMount={beforeMount}
+              readOnly={isCloudReadOnly}
+              onCommitContent={(nextContent) =>
+                handleCommitFileContent(activeFile.tabId, nextContent)
+              }
+              onMarkDirty={() => handleMarkFileDirty(activeFile.tabId, activeFile.isDirty)}
+              onSaveContent={(nextContent) => handleSaveFileContent(activeFile.tabId, nextContent)}
+            />
+          ) : (
+            <Editor
+              path={activeFile.editorPath}
+              height="100%"
+              language={getEditorLanguage(activeFile.extension)}
+              value={activeFile.content}
+              onChange={handleEditorChange}
+              beforeMount={beforeMount}
+              onMount={onMount}
+              theme={getMonacoThemeName(theme)}
+              options={{
+                minimap: { enabled: false },
+                fontSize: visualSettings.fontSize,
+                lineNumbers: "on",
+                automaticLayout: true,
+                readOnly: isCloudReadOnly,
+                wordWrap: "off",
+                scrollBeyondLastLine: true,
+                smoothScrolling: true,
+                renderWhitespace: "none",
+                tabSize: visualSettings.tabSize,
+                insertSpaces: true,
+              }}
+            />
+          )
+        ) : (
+          <EmptyEditorState
+            title="Выберите файл в проводнике"
+            description="Откройте файл в боковой панели"
+          />
+        )}
       </div>
 
-      <div className="flex-1">
-        {activeFile ? (
-          <Editor
-            height="100%"
-            language={extToLang(activeFile.extencion)}
-            value={activeFile.content}
-            onChange={editorChange}
-            beforeMount={before}
-            onMount={onMount}
-            theme="defaultDark"
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              lineNumbers: "on",
-              automaticLayout: true,
-              wordWrap: "off",
-              scrollBeyondLastLine: true,
-              smoothScrolling: true,
-              renderWhitespace: "none",
-              tabSize: 4,
-              insertSpaces: true,
-            }}
-          />
-        ) : null}
-      </div>
+      {pendingCloseFile ? (
+        <UnsavedFileCloseDialog
+          fileName={pendingCloseFile.fileName}
+          onConfirm={handleConfirmCloseFile}
+          onCancel={handleCancelCloseFile}
+        />
+      ) : null}
     </div>
   );
 }

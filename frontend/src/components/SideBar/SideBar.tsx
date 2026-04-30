@@ -1,17 +1,21 @@
 import ResizeableBlock from "../../ui/ResizeableBlock";
-import OptionsBar from "./OptionsBar/OptionsBar";
+import { useAppSelector } from "../../store/hooks";
+import CloudExplorer from "./Cloud/CloudExplorer";
 import FileTree from "./FileTree/FileTree";
+import LinkedWorkspaceBanner from "./Linked/LinkedWorkspaceBanner";
+import OptionsBar from "./OptionsBar/OptionsBar";
+import LinkedWorkspaceSyncDialogs from "../Sync/LinkedWorkspaceSyncDialogs";
 
-type SideBarProps = {
-  rootPath: string | null;
-};
+export default function SideBar() {
+  const source = useAppSelector((state) => state.workspace.source);
 
-export default function SideBar({ rootPath }: SideBarProps) {
   return (
-    <ResizeableBlock minWidth={200} direction="r" defaultWidth={300}>
-      <div className="bg-side-bar-bg w-full h-full">
+    <ResizeableBlock minSize={220} direction="r" defaultSize={300}>
+      <div className="bg-chrome border-r border-default w-full h-full flex flex-col min-w-0">
         <OptionsBar />
-        <FileTree rootPath={rootPath} />
+        <LinkedWorkspaceBanner />
+        {source === "cloud" ? <CloudExplorer /> : <FileTree />}
+        <LinkedWorkspaceSyncDialogs />
       </div>
     </ResizeableBlock>
   );

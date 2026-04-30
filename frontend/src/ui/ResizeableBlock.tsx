@@ -1,59 +1,93 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
+
 interface ResizeableBlockProps {
-  minWidth: number;
-  maxWidth?: number;
+  minSize: number;
+  maxSize?: number;
   children: React.ReactNode;
   direction: "r" | "l" | "u" | "d";
-  defaultWidth: number;
+  defaultSize: number;
+  size?: number;
+  onSizeChange?: (nextSize: number) => void;
+  collapsible?: boolean;
 }
 
 export default function ResizeableBlock({
-  minWidth,
-  maxWidth,
+  minSize,
+  maxSize,
   children,
   direction,
-  defaultWidth,
+  defaultSize,
+  size,
+  onSizeChange,
+  collapsible = true,
 }: ResizeableBlockProps) {
-  const resizeRef = useRef<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(defaultWidth);
-  const isHorizontal = direction == "l" || direction == "r";
+  const isHorizontal = direction === "l" || direction === "r";
+  const isControlled = typeof size === "number";
+  const [internalSize, setInternalSize] = useState(defaultSize);
   const [isClosed, setIsClosed] = useState(false);
+  const currentSize = isControlled ? size : internalSize;
+
+  useEffect(() => {
+    if (typeof size !== "number") {
+      return;
+    }
+
+    setInternalSize(size);
+  }, [size]);
+
+  const applySize = (nextSize: number) => {
+    if (!isControlled) {
+      setInternalSize(nextSize);
+    }
+
+    onSizeChange?.(nextSize);
+  };
+
   const resizing = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     const startPosition = isHorizontal ? e.clientX : e.clientY;
-    const startWidth = isClosed ? 0 : width;
+    const startSize = isClosed ? 0 : currentSize;
     let wasClosed = isClosed;
     const barrier = 10;
+
     const mouseMovement = (moveEvent: MouseEvent) => {
-      let razn = isHorizontal
+      let difference = isHorizontal
         ? moveEvent.clientX - startPosition
         : moveEvent.clientY - startPosition;
-      if (direction == "l" || direction == "u") {
-        razn = -razn;
+
+      if (direction === "l" || direction === "u") {
+        difference = -difference;
       }
-      let newWidth = startWidth + razn;
-      if (wasClosed && newWidth > minWidth / 2 + barrier) {
+
+      let nextSize = startSize + difference;
+
+      if (collapsible && wasClosed && nextSize > minSize / 2 + barrier) {
         setIsClosed(false);
-        setWidth(minWidth);
+        applySize(minSize);
         wasClosed = false;
         return;
       }
-      if (!wasClosed && newWidth < minWidth / 2 - barrier) {
+
+      if (collapsible && !wasClosed && nextSize < minSize / 2 - barrier) {
         setIsClosed(true);
-        setWidth(0);
+        applySize(0);
         wasClosed = true;
         return;
       }
+
       if (!wasClosed) {
-        if (newWidth < minWidth) {
-            newWidth = minWidth;
+        if (nextSize < minSize) {
+          nextSize = minSize;
         }
-        if (maxWidth && newWidth > maxWidth) {
-            newWidth = maxWidth;
+
+        if (maxSize && nextSize > maxSize) {
+          nextSize = maxSize;
         }
-        setWidth(newWidth);
+
+        applySize(nextSize);
       }
     };
+
     const mouseUp = () => {
       document.removeEventListener("mousemove", mouseMovement);
       document.removeEventListener("mouseup", mouseUp);
@@ -62,26 +96,26 @@ export default function ResizeableBlock({
     document.addEventListener("mousemove", mouseMovement);
     document.addEventListener("mouseup", mouseUp);
   };
+
   const grabberStyles =
     direction === "r"
-      ? "absolute top-0 right-0 h-full w-1 cursor-ew-resize bg-transparent hover:bg-green-900 z-15"
+      ? "ui-resize-handle absolute top-0 right-0 h-full w-1 cursor-ew-resize z-10"
       : direction === "l"
-      ? "absolute top-0 left-0 h-full w-1 cursor-ew-resize bg-transparent hover:bg-green-900 z-15"
-      : direction === "u"
-      ? "absolute bottom-0 left-0 w-full h-1 cursor-ns-resize bg-transparent hover:bg-green-900 z-15"
-      : "absolute top-0 left-0 w-full h-1 cursor-ns-resize bg-transparent hover:bg-green-900 z-15";
+        ? "ui-resize-handle absolute top-0 left-0 h-full w-1 cursor-ew-resize z-10"
+        : direction === "u"
+          ? "ui-resize-handle absolute top-0 left-0 w-full h-1 cursor-ns-resize z-10"
+          : "ui-resize-handle absolute bottom-0 left-0 w-full h-1 cursor-ns-resize z-10";
+
   return (
     <div
-      className={`relative ${isClosed ? '' : 'overflow-hidden'}`}
-      style = {{
-        width: isHorizontal ? (isClosed ? "3px" : `${width}px`) : "100%",
-        height: !isHorizontal ? (isClosed ? "3px" : `${width}px`) : "100%",
+      className={`relative ${isClosed ? "" : "overflow-hidden"}`}
+      style={{
+        width: isHorizontal ? (isClosed ? "3px" : `${currentSize}px`) : "100%",
+        height: !isHorizontal ? (isClosed ? "3px" : `${currentSize}px`) : "100%",
       }}
     >
-      {!isClosed &&  (<div className="w-full h-full">
-        {children}
-      </div>)}
-      <div className={grabberStyles} ref={resizeRef} onMouseDown={resizing} />
+      {!isClosed ? <div className="w-full h-full">{children}</div> : null}
+      <div className={grabberStyles} onMouseDown={resizing} />
     </div>
   );
 }

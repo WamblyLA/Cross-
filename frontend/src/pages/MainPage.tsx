@@ -1,53 +1,24 @@
-import TopBar from "../components/TopBar/TopBar";
+import BottomPanel from "../components/BottomPanel/BottomPanel";
+import RunConfigurationDialog from "../components/Run/RunConfigurationDialog";
 import SideBar from "../components/SideBar/SideBar";
-import SideIcons from "../components/SideIcons/SideIcons";
-import { Provider } from "react-redux";
-import store from "../store/store";
 import WorkWindow from "../components/WorkWindow/WorkWindow";
+import type { ThemeName } from "../styles/tokens";
 
 type MainPageProps = {
-  rootPath: string | null;
-  setRootPath: React.Dispatch<React.SetStateAction<string | null>>;
+  theme: ThemeName;
 };
 
-export default function MainPage({ rootPath, setRootPath }: MainPageProps) {
-  const handleOpenFolder = async () => {
-    try {
-      const result = await window.electronAPI.openFolder();
-      if (!result) return;
-
-      setRootPath(result.folderPath);
-      console.log("Opened folder:", result.folderPath);
-    } catch (err) {
-      console.error("Open folder error", err);
-    }
-  };
-
+export default function MainPage({ theme }: MainPageProps) {
   return (
-    <Provider store={store}>
-      <div className="h-screen w-full bg-main-page-bg flex flex-col">
-        <TopBar />
+    <div className="flex h-full min-h-0 flex-1">
+      <SideBar />
 
-        {/* <TODO>Эту кнопку потом убрать, это открытие папки</TODO> */}
-        <div className="px-2 py-1">
-          <button
-            onClick={handleOpenFolder}
-            className="px-3 py-1 bg-green-800 text-white rounded"
-          >
-            Открыть
-          </button>
-
-          {rootPath && (
-            <span className="ml-3 text-sm text-gray-400">{rootPath}</span>
-          )}
-        </div>
-
-        <div className="flex-1 w-full flex">
-          <SideIcons />
-          <SideBar rootPath={rootPath} />
-          <WorkWindow />
-        </div>
+      <div className="flex min-w-0 flex-1 flex-col bg-editor">
+        <WorkWindow theme={theme} />
+        <BottomPanel theme={theme} />
       </div>
-    </Provider>
+
+      <RunConfigurationDialog />
+    </div>
   );
 }

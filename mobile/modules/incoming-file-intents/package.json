@@ -1,0 +1,9 @@
+{
+  "name": "incoming-file-intents",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "peerDependencies": {
+    "expo": "*"
+  }
+}
