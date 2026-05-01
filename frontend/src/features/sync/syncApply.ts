@@ -1,4 +1,8 @@
 import * as cloudApi from "../cloud/cloudApi";
+import {
+  getUnsupportedFileTransferMessage,
+  isEditorOpenSupported,
+} from "../files/fileOpenSupport";
 import { joinFsPath } from "../../utils/path";
 import { resolveLocalFsPath } from "./syncPaths";
 import { readLocalFileContent } from "./syncSnapshots";
@@ -26,7 +30,7 @@ async function ensureLocalFolder(rootPath: string, relativePath: string) {
     try {
       await window.electronAPI.createFileSystemItem(currentPath, segment, true);
     } catch {
-      // Folder may already exist.
+      // 
     }
 
     currentPath = nextPath;
@@ -83,12 +87,21 @@ export async function applyPushPlan(input: {
       continue;
     }
 
-    const content = await readLocalFileContent(input.localRootPath, item.relativePath);
     const name = item.relativePath.split("/").at(-1);
     const parentRelativePath = item.relativePath.split("/").slice(0, -1).join("/");
     const folderId = parentRelativePath ? folderIds.get(parentRelativePath) ?? null : null;
 
-    if (content === null || !name) {
+    if (!name) {
+      continue;
+    }
+
+    if (!isEditorOpenSupported(name)) {
+      throw new Error(getUnsupportedFileTransferMessage(name));
+    }
+
+    const content = await readLocalFileContent(input.localRootPath, item.relativePath);
+
+    if (content === null) {
       continue;
     }
 
@@ -160,6 +173,10 @@ export async function applyPullPlan(input: {
 
     if (!fileName) {
       continue;
+    }
+
+    if (!isEditorOpenSupported(cloudFile.name)) {
+      throw new Error(getUnsupportedFileTransferMessage(cloudFile.name));
     }
 
     if (parentRelativePath) {

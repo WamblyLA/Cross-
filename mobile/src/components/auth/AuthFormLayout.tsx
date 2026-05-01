@@ -18,17 +18,17 @@ export function AuthFormLayout({
     <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
       <View className="flex-1 bg-app">
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           className="flex-1"
         >
           <ScrollView
             className="flex-1"
-            contentContainerStyle={{ flexGrow: 1 }}
+            contentContainerStyle={{ flexGrow: 1, paddingVertical: 24 }}
             keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="always"
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View className="min-h-full justify-center px-4 py-6">
+            <View className="min-h-full justify-center px-4">
               <View className="will-change-variable overflow-hidden rounded-md border border-default bg-panel">
                 <View className="will-change-variable gap-3 border-b border-default bg-active px-6 py-6">
                   <Text className="will-change-variable text-xs font-bold uppercase tracking-[2.8px] text-muted">

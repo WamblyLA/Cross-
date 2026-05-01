@@ -511,7 +511,7 @@ export default function NotebookEditorHost({
             </div>
             <div className="mt-2 text-sm text-secondary">
               {
-                "Исправьте JSON вне notebook editor или создайте новый ноутбук из шаблона выше."
+                "Исправьте JSON вне редактора ноутбука или создайте новый ноутбук из шаблона выше."
               }
             </div>
           </div>

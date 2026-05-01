@@ -1,4 +1,8 @@
 import { useCallback, type MouseEvent } from "react";
+import {
+  getUnsupportedFileOpenMessage,
+  isEditorOpenSupported,
+} from "../../../features/files/fileOpenSupport";
 import { openLocalFile } from "../../../features/files/filesSlice";
 import {
   getBaseName,
@@ -62,6 +66,13 @@ export function useFileTreeNodeActions(core: FileTreeControllerCore) {
 
   const handleOpenFile = useCallback(
     async (node: WorkspaceTreeNode) => {
+      core.setError(null);
+
+      if (!isEditorOpenSupported(node.name)) {
+        core.setError(getUnsupportedFileOpenMessage(node.name));
+        return;
+      }
+
       try {
         const content = await window.electronAPI.readFile(node.path);
 

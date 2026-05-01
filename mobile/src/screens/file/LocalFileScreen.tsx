@@ -1,5 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useState } from "react";
+import { KeyboardAvoidingView, Platform } from "react-native";
 import { ErrorState } from "../../components/common/ErrorState";
 import { ScreenContainer } from "../../components/common/ScreenContainer";
 import type { FileDocumentNotice } from "../../components/file/FileDocumentView";
@@ -179,47 +180,49 @@ export function LocalFileScreen({ navigation, route }: LocalFileScreenProps) {
 
   return (
     <ScreenContainer>
-      <FileDocumentView
-        editable={currentFile.editable}
-        fileName={currentFile.fileName}
-        fileInfo={{
-          statusText,
-          badgeText: "Локальный",
-          badgeTone: isDirty ? "primary" : "muted",
-          primaryAction: canShowSaveActions
-            ? {
-                label:
-                  currentFile.saveStrategy === "save-as-required"
-                    ? "Сохранить как"
-                    : "Сохранить",
-                disabled: !isDirty,
-                loading: isSaving,
-                onPress: () => {
-                  void handleSave();
-                },
-              }
-            : null,
-          secondaryAction:
-            canShowSaveActions && currentFile.saveStrategy === "direct-source"
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
+        <FileDocumentView
+          editable={currentFile.editable}
+          fileName={currentFile.fileName}
+          fileInfo={{
+            statusText,
+            badgeText: "Локальный",
+            badgeTone: isDirty ? "primary" : "muted",
+            primaryAction: canShowSaveActions
               ? {
-                  label: "Сохранить как",
+                  label:
+                    currentFile.saveStrategy === "save-as-required"
+                      ? "Сохранить как"
+                      : "Сохранить",
+                  disabled: !isDirty,
                   loading: isSaving,
                   onPress: () => {
-                    void runSaveAs();
+                    void handleSave();
                   },
-                  variant: "secondary",
                 }
               : null,
-        }}
-        kind={currentFile.kind}
-        notice={notice}
-        onChangeText={(value) => {
-          setNotice(null);
-          setDraft(value);
-        }}
-        readOnlyReason={null}
-        value={draft}
-      />
+            secondaryAction:
+              canShowSaveActions && currentFile.saveStrategy === "direct-source"
+                ? {
+                    label: "Сохранить как",
+                    loading: isSaving,
+                    onPress: () => {
+                      void runSaveAs();
+                    },
+                    variant: "secondary",
+                  }
+                : null,
+          }}
+          kind={currentFile.kind}
+          notice={notice}
+          onChangeText={(value) => {
+            setNotice(null);
+            setDraft(value);
+          }}
+          readOnlyReason={null}
+          value={draft}
+        />
+      </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }

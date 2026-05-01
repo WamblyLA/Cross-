@@ -12,6 +12,7 @@ type NotebookEditableCellProps = {
   cell: NotebookCellModel;
   index: number;
   cellCount: number;
+  onEditorFocus: (index: number) => void;
   onChangeSource: (localId: string, source: string) => void;
   onChangeMode: (localId: string, mode: "edit" | "preview") => void;
   onAddBelow: (index: number, type: EditableNotebookCellType) => void;
@@ -21,25 +22,26 @@ type NotebookEditableCellProps = {
 };
 
 function getCellLabel(cell: NotebookCellModel) {
-  return cell.cellType === "markdown" ? "Markdown" : cell.cellType === "code" ? "Code" : "Cell";
+  return cell.cellType === "markdown" ? "Markdown" : cell.cellType === "code" ? "Код" : "Ячейка";
 }
 
 function getCellMeta(cell: NotebookCellModel, index: number) {
   if (cell.cellType === "markdown") {
-    return `Cell ${index + 1} - ${cell.mode === "preview" ? "preview" : "edit"}`;
+    return `Ячейка ${index + 1} - ${cell.mode === "preview" ? "просмотр" : "редактирование"}`;
   }
 
   if (cell.cellType === "code" && cell.executionCount != null) {
-    return `Cell ${index + 1} - In [${cell.executionCount}]`;
+    return `Ячейка ${index + 1} - In [${cell.executionCount}]`;
   }
 
-  return `Cell ${index + 1}`;
+  return `Ячейка ${index + 1}`;
 }
 
 export function NotebookEditableCell({
   cell,
   index,
   cellCount,
+  onEditorFocus,
   onChangeSource,
   onChangeMode,
   onAddBelow,
@@ -51,11 +53,11 @@ export function NotebookEditableCell({
     return (
       <Card className="gap-2">
         <Text className="will-change-variable text-[11px] font-bold uppercase tracking-[1.4px] text-secondary">
-          Unsupported
+          Не поддерживается
         </Text>
-        <Text className="will-change-variable text-sm text-primary">{`Cell ${index + 1}`}</Text>
+        <Text className="will-change-variable text-sm text-primary">{`Ячейка ${index + 1}`}</Text>
         <Text className="will-change-variable text-sm leading-5 text-secondary">
-          {`Type "${cell.cellType}" is available in read-only mode.`}
+          {`Тип "${cell.cellType}" доступен только для чтения.`}
         </Text>
       </Card>
     );
@@ -76,16 +78,16 @@ export function NotebookEditableCell({
         <View className="flex-row gap-1.5">
           <NotebookCellActionButton
             disabled={index === 0}
-            label="Up"
+            label="Вверх"
             onPress={() => onMove(cell.localId, -1)}
           />
           <NotebookCellActionButton
             disabled={index === cellCount - 1}
-            label="Down"
+            label="Вниз"
             onPress={() => onMove(cell.localId, 1)}
           />
           <NotebookCellActionButton
-            label="Del"
+            label="Удал."
             onPress={() => onDelete(cell.localId)}
             tone="danger"
           />
@@ -107,7 +109,7 @@ export function NotebookEditableCell({
                 cell.mode === "edit" ? "text-primary" : "text-secondary",
               )}
             >
-              Edit
+              Правка
             </Text>
           </Pressable>
           <Pressable
@@ -123,7 +125,7 @@ export function NotebookEditableCell({
                 cell.mode === "preview" ? "text-primary" : "text-secondary",
               )}
             >
-              Preview
+              Просмотр
             </Text>
           </Pressable>
         </View>
@@ -135,7 +137,8 @@ export function NotebookEditableCell({
         <NotebookSourceEditor
           editable
           onChangeText={(value) => onChangeSource(cell.localId, value)}
-          placeholder={isMarkdown ? "Markdown cell" : "Code cell"}
+          onFocus={() => onEditorFocus(index)}
+          placeholder={isMarkdown ? "Markdown-ячейка" : "Ячейка кода"}
           value={cell.source}
         />
       )}
@@ -152,10 +155,10 @@ export function NotebookEditableCell({
       ) : null}
 
       <View className="flex-row flex-wrap gap-1.5">
-        <NotebookCellActionButton label="+ MD" onPress={() => onAddBelow(index, "markdown")} />
-        <NotebookCellActionButton label="+ Code" onPress={() => onAddBelow(index, "code")} />
+        <NotebookCellActionButton label="+ Текст" onPress={() => onAddBelow(index, "markdown")} />
+        <NotebookCellActionButton label="+ Код" onPress={() => onAddBelow(index, "code")} />
         <NotebookCellActionButton
-          label={isMarkdown ? "To code" : "To md"}
+          label={isMarkdown ? "В код" : "В текст"}
           onPress={() => onSwitchType(cell.localId, isMarkdown ? "code" : "markdown")}
         />
       </View>

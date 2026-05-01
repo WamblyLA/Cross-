@@ -64,6 +64,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         label="Логин или электронная почта"
         onChangeText={(value) => setForm((current) => ({ ...current, login: value }))}
         placeholder="Введите логин или электронную почту"
+        required
         value={form.login}
       />
 
@@ -73,6 +74,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         label="Пароль"
         onChangeText={(value) => setForm((current) => ({ ...current, password: value }))}
         placeholder="Введите пароль"
+        required
         secureTextEntry
         value={form.password}
       />

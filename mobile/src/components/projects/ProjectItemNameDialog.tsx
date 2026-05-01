@@ -64,6 +64,7 @@ export function ProjectItemNameDialog({
         label="Имя"
         onChangeText={setName}
         placeholder="Введите имя"
+        required
         value={name}
       />
     </AppModal>

@@ -7,6 +7,7 @@ type NotebookSourceEditorProps = {
   onChangeText: (value: string) => void;
   editable: boolean;
   placeholder: string;
+  onFocus?: () => void;
 };
 
 export function NotebookSourceEditor({
@@ -14,6 +15,7 @@ export function NotebookSourceEditor({
   onChangeText,
   editable,
   placeholder,
+  onFocus,
 }: NotebookSourceEditorProps) {
   const placeholderTextColor = useThemeVariable("--text-muted", "#8ea28f");
   const { visualSettings } = useTheme();
@@ -25,6 +27,7 @@ export function NotebookSourceEditor({
       editable={editable}
       multiline
       onChangeText={onChangeText}
+      onFocus={onFocus}
       placeholder={placeholder}
       placeholderTextColor={placeholderTextColor}
       scrollEnabled={false}

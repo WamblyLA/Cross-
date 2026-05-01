@@ -127,7 +127,7 @@ export default function VisualSettingsForm({
 
         <FieldShell
           label="Размер шрифта"
-          description="Используется в основных редакторах кода и Markdown"
+          description="Используется в основных редакторах кода и Markdown-файлов"
         >
           <input
             type="number"

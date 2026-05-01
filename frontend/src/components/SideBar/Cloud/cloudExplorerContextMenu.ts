@@ -166,7 +166,7 @@ export function buildCloudExplorerContextMenuSections(
         {
           id: "cloud-file-open",
           label: "Открыть",
-          onSelect: () => state.handleOpenFile(projectId, file.id),
+          onSelect: () => state.handleOpenFile(projectId, file.id, file.name),
         },
         {
           id: "cloud-file-push",

@@ -21,6 +21,7 @@
         "backgroundColor": "#1e1e1e"
       },
       "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false,
       "package": "com.wamblyla.mobile",
       "intentFilters": [

@@ -300,7 +300,14 @@ export function useCloudExplorerInteractionEffects(
 
       if (event.key === "Enter" && state.selectedItemCount === 1 && state.selectedItemType === "file" && state.selectedProjectId && state.selectedFileId) {
         event.preventDefault();
-        void state.handleOpenFile(state.selectedProjectId, state.selectedFileId);
+        const selectedFile = state.activeProjectTree
+          ? findFileInTree(state.activeProjectTree, state.selectedFileId)
+          : null;
+        void state.handleOpenFile(
+          state.selectedProjectId,
+          state.selectedFileId,
+          selectedFile?.name,
+        );
       }
     },
     [createRename, handleKeyboardSelectionMove, state],

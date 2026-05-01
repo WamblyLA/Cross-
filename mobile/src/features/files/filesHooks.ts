@@ -7,9 +7,16 @@ export const fileQueryKeys = {
   detail: (projectId: string, fileId: string) => ["files", projectId, fileId] as const,
 };
 
-export function useProjectFileQuery(projectId: string, fileId: string) {
+export function useProjectFileQuery(
+  projectId: string,
+  fileId: string,
+  options?: {
+    enabled?: boolean;
+  },
+) {
   return useQuery<Awaited<ReturnType<typeof filesApi.getProjectFile>>["file"], ApiError>({
     queryKey: fileQueryKeys.detail(projectId, fileId),
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const response = await filesApi.getProjectFile(projectId, fileId);
       return response.file;

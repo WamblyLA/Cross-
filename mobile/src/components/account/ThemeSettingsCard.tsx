@@ -84,9 +84,6 @@ export function ThemeSettingsCard() {
           <Text className="will-change-variable text-xs font-bold uppercase tracking-[2.4px] text-muted">
             Редактор
           </Text>
-          <Text className="will-change-variable text-sm leading-6 text-secondary">
-            Тема, размер шрифта и табуляция синхронизируются с вашим аккаунтом.
-          </Text>
         </View>
 
         <View className="will-change-variable flex-row gap-2 rounded-md border border-default bg-editor p-1">
@@ -136,7 +133,7 @@ export function ThemeSettingsCard() {
         </View>
 
         <SettingStepper
-          description="Применяется к открытым редакторам на этом устройстве и сохраняется в профиле."
+          description="Используется в открытых файлах"
           disabled={isThemeSyncPending}
           label="Размер шрифта"
           max={MAX_FONT_SIZE}
@@ -148,7 +145,7 @@ export function ThemeSettingsCard() {
         />
 
         <SettingStepper
-          description="Хранится в профиле редактора и используется на других устройствах Cross++."
+          description="Используется на desktop-версии"
           disabled={isThemeSyncPending}
           label="Размер табуляции"
           max={MAX_TAB_SIZE}

@@ -22,7 +22,7 @@ export function NotebookCodeCell({
   return (
     <Card className="gap-2">
       <Text className="will-change-variable text-[11px] font-bold uppercase tracking-[1.4px] text-secondary">
-        {`Code ${index + 1}${executionCount != null ? ` - In [${executionCount}]` : ""}`}
+        {`Код ${index + 1}${executionCount != null ? ` - In [${executionCount}]` : ""}`}
       </Text>
       <MonospaceBlock text={source} />
       <NotebookOutputList hasUnsupportedOutputs={hasUnsupportedOutputs} outputs={outputs} />

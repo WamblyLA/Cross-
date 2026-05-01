@@ -133,9 +133,6 @@ export function BugReportCard() {
             <Text className="will-change-variable text-xs font-bold uppercase tracking-[2.4px] text-muted">
               Помощь
             </Text>
-            <Text className="will-change-variable text-sm leading-6 text-secondary">
-              Если что-то сломалось или работает странно, отправьте сообщение об ошибке прямо из приложения.
-            </Text>
           </View>
 
           <AppButton
@@ -167,6 +164,7 @@ export function BugReportCard() {
             placeholder="Например, не открывается локальный файл"
             error={titleError ?? null}
             autoCapitalize="sentences"
+            required
           />
 
           <AppTextField
@@ -177,6 +175,7 @@ export function BugReportCard() {
             error={descriptionError ?? null}
             autoCapitalize="sentences"
             multiline
+            required
           />
         </View>
       </AppModal>

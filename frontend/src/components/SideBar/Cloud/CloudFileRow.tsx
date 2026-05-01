@@ -66,7 +66,7 @@ export default function CloudFileRow({
         onClick={(event) => {
           controller.updateFileOrFolderSelection(fileSelectionItem, event);
           if (!event.shiftKey && !hasPrimaryModifier(event)) {
-            void controller.handleOpenFile(projectId, file.id);
+            void controller.handleOpenFile(projectId, file.id, file.name);
           }
         }}
         draggable={controller.isDragDropEnabled}

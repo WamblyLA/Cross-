@@ -22,6 +22,10 @@ import {
   type CloudSelectionEntry,
 } from "../features/cloud/cloudSelection";
 import {
+  getUnsupportedFileOpenMessage,
+  isEditorOpenSupported,
+} from "../features/files/fileOpenSupport";
+import {
   selectCloudItem,
   setActiveProjectId,
   setCloudSelection,
@@ -347,7 +351,14 @@ export function useWorkspaceActions() {
   );
 
   const openCloudWorkspaceFile = useCallback(
-    async (projectId: string, fileId: string) => {
+    async (projectId: string, fileId: string, fileName?: string) => {
+      if (fileName && !isEditorOpenSupported(fileName)) {
+        throw createApiError(getUnsupportedFileOpenMessage(fileName), {
+          code: "UNSUPPORTED_FILE_TYPE",
+          status: 415,
+        });
+      }
+
       const existing = openedFiles.find(
         (file) => file.kind === "cloud" && file.projectId === projectId && file.fileId === fileId,
       );
@@ -364,6 +375,13 @@ export function useWorkspaceActions() {
       }
 
       const response = await dispatch(fetchProjectFile({ projectId, fileId })).unwrap();
+
+      if (!isEditorOpenSupported(response.file.name)) {
+        throw createApiError(getUnsupportedFileOpenMessage(response.file.name), {
+          code: "UNSUPPORTED_FILE_TYPE",
+          status: 415,
+        });
+      }
 
       dispatch(
         openCloudFile({
@@ -431,17 +449,20 @@ export function useWorkspaceActions() {
         fileId: response.file.id,
         itemType: "file",
       });
-      dispatch(
-        openCloudFile({
-          projectId,
-          fileId: response.file.id,
-          name: response.file.name,
-          content: response.file.content,
-          canWrite: response.file.canWrite ?? true,
-          version: response.file.version,
-          updatedAt: response.file.updatedAt,
-        }),
-      );
+
+      if (isEditorOpenSupported(response.file.name)) {
+        dispatch(
+          openCloudFile({
+            projectId,
+            fileId: response.file.id,
+            name: response.file.name,
+            content: response.file.content,
+            canWrite: response.file.canWrite ?? true,
+            version: response.file.version,
+            updatedAt: response.file.updatedAt,
+          }),
+        );
+      }
 
       return response.file;
     },

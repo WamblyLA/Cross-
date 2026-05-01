@@ -13,6 +13,7 @@ type AppTextFieldProps = {
   multiline?: boolean;
   editable?: boolean;
   error?: string | null;
+  required?: boolean;
 };
 
 export function AppTextField({
@@ -26,12 +27,16 @@ export function AppTextField({
   multiline = false,
   editable = true,
   error,
+  required = false,
 }: AppTextFieldProps) {
   const placeholderTextColor = useThemeVariable("--text-muted", "#8ea28f");
 
   return (
     <View className="gap-2">
-      <Text className="will-change-variable text-sm text-secondary">{label}</Text>
+      <Text className="will-change-variable text-sm text-secondary">
+        {label}
+        {required ? <Text className="will-change-variable text-error"> *</Text> : null}
+      </Text>
       <TextInput
         autoCapitalize={autoCapitalize}
         className={cn(

@@ -168,7 +168,7 @@ export default function CodeCellView({
         <div className="min-w-0">
           <div className="flex min-h-10 items-center justify-between gap-3 border-b border-default px-3">
             <div className="min-w-0">
-              <div className="ui-micro-label">Code</div>
+              <div className="ui-micro-label">Код</div>
               {executionMeta.label ? (
                 <div className={`truncate text-xs ${executionMeta.toneClass}`}>
                   {executionMeta.label}

@@ -1,4 +1,8 @@
 import * as cloudApi from "../cloud/cloudApi";
+import {
+  getUnsupportedFileTransferMessage,
+  isEditorOpenSupported,
+} from "../files/fileOpenSupport";
 import { hashText } from "./syncHash";
 import { resolveLocalFsPath } from "./syncPaths";
 import type {
@@ -50,6 +54,10 @@ async function pushLocalFileSnapshot(
   relativePath: string,
   files: LocalSnapshotFile[],
 ) {
+  if (!isEditorOpenSupported(entry.name)) {
+    throw new Error(getUnsupportedFileTransferMessage(entry.name));
+  }
+
   files.push({
     relativePath,
     path: entry.path,

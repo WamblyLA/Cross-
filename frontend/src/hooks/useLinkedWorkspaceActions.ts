@@ -317,7 +317,7 @@ export function useLinkedWorkspaceActions() {
       if (!preview || preview.bindingId !== binding.id || !binding.localRootPath) {
         return {
           ok: false as const,
-          message: "Нет подготовленного preview для синхронизации.",
+          message: "Нет подготовленного предпросмотра для синхронизации.",
         };
       }
 

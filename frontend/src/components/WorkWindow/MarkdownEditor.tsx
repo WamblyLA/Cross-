@@ -44,9 +44,9 @@ const VIEW_MODE_BUTTONS: Array<{
   label: string;
   icon: typeof VscCode;
 }> = [
-  { mode: "code", label: "Code", icon: VscCode },
-  { mode: "split", label: "Split", icon: VscSplitHorizontal },
-  { mode: "preview", label: "Preview", icon: VscEye },
+  { mode: "code", label: "Код", icon: VscCode },
+  { mode: "split", label: "Разделение", icon: VscSplitHorizontal },
+  { mode: "preview", label: "Просмотр", icon: VscEye },
 ];
 
 export default function MarkdownEditor({

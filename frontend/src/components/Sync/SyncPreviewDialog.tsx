@@ -238,8 +238,8 @@ export default function SyncPreviewDialog({
         ) : (
           <div className="mt-4 min-h-0 flex-1 overflow-y-auto rounded-[14px] border border-default px-4 py-5 text-sm text-secondary">
             {isLoading
-              ? "Собираем preview синхронизации..."
-              : error ?? "Не удалось подготовить preview синхронизации."}
+              ? "Собираем предпросмотр синхронизации..."
+              : error ?? "Не удалось подготовить предпросмотр синхронизации."}
           </div>
         )}
 

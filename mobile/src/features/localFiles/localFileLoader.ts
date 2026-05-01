@@ -5,13 +5,17 @@ import { getSupportedLocalFileKind, resolveLocalFileName } from "./localFileRout
 import type { LoadedLocalFile, LocalFileReadSource } from "./localFileTypes";
 
 export async function loadLocalFile(source: LocalFileReadSource): Promise<LoadedLocalFile> {
-  const fileName = resolveLocalFileName(source.fileName, source.originalUri ?? source.workingUri, source.mimeType);
+  const fileName = resolveLocalFileName(
+    source.fileName,
+    source.originalUri ?? source.workingUri,
+    source.mimeType,
+  );
   const kind = getSupportedLocalFileKind(fileName);
 
   if (!kind) {
     throw new LocalFileLoadError(
       "unsupported-extension",
-      "Этот тип файла пока не поддерживается. Откройте .md, .ipynb, .py, .cpp, .txt, .json или .csv.",
+      "Этот тип файла пока не поддерживается. Можно открывать текстовые файлы, например .h, .c++, .cpp, .py, .json, .md и .ipynb.",
     );
   }
 

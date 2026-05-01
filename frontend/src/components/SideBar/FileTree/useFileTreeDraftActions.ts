@@ -4,6 +4,7 @@ import {
   openLocalFile,
   renameFilePath,
 } from "../../../features/files/filesSlice";
+import { isEditorOpenSupported } from "../../../features/files/fileOpenSupport";
 import {
   getParentPath,
   isSameOrChildPath,
@@ -58,7 +59,7 @@ export function useFileTreeDraftActions(core: FileTreeControllerCore) {
         await core.refreshTree(nextExpandedPaths);
         core.commitSelection([result.path], result.path, result.path);
 
-        if (draft.nodeType === "file") {
+        if (draft.nodeType === "file" && isEditorOpenSupported(nextName)) {
           core.dispatch(
             openLocalFile({
               path: result.path,

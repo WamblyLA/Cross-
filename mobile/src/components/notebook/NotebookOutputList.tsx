@@ -19,7 +19,7 @@ export function NotebookOutputList({
   return (
     <View className="gap-2">
       <Text className="will-change-variable text-[11px] font-bold uppercase tracking-[1.4px] text-secondary">
-        Output
+        Вывод
       </Text>
 
       {outputs.map((output, index) => {

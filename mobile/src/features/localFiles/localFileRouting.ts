@@ -1,7 +1,9 @@
 import type { FileKind } from "../../types/files";
-import { getFileExtension, getFileKind } from "../../lib/utils/file";
-
-const SUPPORTED_LOCAL_EXTENSIONS = new Set(["md", "ipynb", "py", "cpp", "txt", "json", "csv"]);
+import {
+  getFileExtension,
+  getFileKind,
+  isEditorOpenSupported,
+} from "../../lib/utils/file";
 
 const MIME_EXTENSION_FALLBACK: Record<string, string> = {
   "application/json": "json",
@@ -12,14 +14,24 @@ const MIME_EXTENSION_FALLBACK: Record<string, string> = {
   "text/csv": "csv",
   "text/markdown": "md",
   "text/plain": "txt",
+  "text/x-c++hdr": "hpp",
   "text/x-c++src": "cpp",
-  "text/x-csrc": "cpp",
+  "text/x-chdr": "h",
+  "text/x-csrc": "c",
   "text/x-python": "py",
 };
 
 const EXTENSION_MIME_TYPE: Record<string, string> = {
+  c: "text/x-csrc",
+  "c++": "text/x-c++src",
+  cc: "text/x-c++src",
   cpp: "text/x-c++src",
   csv: "text/csv",
+  cxx: "text/x-c++src",
+  h: "text/x-chdr",
+  hh: "text/x-c++hdr",
+  hpp: "text/x-c++hdr",
+  hxx: "text/x-c++hdr",
   ipynb: "application/x-ipynb+json",
   json: "application/json",
   md: "text/markdown",
@@ -69,9 +81,7 @@ export function resolveLocalFileName(
 }
 
 export function getSupportedLocalFileKind(fileName: string): FileKind | null {
-  const extension = getFileExtension(fileName);
-
-  if (!SUPPORTED_LOCAL_EXTENSIONS.has(extension)) {
+  if (!isEditorOpenSupported(fileName)) {
     return null;
   }
 

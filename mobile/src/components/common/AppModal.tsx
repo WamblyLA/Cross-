@@ -1,6 +1,8 @@
 import type { PropsWithChildren } from "react";
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -40,38 +42,43 @@ export function AppModal({
       <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
         <View style={styles.overlay}>
           <Pressable onPress={onClose} style={styles.backdrop} />
-          <ScrollView
-            bounces={false}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.keyboardContainer}
           >
-            <View style={styles.modalWidth}>
-              <Card>
-                <View className="gap-4">
-                  <View className="gap-1">
-                    <Text className="will-change-variable text-lg font-extrabold text-primary">{title}</Text>
-                    {description ? (
-                      <Text className="will-change-variable text-sm leading-6 text-secondary">{description}</Text>
-                    ) : null}
-                  </View>
+            <ScrollView
+              bounces={false}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.modalWidth}>
+                <Card>
+                  <View className="gap-4">
+                    <View className="gap-1">
+                      <Text className="will-change-variable text-lg font-extrabold text-primary">{title}</Text>
+                      {description ? (
+                        <Text className="will-change-variable text-sm leading-6 text-secondary">{description}</Text>
+                      ) : null}
+                    </View>
 
-                  {children}
+                    {children}
 
-                  <View className="gap-3">
-                    <AppButton
-                      disabled={confirmDisabled}
-                      loading={confirmLoading}
-                      onPress={onConfirm}
-                      title={confirmLabel}
-                      variant={confirmVariant}
-                    />
-                    <AppButton onPress={onClose} title="Отмена" variant="ghost" />
+                    <View className="gap-3">
+                      <AppButton
+                        disabled={confirmDisabled}
+                        loading={confirmLoading}
+                        onPress={onConfirm}
+                        title={confirmLabel}
+                        variant={confirmVariant}
+                      />
+                      <AppButton onPress={onClose} title="Отмена" variant="ghost" />
+                    </View>
                   </View>
-                </View>
-              </Card>
-            </View>
-          </ScrollView>
+                </Card>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </SafeAreaView>
     </Modal>
@@ -85,6 +92,9 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  keyboardContainer: {
+    flex: 1,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

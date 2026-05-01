@@ -252,12 +252,12 @@ export function useCloudExplorerState() {
   );
 
   const handleOpenFile = useCallback(
-    async (projectId: string, fileId: string) => {
+    async (projectId: string, fileId: string, fileName?: string) => {
       resetMessages();
 
       try {
         dispatch(selectCloudItem({ projectId, folderId: null, fileId, itemType: "file" }));
-        await workspaceActions.openCloudFile(projectId, fileId);
+        await workspaceActions.openCloudFile(projectId, fileId, fileName);
       } catch (error) {
         setLocalError(normalizeApiError(error).message);
       }

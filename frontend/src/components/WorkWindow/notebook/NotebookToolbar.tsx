@@ -47,10 +47,10 @@ export default function NotebookToolbar({
             className="ui-control h-8 rounded-md border border-default bg-panel px-3 text-xs text-primary"
             onClick={onAddCodeCell}
             disabled={isBlocked || readOnly}
-            title="Добавить code cell"
+            title="Добавить ячейку кода"
           >
             <VscAdd className="h-4 w-4" />
-            <span>Code</span>
+            <span>Код</span>
           </button>
 
           <button
@@ -58,7 +58,7 @@ export default function NotebookToolbar({
             className="ui-control h-8 rounded-md border border-default bg-panel px-3 text-xs text-primary"
             onClick={onAddMarkdownCell}
             disabled={isBlocked || readOnly}
-            title="Добавить markdown cell"
+            title="Добавить Markdown-ячейку"
           >
             <VscMarkdown className="h-4 w-4" />
             <span>Markdown</span>

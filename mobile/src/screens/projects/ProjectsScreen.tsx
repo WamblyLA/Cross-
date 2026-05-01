@@ -143,7 +143,7 @@ export function ProjectsScreen({ navigation }: ProjectsScreenProps) {
               <ProjectSection
                 onOpenProject={(project) => openProject(project.id, project.name)}
                 projects={ownedProjects}
-                subtitle="Проекты, которыми вы владеете."
+                subtitle="Проекты, которыми вы владеете"
                 title="Мои проекты"
               />
             ) : null}

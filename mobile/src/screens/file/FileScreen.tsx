@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { ErrorState } from "../../components/common/ErrorState";
 import { LoadingState } from "../../components/common/LoadingState";
@@ -11,7 +11,7 @@ import type { CloudRealtimeAckPayload, CloudRealtimeRemoteUpdatePayload } from "
 import { useCloudRealtimeFile } from "../../features/files/useCloudRealtimeFile";
 import { useUnsavedChangesGuard } from "../../hooks/useUnsavedChangesGuard";
 import { getFileLoadErrorMessage, getFileSaveErrorMessage } from "../../lib/errors/fileMessages";
-import { getFileKind } from "../../lib/utils/file";
+import { getFileKind, isEditorOpenSupported } from "../../lib/utils/file";
 import type { ProjectsStackParamList } from "../../navigation/navigationTypes";
 
 type FileScreenProps = NativeStackScreenProps<ProjectsStackParamList, "File">;
@@ -23,7 +23,13 @@ type NoticeState =
 export function FileScreen({ navigation, route }: FileScreenProps) {
   const { projectId, fileId, fileName: routeFileName } = route.params;
   const queryClient = useQueryClient();
-  const fileQuery = useProjectFileQuery(projectId, fileId);
+  const isSupportedRequestedFile = useMemo(
+    () => isEditorOpenSupported(routeFileName),
+    [routeFileName],
+  );
+  const fileQuery = useProjectFileQuery(projectId, fileId, {
+    enabled: isSupportedRequestedFile,
+  });
   const updateFileMutation = useUpdateProjectFileMutation(projectId);
   const [draft, setDraft] = useState("");
   const [serverContent, setServerContent] = useState("");
@@ -35,6 +41,10 @@ export function FileScreen({ navigation, route }: FileScreenProps) {
   const file = fileQuery.data;
   const actualFileName = file?.name ?? routeFileName;
   const kind = useMemo(() => getFileKind(actualFileName), [actualFileName]);
+  const isSupportedFile = useMemo(
+    () => isEditorOpenSupported(actualFileName),
+    [actualFileName],
+  );
   const canWrite = file?.canWrite ?? false;
   const canEdit = canWrite;
   const isDirty = draft !== serverContent;
@@ -105,10 +115,6 @@ export function FileScreen({ navigation, route }: FileScreenProps) {
 
       setServerContent(acceptedContent);
       setServerVersion(payload.version);
-      setNotice({
-        tone: "success",
-        text: "Изменения синхронизированы с облаком.",
-      });
     },
     [draft, fileId, fileQuery.data, projectId, queryClient],
   );
@@ -340,6 +346,21 @@ export function FileScreen({ navigation, route }: FileScreenProps) {
     );
   }
 
+  if (!isSupportedFile) {
+    return (
+      <ScreenContainer>
+        <ErrorState
+          actionLabel="Назад"
+          description={`Файл "${actualFileName}" нельзя открыть в текстовом редакторе: тип файла не поддерживается.`}
+          onRetry={() => {
+            navigation.goBack();
+          }}
+          title="Неподдерживаемый файл"
+        />
+      </ScreenContainer>
+    );
+  }
+
   const syncStatusText =
     pendingConflict
       ? "Конфликт версии: требуется обновление."
@@ -372,45 +393,47 @@ export function FileScreen({ navigation, route }: FileScreenProps) {
 
   return (
     <ScreenContainer>
-      <FileDocumentView
-        editable={canEdit}
-        fileName={actualFileName}
-        fileInfo={{
-          statusText: syncStatusText,
-          badgeText,
-          badgeTone: pendingConflict || isDirty ? "primary" : "muted",
-          primaryAction: canWrite
-            ? {
-                label: "Сохранить",
-                disabled: !isDirty && !pendingConflict,
-                loading: updateFileMutation.isPending,
-                onPress: () => {
-                  void handleSave();
-                },
-              }
-            : null,
-          secondaryAction: {
-            label: pendingConflict ? "Принять серверную версию" : "Обновить с сервера",
-            onPress: handleReload,
-            variant: "secondary",
-          },
-        }}
-        kind={kind}
-        notice={
-          notice ??
-          (syncStatus === "connecting"
-            ? { tone: "info", text: "Подключаем синхронизацию..." }
-            : syncStatus === "offline" && isRealtimeSupported
-              ? { tone: "warning", text: "Синхронизация временно недоступна. Можно обновить файл вручную." }
-              : null)
-        }
-        onChangeText={(value) => {
-          setNotice(null);
-          setDraft(value);
-        }}
-        readOnlyReason={readOnlyReason}
-        value={draft}
-      />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
+        <FileDocumentView
+          editable={canEdit}
+          fileName={actualFileName}
+          fileInfo={{
+            statusText: syncStatusText,
+            badgeText,
+            badgeTone: pendingConflict || isDirty ? "primary" : "muted",
+            primaryAction: canWrite
+              ? {
+                  label: "Сохранить",
+                  disabled: !isDirty && !pendingConflict,
+                  loading: updateFileMutation.isPending,
+                  onPress: () => {
+                    void handleSave();
+                  },
+                }
+              : null,
+            secondaryAction: {
+              label: pendingConflict ? "Принять серверную версию" : "Обновить с сервера",
+              onPress: handleReload,
+              variant: "secondary",
+            },
+          }}
+          kind={kind}
+          notice={
+            notice ??
+            (syncStatus === "connecting"
+              ? { tone: "info", text: "Подключаем синхронизацию..." }
+              : syncStatus === "offline" && isRealtimeSupported
+                ? { tone: "warning", text: "Синхронизация временно недоступна. Можно обновить файл вручную." }
+                : null)
+          }
+          onChangeText={(value) => {
+            setNotice(null);
+            setDraft(value);
+          }}
+          readOnlyReason={readOnlyReason}
+          value={draft}
+        />
+      </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }

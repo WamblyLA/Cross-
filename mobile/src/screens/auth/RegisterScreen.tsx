@@ -56,6 +56,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         label="Имя пользователя"
         onChangeText={(value) => setForm((current) => ({ ...current, username: value }))}
         placeholder="Например, Egor"
+        required
         value={form.username}
       />
 
@@ -66,6 +67,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         label="Электронная почта"
         onChangeText={(value) => setForm((current) => ({ ...current, email: value }))}
         placeholder="you@example.com"
+        required
         value={form.email}
       />
 
@@ -75,6 +77,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         label="Пароль"
         onChangeText={(value) => setForm((current) => ({ ...current, password: value }))}
         placeholder="Не короче 8 символов"
+        required
         secureTextEntry
         value={form.password}
       />
@@ -85,6 +88,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
         label="Повторите пароль"
         onChangeText={(value) => setForm((current) => ({ ...current, passwordConfirm: value }))}
         placeholder="Введите пароль ещё раз"
+        required
         secureTextEntry
         value={form.passwordConfirm}
       />
