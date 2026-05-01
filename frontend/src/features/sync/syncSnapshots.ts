@@ -54,16 +54,17 @@ async function pushLocalFileSnapshot(
   relativePath: string,
   files: LocalSnapshotFile[],
 ) {
-  if (!isEditorOpenSupported(entry.name)) {
-    throw new Error(getUnsupportedFileTransferMessage(entry.name));
-  }
+  const transferError = isEditorOpenSupported(entry.name)
+    ? null
+    : getUnsupportedFileTransferMessage(entry.name);
 
   files.push({
     relativePath,
     path: entry.path,
-    hash: await resolveLocalFileHash(entry),
+    hash: transferError ? null : await resolveLocalFileHash(entry),
     size: entry.size ?? null,
     mtimeMs: entry.mtimeMs ?? null,
+    transferError,
   });
 }
 
@@ -194,6 +195,9 @@ export async function buildCloudSyncSnapshot(
       contentSize: file.contentSize,
       version: file.version,
       updatedAt: file.updatedAt,
+      transferError: isEditorOpenSupported(file.name)
+        ? null
+        : getUnsupportedFileTransferMessage(file.name),
     })),
   };
 }

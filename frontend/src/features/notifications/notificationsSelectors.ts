@@ -10,4 +10,4 @@ export const selectNotificationsStatus = (state: StateType) => state.notificatio
 export const selectNotificationsError = (state: StateType) => state.notifications.error;
 export const selectNotificationsCount = (state: StateType) =>
   state.notifications.activityItems.filter((item) => item.readAt === null).length +
-  state.notifications.serverItems.length;
+  state.notifications.serverItems.filter((item) => item.readAt === null).length;

@@ -66,12 +66,16 @@ const notificationsSlice = createSlice({
       })
       .addCase(acceptNotificationProjectInvitation.fulfilled, (state, action) => {
         state.serverItems = state.serverItems.filter(
-          (item) => item.invitation.id !== action.payload.invitationId,
+          (item) =>
+            item.type !== "PROJECT_INVITATION" ||
+            item.invitation.id !== action.payload.invitationId,
         );
       })
       .addCase(declineNotificationProjectInvitation.fulfilled, (state, action) => {
         state.serverItems = state.serverItems.filter(
-          (item) => item.invitation.id !== action.payload.invitationId,
+          (item) =>
+            item.type !== "PROJECT_INVITATION" ||
+            item.invitation.id !== action.payload.invitationId,
         );
       })
       .addCase(restoreSession.fulfilled, () => initialState)

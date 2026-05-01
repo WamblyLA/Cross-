@@ -4,6 +4,7 @@ import {
   findSiblingFile,
   moveProjectFileForAccess,
 } from "../lib/cloudExplorer.js";
+import { notifyProjectOwnerAboutActivity } from "../lib/notifications.js";
 import {
   assertFolderInProject,
   getProjectFileForAccess,
@@ -157,8 +158,19 @@ export async function deleteProjectFile(req: Request, res: Response) {
   const userId = requireUserId(req, "UNAUTHORIZED");
   const file = await getProjectFileForAccess(userId, projectId, id, "write");
 
-  await prisma.file.delete({
-    where: { id: file.id },
+  await prisma.$transaction(async (tx) => {
+    await tx.file.delete({
+      where: { id: file.id },
+    });
+
+    await notifyProjectOwnerAboutActivity(tx, {
+      projectId,
+      actorUserId: userId,
+      actionType: "deleted_file",
+      itemId: file.id,
+      itemName: file.name,
+      itemType: "file",
+    });
   });
 
   res.status(204).send();

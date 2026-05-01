@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { WorkspaceSource } from "../cloud/cloudTypes";
 import type { FsNodeType } from "../../utils/path";
 import type { WorkspaceMode } from "../sync/syncTypes";
+import { logout, restoreSession } from "../auth/authThunks";
 
 export type ExplorerActionType =
   | "create-file"
@@ -42,6 +43,18 @@ const initialState: WorkspaceState = {
   searchQuery: "",
   explorerIntent: null,
 };
+
+function resetAuthenticatedWorkspaceState(state: WorkspaceState) {
+  state.mode = "local";
+  state.activeBindingId = null;
+  state.source = "local";
+  state.folderOpenError = null;
+  state.selectedPath = null;
+  state.selectedType = null;
+  state.selectionCount = 0;
+  state.searchQuery = "";
+  state.explorerIntent = null;
+}
 
 const workspaceSlice = createSlice({
   name: "workspace",
@@ -117,6 +130,18 @@ const workspaceSlice = createSlice({
 
       state.explorerIntent = null;
     },
+    clearAuthenticatedWorkspaceState(state) {
+      resetAuthenticatedWorkspaceState(state);
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(logout.fulfilled, (state) => {
+        resetAuthenticatedWorkspaceState(state);
+      })
+      .addCase(restoreSession.rejected, (state) => {
+        resetAuthenticatedWorkspaceState(state);
+      });
   },
 });
 
@@ -131,6 +156,7 @@ export const {
   setSearchQuery,
   requestExplorerAction,
   clearExplorerIntent,
+  clearAuthenticatedWorkspaceState,
 } = workspaceSlice.actions;
 
 export default workspaceSlice.reducer;

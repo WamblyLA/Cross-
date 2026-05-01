@@ -136,7 +136,7 @@ function AppShellLayoutContent() {
     <div className="flex h-screen w-full flex-col overflow-hidden bg-app text-primary">
       <TopBar
         onOpenBugReport={() => setIsBugReportOpen(true)}
-        onOpenProjectMembers={() => openProjectMembers(projectId)}
+        onOpenProjectMembers={() => openProjectMembers()}
         onOpenVisualSettings={() => setIsVisualSettingsOpen(true)}
       />
       <div className="min-h-0 flex-1">

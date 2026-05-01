@@ -150,7 +150,7 @@ export function summarizeSyncPreviewItems(items: SyncPlanItem[]): SyncPreviewSum
         summary.deleteCount += 1;
       }
 
-      if (item.blockedByDirtyTab) {
+      if (item.blockedByDirtyTab || item.state === "blocked_unsupported_type") {
         summary.blockedCount += 1;
       }
 

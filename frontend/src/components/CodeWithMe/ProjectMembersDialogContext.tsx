@@ -18,6 +18,7 @@ export function ProjectMembersDialogProvider({ children }: PropsWithChildren) {
 
   const closeProjectMembers = useCallback(() => {
     setIsOpen(false);
+    setProjectId(null);
   }, []);
 
   const value = useMemo(

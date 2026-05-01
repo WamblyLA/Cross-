@@ -29,14 +29,23 @@ export type CollaborationActivityNotificationItem = {
   activity: {
     projectId: string;
     projectName: string;
-    fileId: string;
-    fileName: string;
+    actorUserId?: string;
+    actorUsername?: string;
+    actorEmail?: string;
+    actionType?: "joined_project" | "deleted_file" | "deleted_folder";
+    fileId?: string | null;
+    fileName?: string | null;
+    folderId?: string | null;
+    folderName?: string | null;
+    itemPath?: string | null;
     updatedAt: string;
     message: string;
   };
 };
 
-export type ServerNotificationItem = ProjectInvitationNotificationItem;
+export type ServerNotificationItem =
+  | ProjectInvitationNotificationItem
+  | CollaborationActivityNotificationItem;
 export type NotificationItem =
   | ServerNotificationItem
   | CollaborationActivityNotificationItem;

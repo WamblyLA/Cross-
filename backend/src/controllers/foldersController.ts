@@ -5,6 +5,7 @@ import {
   listDeletedFolderFileIds,
   moveProjectFolderForAccess,
 } from "../lib/cloudExplorer.js";
+import { notifyProjectOwnerAboutActivity } from "../lib/notifications.js";
 import {
   assertFolderInProject,
   getProjectFolderForAccess,
@@ -70,8 +71,19 @@ export async function deleteFolder(req: Request, res: Response) {
   const folder = await getProjectFolderForAccess(userId, projectId, id, "write");
   const deletedFileIds = await listDeletedFolderFileIds(projectId, folder.id);
 
-  await prisma.folder.delete({
-    where: { id: folder.id },
+  await prisma.$transaction(async (tx) => {
+    await tx.folder.delete({
+      where: { id: folder.id },
+    });
+
+    await notifyProjectOwnerAboutActivity(tx, {
+      projectId,
+      actorUserId: userId,
+      actionType: "deleted_folder",
+      itemId: folder.id,
+      itemName: folder.name,
+      itemType: "folder",
+    });
   });
 
   res.json({

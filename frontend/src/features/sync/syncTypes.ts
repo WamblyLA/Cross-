@@ -16,6 +16,7 @@ export type SyncPreviewItemState =
   | "cloud_only"
   | "different"
   | "blocked_dirty_buffer"
+  | "blocked_unsupported_type"
   | "pending_delete_confirm"
   | "apply_error";
 export type SyncOperationStatus = "idle" | "loading" | "succeeded" | "failed";
@@ -109,6 +110,7 @@ export type CloudSnapshotFile = {
   contentSize: number;
   version: number;
   updatedAt: string;
+  transferError: string | null;
 };
 
 export type CloudSyncSnapshot = {
@@ -126,9 +128,10 @@ export type LocalSnapshotFolder = {
 export type LocalSnapshotFile = {
   relativePath: string;
   path: string;
-  hash: string;
+  hash: string | null;
   size: number | null;
   mtimeMs: number | null;
+  transferError: string | null;
 };
 
 export type LocalSyncSnapshot = {

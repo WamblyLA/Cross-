@@ -31,6 +31,37 @@ function makeItem(input: Omit<SyncPlanItem, "depth">): SyncPlanItem {
   };
 }
 
+function makeUnsupportedTransferItem(input: {
+  relativePath: string;
+  localPath: string | null;
+  cloudFileId: string | null;
+  cloudFolderId: string | null;
+  localExists: boolean;
+  cloudExists: boolean;
+  localHash: string | null;
+  cloudHash: string | null;
+  cloudVersion: number | null;
+  reason: string;
+}): SyncPlanItem {
+  return makeItem({
+    relativePath: input.relativePath,
+    kind: "file",
+    state: "blocked_unsupported_type",
+    action: null,
+    reason: input.reason,
+    requiresDeleteConfirm: false,
+    blockedByDirtyTab: false,
+    localExists: input.localExists,
+    cloudExists: input.cloudExists,
+    localPath: input.localPath,
+    cloudFileId: input.cloudFileId,
+    cloudFolderId: input.cloudFolderId,
+    localHash: input.localHash,
+    cloudHash: input.cloudHash,
+    cloudVersion: input.cloudVersion,
+  });
+}
+
 function sortItems(items: SyncPlanItem[]) {
   return [...items].sort((left, right) => {
     if (left.action === "delete" && right.action !== "delete") {
@@ -89,7 +120,7 @@ export function buildSyncPreview({
   const items: SyncPlanItem[] = [];
 
   const addItem = (item: SyncPlanItem | null) => {
-    if (!item || item.action === null) {
+    if (!item) {
       return;
     }
 
@@ -208,9 +239,33 @@ export function buildSyncPreview({
     const localFile = localFiles.get(relativePath) ?? null;
     const cloudFile = cloudFiles.get(relativePath) ?? null;
     const blockedByDirtyTab = blockingRelativePaths.has(relativePath);
+    const transferError = localFile?.transferError ?? cloudFile?.transferError ?? null;
+
+    const addUnsupportedTransferItem = () =>
+      addItem(
+        makeUnsupportedTransferItem({
+          relativePath,
+          localPath: localFile?.path ?? null,
+          cloudFileId: cloudFile?.id ?? null,
+          cloudFolderId: cloudFile?.folderId ?? null,
+          localExists: Boolean(localFile),
+          cloudExists: Boolean(cloudFile),
+          localHash: localFile?.hash ?? null,
+          cloudHash: cloudFile?.contentHash ?? null,
+          cloudVersion: cloudFile?.version ?? null,
+          reason:
+            transferError ??
+            "Этот файл нельзя перенести между локальной папкой и облаком.",
+        }),
+      );
 
     if (localFile && cloudFile) {
       const cloudHash = cloudFile.contentHash;
+
+      if (localFile.hash !== cloudHash && transferError) {
+        addUnsupportedTransferItem();
+        continue;
+      }
 
       if (localFile.hash !== cloudHash) {
         addItem(
@@ -242,6 +297,11 @@ export function buildSyncPreview({
 
     if (localFile && !cloudFile) {
       if (direction === "push") {
+        if (transferError) {
+          addUnsupportedTransferItem();
+          continue;
+        }
+
         addItem(
           makeItem({
             relativePath,
@@ -288,6 +348,11 @@ export function buildSyncPreview({
       const cloudHash = cloudFile.contentHash;
 
       if (direction === "pull") {
+        if (transferError) {
+          addUnsupportedTransferItem();
+          continue;
+        }
+
         addItem(
           makeItem({
             relativePath,
@@ -343,7 +408,7 @@ export function buildSyncPreview({
         accumulator.deleteCount += 1;
       }
 
-      if (item.blockedByDirtyTab) {
+      if (item.blockedByDirtyTab || item.state === "blocked_unsupported_type") {
         accumulator.blockedCount += 1;
       }
 
