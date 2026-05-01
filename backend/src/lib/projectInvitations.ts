@@ -5,6 +5,7 @@ import type {
   ProjectMemberRole,
 } from "../../generated/prisma/index.js";
 import { AppError } from "./errors.js";
+import { notifyProjectOwnerAboutActivity } from "./notifications.js";
 import { requireProjectOwnerAccess, requireProjectReadAccess } from "./projectAccess.js";
 import { prisma } from "./prisma.js";
 
@@ -324,6 +325,11 @@ export async function acceptProjectInvitation(userId: string, invitationId: stri
     });
 
     await archiveInvitationNotification(tx, invitation.id, now);
+    await notifyProjectOwnerAboutActivity(tx, {
+      projectId: invitation.projectId,
+      actorUserId: userId,
+      actionType: "joined_project",
+    });
 
     return {
       invitationId: invitation.id,
