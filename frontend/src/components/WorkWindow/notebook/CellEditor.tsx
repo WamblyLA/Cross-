@@ -43,10 +43,18 @@ export default function CellEditor({
   const [height, setHeight] = useState(minHeight);
   const disposablesRef = useRef<Monaco.IDisposable[]>([]);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const syncHeightRef = useRef<(() => void) | null>(null);
+  const suppressOnChangeRef = useRef(false);
+  const isFocusedRef = useRef(false);
+  const onChangeRef = useRef(onChange);
   const onSaveRequestRef = useRef(onSaveRequest);
   const onRunRequestRef = useRef(onRunRequest);
   const onRunAndAdvanceRequestRef = useRef(onRunAndAdvanceRequest);
   const onFocusRequestRef = useRef(onFocusRequest);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     onSaveRequestRef.current = onSaveRequest;
@@ -73,12 +81,17 @@ export default function CellEditor({
         setHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
       };
 
+      syncHeightRef.current = syncHeight;
       syncHeight();
 
       disposablesRef.current = [
         editor.onDidContentSizeChange(syncHeight),
         editor.onDidFocusEditorWidget(() => {
+          isFocusedRef.current = true;
           onFocusRequestRef.current?.();
+        }),
+        editor.onDidBlurEditorWidget(() => {
+          isFocusedRef.current = false;
         }),
         editor.addAction({
           id: `${editorPath}-save`,
@@ -118,12 +131,52 @@ export default function CellEditor({
   useEffect(() => {
     return () => {
       editorRef.current = null;
+      syncHeightRef.current = null;
+      isFocusedRef.current = false;
 
       for (const disposable of disposablesRef.current) {
         disposable.dispose();
       }
     };
   }, []);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+
+    if (!editor) {
+      return;
+    }
+
+    if (editor.getValue() === value) {
+      return;
+    }
+
+    if (!readOnly && isFocusedRef.current) {
+      return;
+    }
+
+    suppressOnChangeRef.current = true;
+
+    try {
+      const model = editor.getModel();
+
+      if (model) {
+        editor.executeEdits("external-sync", [
+          {
+            range: model.getFullModelRange(),
+            text: value,
+            forceMoveMarkers: true,
+          },
+        ]);
+        editor.pushUndoStop();
+      } else {
+        editor.setValue(value);
+      }
+      syncHeightRef.current?.();
+    } finally {
+      suppressOnChangeRef.current = false;
+    }
+  }, [readOnly, value]);
 
   useEffect(() => {
     if (!focusToken) {
@@ -138,8 +191,14 @@ export default function CellEditor({
       path={editorPath}
       height={`${height}px`}
       language={language}
-      value={value}
-      onChange={(nextValue) => onChange(nextValue ?? "")}
+      defaultValue={value}
+      onChange={(nextValue) => {
+        if (suppressOnChangeRef.current) {
+          return;
+        }
+
+        onChangeRef.current(nextValue ?? "");
+      }}
       beforeMount={beforeMount}
       onMount={handleMount}
       theme={getMonacoThemeName(theme)}

@@ -140,8 +140,13 @@ export default function NotebookEditorHost({
   }, []);
 
   useEffect(() => {
-    if (filePath !== lastFilePathRef.current || content !== lastCommittedContentRef.current) {
+    if (filePath !== lastFilePathRef.current) {
       lastFilePathRef.current = filePath;
+      applyParsedNotebook(content, isDirty);
+      return;
+    }
+
+    if (!dirtyNotifiedRef.current && content !== lastCommittedContentRef.current) {
       applyParsedNotebook(content, isDirty);
     }
   }, [applyParsedNotebook, content, filePath, isDirty]);
