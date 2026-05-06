@@ -1,38 +1,38 @@
-import type { Request, Response } from "express";
-import { AppError } from "../lib/errors.js";
+import type { Request, Response } from 'express';
+import { AppError } from '../lib/errors.js';
 import {
   findSiblingFolder,
   listDeletedFolderFileIds,
   moveProjectFolderForAccess,
-} from "../lib/cloudExplorer.js";
-import { notifyProjectOwnerAboutActivity } from "../lib/notifications.js";
+} from '../lib/cloudExplorer.js';
+import { notifyProjectOwnerAboutActivity } from '../lib/notifications.js';
 import {
   assertFolderInProject,
   getProjectFolderForAccess,
   requireProjectWriteAccess,
-} from "../lib/projectAccess.js";
-import { prisma } from "../lib/prisma.js";
-import { requireUserId } from "../lib/requestContext.js";
+} from '../lib/projectAccess.js';
+import { prisma } from '../lib/prisma.js';
+import { requireUserId } from '../lib/requestContext.js';
 import type {
   CreateFolderBody,
   MoveFolderBody,
   ProjectFilesParams,
   ProjectFolderParams,
   UpdateFolderBody,
-} from "../lib/validation.js";
+} from '../lib/validation.js';
 
 export async function createFolder(req: Request, res: Response) {
   const { projectId } = req.params as ProjectFilesParams;
   const { name, parentId } = req.body as CreateFolderBody;
-  const userId = requireUserId(req, "UNAUTHORIZED");
+  const userId = requireUserId(req, 'UNAUTHORIZED');
 
   await requireProjectWriteAccess(userId, projectId);
-  await assertFolderInProject(userId, projectId, parentId ?? null, "write");
+  await assertFolderInProject(userId, projectId, parentId ?? null, 'write');
 
   const duplicate = await findSiblingFolder(projectId, parentId ?? null, name);
 
   if (duplicate) {
-    throw new AppError("Папка с таким именем уже существует", 409, undefined, "CONFLICT");
+    throw new AppError('Папка с таким именем уже существует', 409, undefined, 'CONFLICT');
   }
 
   const folder = await prisma.folder.create({
@@ -49,12 +49,12 @@ export async function createFolder(req: Request, res: Response) {
 export async function updateFolder(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFolderParams;
   const { name } = req.body as UpdateFolderBody;
-  const userId = requireUserId(req, "UNAUTHORIZED");
-  const folder = await getProjectFolderForAccess(userId, projectId, id, "write");
+  const userId = requireUserId(req, 'UNAUTHORIZED');
+  const folder = await getProjectFolderForAccess(userId, projectId, id, 'write');
   const duplicate = await findSiblingFolder(projectId, folder.parentId ?? null, name);
 
   if (duplicate && duplicate.id !== folder.id) {
-    throw new AppError("Папка с таким именем уже существует", 409, undefined, "CONFLICT");
+    throw new AppError('Папка с таким именем уже существует', 409, undefined, 'CONFLICT');
   }
 
   const updatedFolder = await prisma.folder.update({
@@ -67,8 +67,8 @@ export async function updateFolder(req: Request, res: Response) {
 
 export async function deleteFolder(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFolderParams;
-  const userId = requireUserId(req, "UNAUTHORIZED");
-  const folder = await getProjectFolderForAccess(userId, projectId, id, "write");
+  const userId = requireUserId(req, 'UNAUTHORIZED');
+  const folder = await getProjectFolderForAccess(userId, projectId, id, 'write');
   const deletedFileIds = await listDeletedFolderFileIds(projectId, folder.id);
 
   await prisma.$transaction(async (tx) => {
@@ -79,10 +79,10 @@ export async function deleteFolder(req: Request, res: Response) {
     await notifyProjectOwnerAboutActivity(tx, {
       projectId,
       actorUserId: userId,
-      actionType: "deleted_folder",
+      actionType: 'deleted_folder',
       itemId: folder.id,
       itemName: folder.name,
-      itemType: "folder",
+      itemType: 'folder',
     });
   });
 
@@ -95,13 +95,13 @@ export async function deleteFolder(req: Request, res: Response) {
 export async function moveFolder(req: Request, res: Response) {
   const { projectId, id } = req.params as ProjectFolderParams;
   const { targetProjectId, targetParentId } = req.body as MoveFolderBody;
-  const userId = requireUserId(req, "UNAUTHORIZED");
+  const userId = requireUserId(req, 'UNAUTHORIZED');
   const result = await moveProjectFolderForAccess(
     userId,
     projectId,
     id,
     targetProjectId,
-    targetParentId ?? null,
+    targetParentId ?? null
   );
 
   res.json(result);

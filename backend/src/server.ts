@@ -1,8 +1,8 @@
-import { createServer } from "node:http";
-import app from "./app.js";
-import { API_URL, CORS_ORIGINS, HOST, PORT } from "./config.js";
-import { prisma } from "./lib/prisma.js";
-import { setupWebSocketServer } from "./realtime/wsServer.js";
+import { createServer } from 'node:http';
+import app from './app.js';
+import { API_URL, CORS_ORIGINS, HOST, PORT } from './config.js';
+import { prisma } from './lib/prisma.js';
+import { setupWebSocketServer } from './realtime/wsServer.js';
 
 const server = createServer(app);
 setupWebSocketServer(server);
@@ -10,7 +10,7 @@ setupWebSocketServer(server);
 server.listen(PORT, HOST, () => {
   console.log(`Сервер запущен на ${HOST}:${PORT}`);
   console.log(`API: ${API_URL}`);
-  console.log(`Разрешённые origin: ${CORS_ORIGINS.join(", ")}`);
+  console.log(`Разрешённые origin: ${CORS_ORIGINS.join(', ')}`);
 });
 
 async function shutdown(signal: string) {
@@ -26,10 +26,10 @@ async function shutdown(signal: string) {
   }, 5000).unref();
 }
 
-process.on("SIGINT", () => {
-  void shutdown("SIGINT");
+process.on('SIGINT', () => {
+  void shutdown('SIGINT');
 });
 
-process.on("SIGTERM", () => {
-  void shutdown("SIGTERM");
+process.on('SIGTERM', () => {
+  void shutdown('SIGTERM');
 });

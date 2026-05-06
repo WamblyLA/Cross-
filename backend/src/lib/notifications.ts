@@ -1,8 +1,5 @@
-import type {
-  Prisma,
-  ProjectMemberRole,
-} from "../../generated/prisma/index.js";
-import { prisma } from "./prisma.js";
+import type { Prisma, ProjectMemberRole } from '../../generated/prisma/index.js';
+import { prisma } from './prisma.js';
 
 type NotificationClient = Prisma.TransactionClient;
 
@@ -13,16 +10,13 @@ export type NotificationInvitationSummary = {
   inviterUserId: string;
   inviterUsername: string;
   inviterEmail: string;
-  role: "editor" | "viewer";
-  status: "pending";
+  role: 'editor' | 'viewer';
+  status: 'pending';
   createdAt: string;
   updatedAt: string;
 };
 
-export type NotificationActivityAction =
-  | "joined_project"
-  | "deleted_file"
-  | "deleted_folder";
+export type NotificationActivityAction = 'joined_project' | 'deleted_file' | 'deleted_folder';
 
 export type NotificationActivitySummary = {
   projectId: string;
@@ -43,14 +37,14 @@ export type NotificationActivitySummary = {
 export type NotificationSummary =
   | {
       id: string;
-      type: "PROJECT_INVITATION";
+      type: 'PROJECT_INVITATION';
       createdAt: string;
       readAt: string | null;
       invitation: NotificationInvitationSummary;
     }
   | {
       id: string;
-      type: "COLLABORATION_ACTIVITY";
+      type: 'COLLABORATION_ACTIVITY';
       createdAt: string;
       readAt: string | null;
       activity: NotificationActivitySummary;
@@ -66,7 +60,7 @@ type ProjectOwnerActivityPayload = {
   itemId: string | null;
   itemName: string | null;
   itemPath: string | null;
-  itemType: "file" | "folder" | null;
+  itemType: 'file' | 'folder' | null;
   message: string;
 };
 
@@ -77,27 +71,23 @@ type NotifyProjectOwnerAboutActivityInput = {
   itemId?: string | null;
   itemName?: string | null;
   itemPath?: string | null;
-  itemType?: "file" | "folder" | null;
+  itemType?: 'file' | 'folder' | null;
 };
 
-function toRole(role: ProjectMemberRole): "editor" | "viewer" {
-  return role === "EDITOR" ? "editor" : "viewer";
+function toRole(role: ProjectMemberRole): 'editor' | 'viewer' {
+  return role === 'EDITOR' ? 'editor' : 'viewer';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === "string";
+  return value === null || typeof value === 'string';
 }
 
 function isNotificationActivityAction(value: unknown): value is NotificationActivityAction {
-  return (
-    value === "joined_project" ||
-    value === "deleted_file" ||
-    value === "deleted_folder"
-  );
+  return value === 'joined_project' || value === 'deleted_file' || value === 'deleted_folder';
 }
 
 function isProjectOwnerActivityPayload(value: unknown): value is ProjectOwnerActivityPayload {
@@ -106,17 +96,17 @@ function isProjectOwnerActivityPayload(value: unknown): value is ProjectOwnerAct
   }
 
   return (
-    typeof value.projectId === "string" &&
-    typeof value.projectName === "string" &&
-    typeof value.actorUserId === "string" &&
-    typeof value.actorUsername === "string" &&
-    typeof value.actorEmail === "string" &&
+    typeof value.projectId === 'string' &&
+    typeof value.projectName === 'string' &&
+    typeof value.actorUserId === 'string' &&
+    typeof value.actorUsername === 'string' &&
+    typeof value.actorEmail === 'string' &&
     isNotificationActivityAction(value.actionType) &&
     isNullableString(value.itemId) &&
     isNullableString(value.itemName) &&
     isNullableString(value.itemPath) &&
-    (value.itemType === "file" || value.itemType === "folder" || value.itemType === null) &&
-    typeof value.message === "string"
+    (value.itemType === 'file' || value.itemType === 'folder' || value.itemType === null) &&
+    typeof value.message === 'string'
   );
 }
 
@@ -127,39 +117,35 @@ function buildOwnerActivityMessage(input: {
   itemName: string | null;
 }) {
   switch (input.actionType) {
-    case "joined_project":
+    case 'joined_project':
       return `${input.actorUsername} присоединился к проекту ${input.projectName}.`;
-    case "deleted_file":
-      return `${input.actorUsername} удалил файл ${input.itemName ?? "без названия"} в проекте ${input.projectName}.`;
-    case "deleted_folder":
-      return `${input.actorUsername} удалил папку ${input.itemName ?? "без названия"} в проекте ${input.projectName}.`;
+    case 'deleted_file':
+      return `${input.actorUsername} удалил файл ${input.itemName ?? 'без названия'} в проекте ${input.projectName}.`;
+    case 'deleted_folder':
+      return `${input.actorUsername} удалил папку ${input.itemName ?? 'без названия'} в проекте ${input.projectName}.`;
   }
 }
 
-function toActivitySummary(
-  notification: {
-    id: string;
-    createdAt: Date;
-    readAt: Date | null;
-    updatedAt: Date;
-    payload: Prisma.JsonValue | null;
-  },
-): NotificationSummary | null {
+function toActivitySummary(notification: {
+  id: string;
+  createdAt: Date;
+  readAt: Date | null;
+  updatedAt: Date;
+  payload: Prisma.JsonValue | null;
+}): NotificationSummary | null {
   if (!isProjectOwnerActivityPayload(notification.payload)) {
     return null;
   }
 
-  const fileId = notification.payload.itemType === "file" ? notification.payload.itemId : null;
-  const fileName =
-    notification.payload.itemType === "file" ? notification.payload.itemName : null;
-  const folderId =
-    notification.payload.itemType === "folder" ? notification.payload.itemId : null;
+  const fileId = notification.payload.itemType === 'file' ? notification.payload.itemId : null;
+  const fileName = notification.payload.itemType === 'file' ? notification.payload.itemName : null;
+  const folderId = notification.payload.itemType === 'folder' ? notification.payload.itemId : null;
   const folderName =
-    notification.payload.itemType === "folder" ? notification.payload.itemName : null;
+    notification.payload.itemType === 'folder' ? notification.payload.itemName : null;
 
   return {
     id: notification.id,
-    type: "COLLABORATION_ACTIVITY",
+    type: 'COLLABORATION_ACTIVITY',
     createdAt: notification.createdAt.toISOString(),
     readAt: notification.readAt?.toISOString() ?? null,
     activity: {
@@ -182,7 +168,7 @@ function toActivitySummary(
 
 export async function notifyProjectOwnerAboutActivity(
   transaction: NotificationClient,
-  input: NotifyProjectOwnerAboutActivityInput,
+  input: NotifyProjectOwnerAboutActivityInput
 ) {
   const [project, actor] = await Promise.all([
     transaction.project.findUnique({
@@ -231,7 +217,7 @@ export async function notifyProjectOwnerAboutActivity(
   await transaction.notification.create({
     data: {
       userId: project.ownerId,
-      type: "PROJECT_OWNER_ACTIVITY",
+      type: 'PROJECT_OWNER_ACTIVITY',
       readAt: now,
       payload,
     },
@@ -263,25 +249,25 @@ export async function listNotifications(userId: string): Promise<NotificationSum
         },
       },
     },
-    orderBy: [{ createdAt: "desc" }],
+    orderBy: [{ createdAt: 'desc' }],
   });
 
   return notifications.flatMap((notification) => {
-    if (notification.type === "PROJECT_OWNER_ACTIVITY") {
+    if (notification.type === 'PROJECT_OWNER_ACTIVITY') {
       const summary = toActivitySummary(notification);
       return summary ? [summary] : [];
     }
 
     const invitation = notification.projectInvitation;
 
-    if (!invitation || invitation.status !== "PENDING") {
+    if (!invitation || invitation.status !== 'PENDING') {
       return [];
     }
 
     return [
       {
         id: notification.id,
-        type: "PROJECT_INVITATION" as const,
+        type: 'PROJECT_INVITATION' as const,
         createdAt: notification.createdAt.toISOString(),
         readAt: notification.readAt?.toISOString() ?? null,
         invitation: {
@@ -292,7 +278,7 @@ export async function listNotifications(userId: string): Promise<NotificationSum
           inviterUsername: invitation.inviter.username,
           inviterEmail: invitation.inviter.email,
           role: toRole(invitation.role),
-          status: "pending" as const,
+          status: 'pending' as const,
           createdAt: invitation.createdAt.toISOString(),
           updatedAt: invitation.updatedAt.toISOString(),
         },

@@ -1,32 +1,32 @@
-import express from "express";
+import express from 'express';
 import {
   createProjectInvitationHandler,
   revokeProjectInvitationHandler,
-} from "../controllers/projectInvitationsController.js";
+} from '../controllers/projectInvitationsController.js';
 import {
   createProjectInvitationBodySchema,
   projectFilesParamsSchema,
   projectInvitationParamsSchema,
-} from "../lib/validation.js";
-import { requireAuth } from "../middleware/auth.js";
-import { validateRequest } from "../middleware/validate.js";
+} from '../lib/validation.js';
+import { requireAuth } from '../middleware/auth.js';
+import { validateRequest } from '../middleware/validate.js';
 
 const router = express.Router({ mergeParams: true });
 
 router.use(requireAuth);
 
 router.post(
-  "/",
+  '/',
   validateRequest({
     params: projectFilesParamsSchema,
     body: createProjectInvitationBodySchema,
   }),
-  createProjectInvitationHandler,
+  createProjectInvitationHandler
 );
 router.delete(
-  "/:id",
+  '/:id',
   validateRequest({ params: projectInvitationParamsSchema }),
-  revokeProjectInvitationHandler,
+  revokeProjectInvitationHandler
 );
 
 export default router;

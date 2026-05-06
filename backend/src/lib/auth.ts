@@ -1,19 +1,19 @@
-import type { Response } from "express";
-import jwt, { type JwtPayload, type SignOptions } from "jsonwebtoken";
+import type { Response } from 'express';
+import jwt, { type JwtPayload, type SignOptions } from 'jsonwebtoken';
 import {
   COOKIE_NAME,
   COOKIE_SAME_SITE,
   COOKIE_SECURE,
   JWT_EXPIRES_IN,
   JWT_SECRET,
-} from "../config.js";
+} from '../config.js';
 
 type AuthJwtPayload = JwtPayload & {
   sub: string;
 };
 
 export function extractBearerToken(headerValue: string | undefined) {
-  if (!headerValue || !headerValue.startsWith("Bearer ")) {
+  if (!headerValue || !headerValue.startsWith('Bearer ')) {
     return null;
   }
 
@@ -53,7 +53,7 @@ function parseExpiresInToMs(value: string) {
 }
 
 export function signAuthToken(userId: string) {
-  const expiresIn = JWT_EXPIRES_IN as NonNullable<SignOptions["expiresIn"]>;
+  const expiresIn = JWT_EXPIRES_IN as NonNullable<SignOptions['expiresIn']>;
 
   return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn });
 }
@@ -61,8 +61,8 @@ export function signAuthToken(userId: string) {
 export function verifyAuthToken(token: string) {
   const payload = jwt.verify(token, JWT_SECRET);
 
-  if (typeof payload === "string" || !payload.sub) {
-    throw new Error("Некорректный токен");
+  if (typeof payload === 'string' || !payload.sub) {
+    throw new Error('Некорректный токен');
   }
 
   return payload as AuthJwtPayload;
@@ -73,7 +73,7 @@ export function setAuthCookie(res: Response, token: string) {
     httpOnly: true,
     sameSite: COOKIE_SAME_SITE,
     secure: COOKIE_SECURE,
-    path: "/",
+    path: '/',
     maxAge: parseExpiresInToMs(JWT_EXPIRES_IN),
   });
 }
@@ -83,13 +83,13 @@ export function clearAuthCookie(res: Response) {
     httpOnly: true,
     sameSite: COOKIE_SAME_SITE,
     secure: COOKIE_SECURE,
-    path: "/",
+    path: '/',
   });
 }
 
 export function createAuthResponse(
   user: { id: string; username: string; email: string },
-  token: string,
+  token: string
 ) {
   return {
     token,

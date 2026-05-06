@@ -1,5 +1,5 @@
-import { AppError } from "./errors.js";
-import { prisma } from "./prisma.js";
+import { AppError } from './errors.js';
+import { prisma } from './prisma.js';
 
 export type ProjectLinkSummary = {
   id: string;
@@ -8,7 +8,7 @@ export type ProjectLinkSummary = {
   clientBindingKey: string;
   localRootLabel: string;
   lastSyncAt: string | null;
-  lastSyncDirection: "push" | "pull" | null;
+  lastSyncDirection: 'push' | 'pull' | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -34,7 +34,7 @@ function toProjectLinkSummary(link: {
     localRootLabel: link.localRootLabel,
     lastSyncAt: link.lastSyncAt?.toISOString() ?? null,
     lastSyncDirection:
-      link.lastSyncDirection === "push" || link.lastSyncDirection === "pull"
+      link.lastSyncDirection === 'push' || link.lastSyncDirection === 'pull'
         ? link.lastSyncDirection
         : null,
     createdAt: link.createdAt.toISOString(),
@@ -52,7 +52,7 @@ export async function listProjectLinks(userId: string): Promise<ProjectLinkSumma
         },
       },
     },
-    orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
   });
 
   return links.map(toProjectLinkSummary);
@@ -76,7 +76,7 @@ export async function createProjectLink(input: {
   });
 
   if (!ownedProject) {
-    throw new AppError("Проект не найден", 404);
+    throw new AppError('Проект не найден', 404);
   }
 
   const existing = await prisma.projectLink.findFirst({
@@ -94,7 +94,7 @@ export async function createProjectLink(input: {
   });
 
   if (existing && existing.projectId !== input.projectId) {
-    throw new AppError("Этот локальный ключ связи уже привязан к другому облачному проекту", 409);
+    throw new AppError('Этот локальный ключ связи уже привязан к другому облачному проекту', 409);
   }
 
   const link = existing
@@ -142,7 +142,7 @@ export async function deleteProjectLink(userId: string, linkId: string) {
   });
 
   if (!link) {
-    throw new AppError("Связь не найдена", 404);
+    throw new AppError('Связь не найдена', 404);
   }
 
   await prisma.projectLink.delete({
@@ -154,7 +154,7 @@ export async function updateProjectLinkSyncSummary(input: {
   userId: string;
   linkId: string;
   lastSyncAt?: string;
-  lastSyncDirection?: "push" | "pull";
+  lastSyncDirection?: 'push' | 'pull';
 }): Promise<ProjectLinkSummary> {
   const link = await prisma.projectLink.findFirst({
     where: {
@@ -167,7 +167,7 @@ export async function updateProjectLinkSyncSummary(input: {
   });
 
   if (!link) {
-    throw new AppError("Связь не найдена", 404);
+    throw new AppError('Связь не найдена', 404);
   }
 
   const updated = await prisma.projectLink.update({

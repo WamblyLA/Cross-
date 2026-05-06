@@ -1,18 +1,18 @@
-import { Buffer } from "node:buffer";
-import { createHash } from "node:crypto";
-import type { File, Folder } from "../../generated/prisma/index.js";
-import { AppError } from "./errors.js";
-import { requireProjectReadAccess } from "./projectAccess.js";
-import { prisma } from "./prisma.js";
+import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
+import type { File, Folder } from '../../generated/prisma/index.js';
+import { AppError } from './errors.js';
+import { requireProjectReadAccess } from './projectAccess.js';
+import { prisma } from './prisma.js';
 
 export type CloudFolderSummary = Pick<
   Folder,
-  "id" | "projectId" | "parentId" | "name" | "createdAt" | "updatedAt"
+  'id' | 'projectId' | 'parentId' | 'name' | 'createdAt' | 'updatedAt'
 >;
 
 export type CloudFileSummary = Pick<
   File,
-  "id" | "projectId" | "folderId" | "name" | "version" | "createdAt" | "updatedAt"
+  'id' | 'projectId' | 'folderId' | 'name' | 'version' | 'createdAt' | 'updatedAt'
 >;
 
 export type CloudFolderTreeNode = CloudFolderSummary & {
@@ -32,7 +32,7 @@ export type CloudRunSnapshotFolder = CloudFolderSummary & {
 
 export type CloudRunSnapshotFile = Pick<
   File,
-  "id" | "projectId" | "folderId" | "name" | "content" | "version" | "createdAt" | "updatedAt"
+  'id' | 'projectId' | 'folderId' | 'name' | 'content' | 'version' | 'createdAt' | 'updatedAt'
 > & {
   relativePath: string;
 };
@@ -50,7 +50,7 @@ export type CloudSyncManifestFolder = CloudFolderSummary & {
 
 export type CloudSyncManifestFile = Pick<
   File,
-  "id" | "projectId" | "folderId" | "name" | "version" | "updatedAt"
+  'id' | 'projectId' | 'folderId' | 'name' | 'version' | 'updatedAt'
 > & {
   relativePath: string;
   contentHash: string;
@@ -64,10 +64,10 @@ export type CloudProjectSyncManifest = {
   files: CloudSyncManifestFile[];
 };
 
-type FolderPathRecord = Pick<Folder, "id" | "parentId" | "name">;
+type FolderPathRecord = Pick<Folder, 'id' | 'parentId' | 'name'>;
 
 function sortByName<T extends { name: string }>(items: T[]) {
-  return [...items].sort((left, right) => left.name.localeCompare(right.name, "ru"));
+  return [...items].sort((left, right) => left.name.localeCompare(right.name, 'ru'));
 }
 
 function joinRelativePath(parentPath: string | null, name: string) {
@@ -75,19 +75,19 @@ function joinRelativePath(parentPath: string | null, name: string) {
 }
 
 function hashFileContent(content: string) {
-  return createHash("sha256").update(content).digest("hex");
+  return createHash('sha256').update(content).digest('hex');
 }
 
 function includesTargetRelativePath(
   candidateRelativePath: string,
   targetRelativePath: string | null,
-  kind: "folder" | "file",
+  kind: 'folder' | 'file'
 ) {
   if (!targetRelativePath) {
     return true;
   }
 
-  if (kind === "folder") {
+  if (kind === 'folder') {
     return (
       candidateRelativePath === targetRelativePath ||
       candidateRelativePath.startsWith(`${targetRelativePath}/`) ||
@@ -101,10 +101,7 @@ function includesTargetRelativePath(
   );
 }
 
-function createFolderPathResolver(
-  folders: FolderPathRecord[],
-  missingFolderMessage: string,
-) {
+function createFolderPathResolver(folders: FolderPathRecord[], missingFolderMessage: string) {
   const folderById = new Map(folders.map((folder) => [folder.id, folder]));
   const folderPathCache = new Map<string, string>();
 
@@ -123,7 +120,7 @@ function createFolderPathResolver(
 
     const relativePath = joinRelativePath(
       folder.parentId ? resolveFolderPath(folder.parentId) : null,
-      folder.name,
+      folder.name
     );
 
     folderPathCache.set(folderId, relativePath);
@@ -137,7 +134,7 @@ function createFolderPathResolver(
 export function buildProjectTree(
   projectId: string,
   folders: CloudFolderSummary[],
-  files: CloudFileSummary[],
+  files: CloudFileSummary[]
 ): CloudProjectTree {
   const folderNodes = new Map<string, CloudFolderTreeNode>();
 
@@ -203,7 +200,7 @@ export function buildProjectTree(
 
 export async function getProjectTreeForAccess(
   projectId: string,
-  userId: string,
+  userId: string
 ): Promise<CloudProjectTree> {
   await requireProjectReadAccess(userId, projectId);
 
@@ -218,7 +215,7 @@ export async function getProjectTreeForAccess(
         createdAt: true,
         updatedAt: true,
       },
-      orderBy: [{ name: "asc" }],
+      orderBy: [{ name: 'asc' }],
     }),
     prisma.file.findMany({
       where: { projectId },
@@ -231,7 +228,7 @@ export async function getProjectTreeForAccess(
         createdAt: true,
         updatedAt: true,
       },
-      orderBy: [{ name: "asc" }],
+      orderBy: [{ name: 'asc' }],
     }),
   ]);
 
@@ -240,7 +237,7 @@ export async function getProjectTreeForAccess(
 
 export async function getProjectRunSnapshotForAccess(
   projectId: string,
-  userId: string,
+  userId: string
 ): Promise<CloudProjectRunSnapshot> {
   const access = await requireProjectReadAccess(userId, projectId);
   const project = access.project;
@@ -256,7 +253,7 @@ export async function getProjectRunSnapshotForAccess(
         createdAt: true,
         updatedAt: true,
       },
-      orderBy: [{ name: "asc" }],
+      orderBy: [{ name: 'asc' }],
     }),
     prisma.file.findMany({
       where: { projectId },
@@ -270,13 +267,13 @@ export async function getProjectRunSnapshotForAccess(
         createdAt: true,
         updatedAt: true,
       },
-      orderBy: [{ name: "asc" }],
+      orderBy: [{ name: 'asc' }],
     }),
   ]);
 
   const resolveFolderPath = createFolderPathResolver(
     folders,
-    "Папка проекта не найдена при подготовке snapshot",
+    'Папка проекта не найдена при подготовке snapshot'
   );
 
   return {
@@ -290,7 +287,7 @@ export async function getProjectRunSnapshotForAccess(
       ...file,
       relativePath: joinRelativePath(
         file.folderId ? resolveFolderPath(file.folderId) : null,
-        file.name,
+        file.name
       ),
     })),
   };
@@ -299,7 +296,7 @@ export async function getProjectRunSnapshotForAccess(
 export async function getProjectSyncManifestForAccess(
   projectId: string,
   userId: string,
-  targetRelativePath: string | null = null,
+  targetRelativePath: string | null = null
 ): Promise<CloudProjectSyncManifest> {
   const access = await requireProjectReadAccess(userId, projectId);
   const project = access.project;
@@ -315,7 +312,7 @@ export async function getProjectSyncManifestForAccess(
         createdAt: true,
         updatedAt: true,
       },
-      orderBy: [{ name: "asc" }],
+      orderBy: [{ name: 'asc' }],
     }),
     prisma.file.findMany({
       where: { projectId },
@@ -328,13 +325,13 @@ export async function getProjectSyncManifestForAccess(
         version: true,
         updatedAt: true,
       },
-      orderBy: [{ name: "asc" }],
+      orderBy: [{ name: 'asc' }],
     }),
   ]);
 
   const resolveFolderPath = createFolderPathResolver(
     folders,
-    "Папка проекта не найдена при подготовке manifest.",
+    'Папка проекта не найдена при подготовке manifest.'
   );
 
   const manifestFolders = folders
@@ -343,7 +340,7 @@ export async function getProjectSyncManifestForAccess(
       relativePath: resolveFolderPath(folder.id),
     }))
     .filter((folder) =>
-      includesTargetRelativePath(folder.relativePath, targetRelativePath, "folder"),
+      includesTargetRelativePath(folder.relativePath, targetRelativePath, 'folder')
     );
 
   const manifestFiles = files
@@ -356,14 +353,12 @@ export async function getProjectSyncManifestForAccess(
       updatedAt: file.updatedAt,
       relativePath: joinRelativePath(
         file.folderId ? resolveFolderPath(file.folderId) : null,
-        file.name,
+        file.name
       ),
       contentHash: hashFileContent(file.content),
-      contentSize: Buffer.byteLength(file.content, "utf-8"),
+      contentSize: Buffer.byteLength(file.content, 'utf-8'),
     }))
-    .filter((file) =>
-      includesTargetRelativePath(file.relativePath, targetRelativePath, "file"),
-    );
+    .filter((file) => includesTargetRelativePath(file.relativePath, targetRelativePath, 'file'));
 
   return {
     projectId: project.id,

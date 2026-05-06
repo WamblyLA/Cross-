@@ -1,6 +1,6 @@
-import type { RequestHandler } from "express";
-import type { ZodTypeAny } from "zod";
-import { createValidationError } from "../lib/errors.js";
+import type { RequestHandler } from 'express';
+import type { ZodTypeAny } from 'zod';
+import { createValidationError } from '../lib/errors.js';
 
 type RequestSchemas = {
   body?: ZodTypeAny;

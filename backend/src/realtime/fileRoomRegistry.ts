@@ -1,4 +1,4 @@
-import type WebSocket from "ws";
+import type WebSocket from 'ws';
 
 export type AuthenticatedWebSocket = WebSocket & {
   userId: string;
@@ -55,7 +55,7 @@ export class FileRoomRegistry {
     message: string,
     options: {
       excludeSocket?: AuthenticatedWebSocket;
-    } = {},
+    } = {}
   ) {
     const sockets = this.socketsByFileId.get(fileId);
 

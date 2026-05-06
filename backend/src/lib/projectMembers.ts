@@ -1,24 +1,26 @@
-import type { ProjectMember, ProjectMemberRole } from "../../generated/prisma/index.js";
-import { AppError } from "./errors.js";
-import { requireProjectOwnerAccess, requireProjectReadAccess } from "./projectAccess.js";
-import { prisma } from "./prisma.js";
+import type { ProjectMember, ProjectMemberRole } from '../../generated/prisma/index.js';
+import { AppError } from './errors.js';
+import { requireProjectOwnerAccess, requireProjectReadAccess } from './projectAccess.js';
+import { prisma } from './prisma.js';
 
 export type ProjectMemberSummary = {
   id: string;
   userId: string;
   username: string;
   email: string;
-  role: "owner" | "editor" | "viewer";
+  role: 'owner' | 'editor' | 'viewer';
   isOwner: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
-function toMemberRole(role: ProjectMemberRole): "editor" | "viewer" {
-  return role === "EDITOR" ? "editor" : "viewer";
+function toMemberRole(role: ProjectMemberRole): 'editor' | 'viewer' {
+  return role === 'EDITOR' ? 'editor' : 'viewer';
 }
 
-function toSummary(member: ProjectMember & { user: { username: string; email: string } }): ProjectMemberSummary {
+function toSummary(
+  member: ProjectMember & { user: { username: string; email: string } }
+): ProjectMemberSummary {
   return {
     id: member.id,
     userId: member.userId,
@@ -48,14 +50,17 @@ function createOwnerSummary(project: {
     userId: project.owner.id,
     username: project.owner.username,
     email: project.owner.email,
-    role: "owner",
+    role: 'owner',
     isOwner: true,
     createdAt: project.createdAt.toISOString(),
     updatedAt: project.updatedAt.toISOString(),
   };
 }
 
-export async function listProjectMembers(userId: string, projectId: string): Promise<ProjectMemberSummary[]> {
+export async function listProjectMembers(
+  userId: string,
+  projectId: string
+): Promise<ProjectMemberSummary[]> {
   await requireProjectReadAccess(userId, projectId);
 
   const project = await prisma.project.findUnique({
@@ -82,13 +87,13 @@ export async function listProjectMembers(userId: string, projectId: string): Pro
             },
           },
         },
-        orderBy: [{ createdAt: "asc" }],
+        orderBy: [{ createdAt: 'asc' }],
       },
     },
   });
 
   if (!project) {
-    throw new AppError("Проект не найден", 404, undefined, "PROJECT_NOT_FOUND");
+    throw new AppError('Проект не найден', 404, undefined, 'PROJECT_NOT_FOUND');
   }
 
   return [createOwnerSummary(project), ...project.members.map(toSummary)];
@@ -98,12 +103,17 @@ export async function updateProjectMemberRole(input: {
   userId: string;
   projectId: string;
   memberId: string;
-  role: "editor" | "viewer";
+  role: 'editor' | 'viewer';
 }): Promise<ProjectMemberSummary> {
   const access = await requireProjectOwnerAccess(input.userId, input.projectId);
 
   if (input.memberId === access.project.ownerId) {
-    throw new AppError("Нельзя изменить роль владельца проекта", 409, undefined, "OWNER_CANNOT_BE_REMOVED");
+    throw new AppError(
+      'Нельзя изменить роль владельца проекта',
+      409,
+      undefined,
+      'OWNER_CANNOT_BE_REMOVED'
+    );
   }
 
   const member = await prisma.projectMember.findFirst({
@@ -122,7 +132,7 @@ export async function updateProjectMemberRole(input: {
   });
 
   if (!member) {
-    throw new AppError("Участник проекта не найден", 404, undefined, "MEMBER_NOT_FOUND");
+    throw new AppError('Участник проекта не найден', 404, undefined, 'MEMBER_NOT_FOUND');
   }
 
   const updatedMember = await prisma.projectMember.update({
@@ -130,7 +140,7 @@ export async function updateProjectMemberRole(input: {
       id: member.id,
     },
     data: {
-      role: input.role === "editor" ? "EDITOR" : "VIEWER",
+      role: input.role === 'editor' ? 'EDITOR' : 'VIEWER',
     },
     include: {
       user: {
@@ -153,7 +163,12 @@ export async function removeProjectMember(input: {
   const access = await requireProjectOwnerAccess(input.userId, input.projectId);
 
   if (input.memberId === access.project.ownerId) {
-    throw new AppError("Нельзя удалить владельца проекта", 409, undefined, "OWNER_CANNOT_BE_REMOVED");
+    throw new AppError(
+      'Нельзя удалить владельца проекта',
+      409,
+      undefined,
+      'OWNER_CANNOT_BE_REMOVED'
+    );
   }
 
   const member = await prisma.projectMember.findFirst({
@@ -168,7 +183,7 @@ export async function removeProjectMember(input: {
   });
 
   if (!member) {
-    throw new AppError("Участник проекта не найден", 404, undefined, "MEMBER_NOT_FOUND");
+    throw new AppError('Участник проекта не найден', 404, undefined, 'MEMBER_NOT_FOUND');
   }
 
   await prisma.$transaction([

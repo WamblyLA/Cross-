@@ -3,33 +3,33 @@ import type {
   ProjectInvitation,
   ProjectInvitationStatus,
   ProjectMemberRole,
-} from "../../generated/prisma/index.js";
-import { AppError } from "./errors.js";
-import { notifyProjectOwnerAboutActivity } from "./notifications.js";
-import { requireProjectOwnerAccess, requireProjectReadAccess } from "./projectAccess.js";
-import { prisma } from "./prisma.js";
+} from '../../generated/prisma/index.js';
+import { AppError } from './errors.js';
+import { notifyProjectOwnerAboutActivity } from './notifications.js';
+import { requireProjectOwnerAccess, requireProjectReadAccess } from './projectAccess.js';
+import { prisma } from './prisma.js';
 
 export type PendingProjectInvitationSummary = {
   id: string;
   inviteeUserId: string;
   username: string;
   email: string;
-  role: "editor" | "viewer";
-  status: "pending";
+  role: 'editor' | 'viewer';
+  status: 'pending';
   createdAt: string;
   updatedAt: string;
 };
 
-function toRole(role: ProjectMemberRole): "editor" | "viewer" {
-  return role === "EDITOR" ? "editor" : "viewer";
+function toRole(role: ProjectMemberRole): 'editor' | 'viewer' {
+  return role === 'EDITOR' ? 'editor' : 'viewer';
 }
 
-function toPendingStatus(status: ProjectInvitationStatus): "pending" {
-  if (status !== "PENDING") {
-    throw new Error("Unexpected non-pending invitation status in pending invitation mapper");
+function toPendingStatus(status: ProjectInvitationStatus): 'pending' {
+  if (status !== 'PENDING') {
+    throw new Error('Unexpected non-pending invitation status in pending invitation mapper');
   }
 
-  return "pending";
+  return 'pending';
 }
 
 function toPendingInvitationSummary(
@@ -38,7 +38,7 @@ function toPendingInvitationSummary(
       username: string;
       email: string;
     };
-  },
+  }
 ): PendingProjectInvitationSummary {
   return {
     id: invitation.id,
@@ -53,22 +53,22 @@ function toPendingInvitationSummary(
 }
 
 function createInvitationNotFoundError() {
-  return new AppError("Приглашение не найдено", 404, undefined, "INVITATION_NOT_FOUND");
+  return new AppError('Приглашение не найдено', 404, undefined, 'INVITATION_NOT_FOUND');
 }
 
 function createInvitationNotPendingError() {
   return new AppError(
-    "Приглашение больше не ожидает ответа",
+    'Приглашение больше не ожидает ответа',
     409,
     undefined,
-    "INVITATION_NOT_PENDING",
+    'INVITATION_NOT_PENDING'
   );
 }
 
 async function archiveInvitationNotification(
   transaction: Prisma.TransactionClient,
   invitationId: string,
-  timestamp: Date,
+  timestamp: Date
 ) {
   await transaction.notification.updateMany({
     where: {
@@ -84,7 +84,7 @@ async function archiveInvitationNotification(
 
 export async function listPendingProjectInvitationsForOwnerView(
   userId: string,
-  projectId: string,
+  projectId: string
 ): Promise<PendingProjectInvitationSummary[]> {
   const access = await requireProjectReadAccess(userId, projectId);
 
@@ -95,7 +95,7 @@ export async function listPendingProjectInvitationsForOwnerView(
   const invitations = await prisma.projectInvitation.findMany({
     where: {
       projectId,
-      status: "PENDING",
+      status: 'PENDING',
     },
     include: {
       invitee: {
@@ -105,7 +105,7 @@ export async function listPendingProjectInvitationsForOwnerView(
         },
       },
     },
-    orderBy: [{ createdAt: "asc" }],
+    orderBy: [{ createdAt: 'asc' }],
   });
 
   return invitations.map(toPendingInvitationSummary);
@@ -115,7 +115,7 @@ export async function createProjectInvitation(input: {
   userId: string;
   projectId: string;
   email: string;
-  role: "editor" | "viewer";
+  role: 'editor' | 'viewer';
 }): Promise<PendingProjectInvitationSummary> {
   const access = await requireProjectOwnerAccess(input.userId, input.projectId);
   const targetUser = await prisma.user.findUnique({
@@ -128,11 +128,11 @@ export async function createProjectInvitation(input: {
   });
 
   if (!targetUser) {
-    throw new AppError("Пользователь не найден", 404, undefined, "USER_NOT_FOUND");
+    throw new AppError('Пользователь не найден', 404, undefined, 'USER_NOT_FOUND');
   }
 
   if (targetUser.id === access.project.ownerId) {
-    throw new AppError("Пользователь уже добавлен", 409, undefined, "ALREADY_MEMBER");
+    throw new AppError('Пользователь уже добавлен', 409, undefined, 'ALREADY_MEMBER');
   }
 
   const existingMember = await prisma.projectMember.findUnique({
@@ -146,10 +146,10 @@ export async function createProjectInvitation(input: {
   });
 
   if (existingMember) {
-    throw new AppError("Пользователь уже добавлен", 409, undefined, "ALREADY_MEMBER");
+    throw new AppError('Пользователь уже добавлен', 409, undefined, 'ALREADY_MEMBER');
   }
 
-  const nextRole = input.role === "editor" ? "EDITOR" : "VIEWER";
+  const nextRole = input.role === 'editor' ? 'EDITOR' : 'VIEWER';
   const invitation = await prisma.$transaction(async (tx) => {
     const existingInvitation = await tx.projectInvitation.findUnique({
       where: {
@@ -168,8 +168,8 @@ export async function createProjectInvitation(input: {
       },
     });
 
-    if (existingInvitation?.status === "PENDING") {
-      throw new AppError("Пользователь уже приглашён", 409, undefined, "ALREADY_INVITED");
+    if (existingInvitation?.status === 'PENDING') {
+      throw new AppError('Пользователь уже приглашён', 409, undefined, 'ALREADY_INVITED');
     }
 
     const upsertedInvitation = existingInvitation
@@ -178,7 +178,7 @@ export async function createProjectInvitation(input: {
           data: {
             inviterUserId: input.userId,
             role: nextRole,
-            status: "PENDING",
+            status: 'PENDING',
             respondedAt: null,
           },
           include: {
@@ -196,7 +196,7 @@ export async function createProjectInvitation(input: {
             inviterUserId: input.userId,
             inviteeUserId: targetUser.id,
             role: nextRole,
-            status: "PENDING",
+            status: 'PENDING',
           },
           include: {
             invitee: {
@@ -214,13 +214,13 @@ export async function createProjectInvitation(input: {
       },
       update: {
         userId: targetUser.id,
-        type: "PROJECT_INVITATION",
+        type: 'PROJECT_INVITATION',
         archivedAt: null,
         readAt: null,
       },
       create: {
         userId: targetUser.id,
-        type: "PROJECT_INVITATION",
+        type: 'PROJECT_INVITATION',
         projectInvitationId: upsertedInvitation.id,
       },
     });
@@ -254,7 +254,7 @@ export async function revokeProjectInvitation(input: {
       throw createInvitationNotFoundError();
     }
 
-    if (invitation.status !== "PENDING") {
+    if (invitation.status !== 'PENDING') {
       throw createInvitationNotPendingError();
     }
 
@@ -263,7 +263,7 @@ export async function revokeProjectInvitation(input: {
     await tx.projectInvitation.update({
       where: { id: invitation.id },
       data: {
-        status: "REVOKED",
+        status: 'REVOKED',
         respondedAt: now,
       },
     });
@@ -293,7 +293,7 @@ export async function acceptProjectInvitation(userId: string, invitationId: stri
       throw createInvitationNotFoundError();
     }
 
-    if (invitation.status !== "PENDING") {
+    if (invitation.status !== 'PENDING') {
       throw createInvitationNotPendingError();
     }
 
@@ -319,7 +319,7 @@ export async function acceptProjectInvitation(userId: string, invitationId: stri
     await tx.projectInvitation.update({
       where: { id: invitation.id },
       data: {
-        status: "ACCEPTED",
+        status: 'ACCEPTED',
         respondedAt: now,
       },
     });
@@ -328,7 +328,7 @@ export async function acceptProjectInvitation(userId: string, invitationId: stri
     await notifyProjectOwnerAboutActivity(tx, {
       projectId: invitation.projectId,
       actorUserId: userId,
-      actionType: "joined_project",
+      actionType: 'joined_project',
     });
 
     return {
@@ -356,7 +356,7 @@ export async function declineProjectInvitation(userId: string, invitationId: str
       throw createInvitationNotFoundError();
     }
 
-    if (invitation.status !== "PENDING") {
+    if (invitation.status !== 'PENDING') {
       throw createInvitationNotPendingError();
     }
 
@@ -365,7 +365,7 @@ export async function declineProjectInvitation(userId: string, invitationId: str
     await tx.projectInvitation.update({
       where: { id: invitation.id },
       data: {
-        status: "DECLINED",
+        status: 'DECLINED',
         respondedAt: now,
       },
     });

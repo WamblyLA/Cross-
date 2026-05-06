@@ -1,16 +1,16 @@
-import type { Request, Response } from "express";
+import type { Request, Response } from 'express';
 import {
   createProjectLink,
   deleteProjectLink,
   listProjectLinks,
   updateProjectLinkSyncSummary,
-} from "../lib/projectLinks.js";
-import { requireUserId } from "../lib/requestContext.js";
+} from '../lib/projectLinks.js';
+import { requireUserId } from '../lib/requestContext.js';
 import type {
   CreateProjectLinkBody,
   ProjectLinkParams,
   UpdateProjectLinkSyncSummaryBody,
-} from "../lib/validation.js";
+} from '../lib/validation.js';
 
 export async function getProjectLinks(req: Request, res: Response) {
   const userId = requireUserId(req);
@@ -46,9 +46,7 @@ export async function updateProjectLinkSyncSummaryHandler(req: Request, res: Res
     userId,
     linkId: id,
     ...(body.lastSyncAt !== undefined ? { lastSyncAt: body.lastSyncAt } : {}),
-    ...(body.lastSyncDirection !== undefined
-      ? { lastSyncDirection: body.lastSyncDirection }
-      : {}),
+    ...(body.lastSyncDirection !== undefined ? { lastSyncDirection: body.lastSyncDirection } : {}),
   };
 
   const link = await updateProjectLinkSyncSummary(updateInput);

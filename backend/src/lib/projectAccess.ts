@@ -1,15 +1,13 @@
-import type {
-  File,
-  Folder,
+import type { File, Folder, Project, ProjectMemberRole } from '../../generated/prisma/index.js';
+import { AppError } from './errors.js';
+import { prisma } from './prisma.js';
+
+export type ProjectAccessRole = 'owner' | 'editor' | 'viewer';
+
+type AccessibleProjectRecord = Pick<
   Project,
-  ProjectMemberRole,
-} from "../../generated/prisma/index.js";
-import { AppError } from "./errors.js";
-import { prisma } from "./prisma.js";
-
-export type ProjectAccessRole = "owner" | "editor" | "viewer";
-
-type AccessibleProjectRecord = Pick<Project, "id" | "ownerId" | "name" | "createdAt" | "updatedAt"> & {
+  'id' | 'ownerId' | 'name' | 'createdAt' | 'updatedAt'
+> & {
   members: Array<{
     id: string;
     role: ProjectMemberRole;
@@ -17,7 +15,7 @@ type AccessibleProjectRecord = Pick<Project, "id" | "ownerId" | "name" | "create
 };
 
 export type ProjectAccess = {
-  project: Pick<Project, "id" | "ownerId" | "name" | "createdAt" | "updatedAt">;
+  project: Pick<Project, 'id' | 'ownerId' | 'name' | 'createdAt' | 'updatedAt'>;
   role: ProjectAccessRole;
   isOwner: boolean;
   membershipId: string | null;
@@ -33,15 +31,15 @@ export type ProjectSummary = {
   isOwner: boolean;
 };
 
-function toAccessRole(role: ProjectMemberRole): Exclude<ProjectAccessRole, "owner"> {
-  return role === "EDITOR" ? "editor" : "viewer";
+function toAccessRole(role: ProjectMemberRole): Exclude<ProjectAccessRole, 'owner'> {
+  return role === 'EDITOR' ? 'editor' : 'viewer';
 }
 
 function toProjectAccess(project: AccessibleProjectRecord, userId: string): ProjectAccess {
   if (project.ownerId === userId) {
     return {
       project,
-      role: "owner",
+      role: 'owner',
       isOwner: true,
       membershipId: null,
     };
@@ -50,7 +48,7 @@ function toProjectAccess(project: AccessibleProjectRecord, userId: string): Proj
   const membership = project.members[0];
 
   if (!membership) {
-    throw new AppError("Проект не найден", 404, undefined, "PROJECT_NOT_FOUND");
+    throw new AppError('Проект не найден', 404, undefined, 'PROJECT_NOT_FOUND');
   }
 
   return {
@@ -62,7 +60,7 @@ function toProjectAccess(project: AccessibleProjectRecord, userId: string): Proj
 }
 
 function createForbiddenError(message: string) {
-  return new AppError(message, 403, undefined, "FORBIDDEN");
+  return new AppError(message, 403, undefined, 'FORBIDDEN');
 }
 
 export function projectAccessToSummary(access: ProjectAccess): ProjectSummary {
@@ -79,7 +77,7 @@ export function projectAccessToSummary(access: ProjectAccess): ProjectSummary {
 
 export async function getProjectAccess(
   userId: string,
-  projectId: string,
+  projectId: string
 ): Promise<ProjectAccess | null> {
   const project = await prisma.project.findFirst({
     where: {
@@ -114,7 +112,7 @@ export async function requireProjectReadAccess(userId: string, projectId: string
   const access = await getProjectAccess(userId, projectId);
 
   if (!access) {
-    throw new AppError("Проект не найден", 404, undefined, "PROJECT_NOT_FOUND");
+    throw new AppError('Проект не найден', 404, undefined, 'PROJECT_NOT_FOUND');
   }
 
   return access;
@@ -123,8 +121,8 @@ export async function requireProjectReadAccess(userId: string, projectId: string
 export async function requireProjectWriteAccess(userId: string, projectId: string) {
   const access = await requireProjectReadAccess(userId, projectId);
 
-  if (access.role === "viewer") {
-    throw createForbiddenError("У вас только доступ для чтения этого проекта");
+  if (access.role === 'viewer') {
+    throw createForbiddenError('У вас только доступ для чтения этого проекта');
   }
 
   return access;
@@ -134,7 +132,7 @@ export async function requireProjectOwnerAccess(userId: string, projectId: strin
   const access = await requireProjectReadAccess(userId, projectId);
 
   if (!access.isOwner) {
-    throw createForbiddenError("У вас нет прав на управление этим проектом");
+    throw createForbiddenError('У вас нет прав на управление этим проектом');
   }
 
   return access;
@@ -162,9 +160,9 @@ export async function getProjectFileForAccess(
   userId: string,
   projectId: string,
   fileId: string,
-  mode: "read" | "write" = "read",
+  mode: 'read' | 'write' = 'read'
 ): Promise<File> {
-  if (mode === "write") {
+  if (mode === 'write') {
     await requireProjectWriteAccess(userId, projectId);
   } else {
     await requireProjectReadAccess(userId, projectId);
@@ -173,7 +171,7 @@ export async function getProjectFileForAccess(
   const file = await findProjectFile(projectId, fileId);
 
   if (!file) {
-    throw new AppError("Файл не найден", 404, undefined, "FILE_NOT_FOUND");
+    throw new AppError('Файл не найден', 404, undefined, 'FILE_NOT_FOUND');
   }
 
   return file;
@@ -183,9 +181,9 @@ export async function getProjectFolderForAccess(
   userId: string,
   projectId: string,
   folderId: string,
-  mode: "read" | "write" = "read",
+  mode: 'read' | 'write' = 'read'
 ): Promise<Folder> {
-  if (mode === "write") {
+  if (mode === 'write') {
     await requireProjectWriteAccess(userId, projectId);
   } else {
     await requireProjectReadAccess(userId, projectId);
@@ -194,7 +192,7 @@ export async function getProjectFolderForAccess(
   const folder = await findProjectFolder(projectId, folderId);
 
   if (!folder) {
-    throw new AppError("Папка не найдена", 404, undefined, "FOLDER_NOT_FOUND");
+    throw new AppError('Папка не найдена', 404, undefined, 'FOLDER_NOT_FOUND');
   }
 
   return folder;
@@ -204,7 +202,7 @@ export async function assertFolderInProject(
   userId: string,
   projectId: string,
   folderId: string | null,
-  mode: "read" | "write" = "read",
+  mode: 'read' | 'write' = 'read'
 ) {
   if (!folderId) {
     return null;

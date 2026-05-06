@@ -2,15 +2,19 @@ name: Backend CI
 
 on:
   push:
+    branches:
+      - prod-backend
     paths:
-      - "backend/**"
-      - ".github/workflows/**"
-      - "docs/ci-cd.md"
+      - 'backend/**'
+      - '.github/workflows/**'
+      - 'docs/ci-cd.md'
   pull_request:
+    branches:
+      - prod-backend
     paths:
-      - "backend/**"
-      - ".github/workflows/**"
-      - "docs/ci-cd.md"
+      - 'backend/**'
+      - '.github/workflows/**'
+      - 'docs/ci-cd.md'
 
 jobs:
   backend-ci:

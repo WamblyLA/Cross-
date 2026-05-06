@@ -1,17 +1,14 @@
-import {
-  TELEGRAM_BOT_TOKEN,
-  TELEGRAM_BUG_REPORT_CHAT_ID,
-} from "../config.js";
+import { TELEGRAM_BOT_TOKEN, TELEGRAM_BUG_REPORT_CHAT_ID } from '../config.js';
 
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
-const DESCRIPTION_TRUNCATION_SUFFIX = "\n...";
+const DESCRIPTION_TRUNCATION_SUFFIX = '\n...';
 
 export type BugReportReporter =
   | {
-      kind: "anonymous";
+      kind: 'anonymous';
     }
   | {
-      kind: "authenticated";
+      kind: 'authenticated';
       userId: string;
       username: string | null;
       email: string | null;
@@ -25,7 +22,7 @@ export type BugReportInput = {
 };
 
 type BugReportDeliveryContext = {
-  reason: "missing_config" | "telegram_http_error" | "telegram_api_error" | "network_error";
+  reason: 'missing_config' | 'telegram_http_error' | 'telegram_api_error' | 'network_error';
   httpStatus?: number;
   telegramStatusText?: string;
   errorName?: string;
@@ -37,7 +34,7 @@ export class BugReportDeliveryError extends Error {
 
   constructor(message: string, safeContext: BugReportDeliveryContext) {
     super(message);
-    this.name = "BugReportDeliveryError";
+    this.name = 'BugReportDeliveryError';
     this.safeContext = safeContext;
   }
 }
@@ -52,33 +49,33 @@ function replaceUnsupportedControlCharacters(value: string) {
       (code >= 14 && code <= 31) ||
       code === 127;
 
-    return isUnsupportedControlCharacter ? " " : character;
-  }).join("");
+    return isUnsupportedControlCharacter ? ' ' : character;
+  }).join('');
 }
 
 function sanitizeTelegramText(value: string) {
   return replaceUnsupportedControlCharacters(
-    value.replace(/\r\n/g, "\n").replace(/\r/g, "\n"),
+    value.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   ).trim();
 }
 
 function formatReporter(reporter: BugReportReporter) {
-  if (reporter.kind === "anonymous") {
-    return "anonymous";
+  if (reporter.kind === 'anonymous') {
+    return 'anonymous';
   }
 
   return [
-    "authenticated",
+    'authenticated',
     `userId=${reporter.userId}`,
-    `username=${reporter.username ?? "unknown"}`,
-    `email=${reporter.email ?? "unknown"}`,
-  ].join(" | ");
+    `username=${reporter.username ?? 'unknown'}`,
+    `email=${reporter.email ?? 'unknown'}`,
+  ].join(' | ');
 }
 
 function normalizeStatusText(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0
+  return typeof value === 'string' && value.trim().length > 0
     ? sanitizeTelegramText(value)
-    : "unknown";
+    : 'unknown';
 }
 
 export function buildBugReportTelegramMessage({
@@ -90,22 +87,22 @@ export function buildBugReportTelegramMessage({
   const normalizedTitle = sanitizeTelegramText(title);
   const normalizedDescription = sanitizeTelegramText(description);
   const normalizedUserAgent =
-    typeof userAgent === "string" && userAgent.trim().length > 0
+    typeof userAgent === 'string' && userAgent.trim().length > 0
       ? sanitizeTelegramText(userAgent)
       : null;
 
   const headerLines = [
-    "CROSS++ bug report",
+    'CROSS++ bug report',
     `Reporter: ${formatReporter(reporter)}`,
     `Reported at: ${new Date().toISOString()}`,
     ...(normalizedUserAgent ? [`User-Agent: ${normalizedUserAgent}`] : []),
-    "",
-    "Title:",
+    '',
+    'Title:',
     normalizedTitle,
-    "",
-    "Description:",
+    '',
+    'Description:',
   ];
-  const prefix = `${headerLines.join("\n")}\n`;
+  const prefix = `${headerLines.join('\n')}\n`;
   const availableDescriptionLength = TELEGRAM_MAX_MESSAGE_LENGTH - prefix.length;
 
   if (availableDescriptionLength <= 0) {
@@ -117,7 +114,7 @@ export function buildBugReportTelegramMessage({
   if (finalDescription.length > availableDescriptionLength) {
     const truncatedLength = Math.max(
       0,
-      availableDescriptionLength - DESCRIPTION_TRUNCATION_SUFFIX.length,
+      availableDescriptionLength - DESCRIPTION_TRUNCATION_SUFFIX.length
     );
     finalDescription = `${finalDescription.slice(0, truncatedLength).trimEnd()}${DESCRIPTION_TRUNCATION_SUFFIX}`;
   }
@@ -127,8 +124,8 @@ export function buildBugReportTelegramMessage({
 
 export async function sendBugReportToTelegram(input: BugReportInput) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_BUG_REPORT_CHAT_ID) {
-    throw new BugReportDeliveryError("Telegram bug report config is missing", {
-      reason: "missing_config",
+    throw new BugReportDeliveryError('Telegram bug report config is missing', {
+      reason: 'missing_config',
     });
   }
 
@@ -139,9 +136,9 @@ export async function sendBugReportToTelegram(input: BugReportInput) {
 
   try {
     response = await fetch(endpoint, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         chat_id: TELEGRAM_BUG_REPORT_CHAT_ID,
@@ -149,10 +146,10 @@ export async function sendBugReportToTelegram(input: BugReportInput) {
       }),
     });
   } catch (error) {
-    throw new BugReportDeliveryError("Network error while sending Telegram bug report", {
-      reason: "network_error",
-      errorName: error instanceof Error ? error.name : "UnknownError",
-      errorMessage: error instanceof Error ? sanitizeTelegramText(error.message) : "Unknown error",
+    throw new BugReportDeliveryError('Network error while sending Telegram bug report', {
+      reason: 'network_error',
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+      errorMessage: error instanceof Error ? sanitizeTelegramText(error.message) : 'Unknown error',
     });
   }
 
@@ -166,14 +163,12 @@ export async function sendBugReportToTelegram(input: BugReportInput) {
 
   if (!response.ok) {
     const telegramStatusText =
-      payload &&
-      typeof payload === "object" &&
-      "description" in payload
+      payload && typeof payload === 'object' && 'description' in payload
         ? normalizeStatusText((payload as { description?: unknown }).description)
         : normalizeStatusText(response.statusText);
 
-    throw new BugReportDeliveryError("Telegram returned a non-success HTTP status", {
-      reason: "telegram_http_error",
+    throw new BugReportDeliveryError('Telegram returned a non-success HTTP status', {
+      reason: 'telegram_http_error',
       httpStatus: response.status,
       telegramStatusText,
     });
@@ -181,20 +176,18 @@ export async function sendBugReportToTelegram(input: BugReportInput) {
 
   const telegramOk =
     payload &&
-    typeof payload === "object" &&
-    "ok" in payload &&
+    typeof payload === 'object' &&
+    'ok' in payload &&
     (payload as { ok?: unknown }).ok === true;
 
   if (!telegramOk) {
     const telegramStatusText =
-      payload &&
-      typeof payload === "object" &&
-      "description" in payload
+      payload && typeof payload === 'object' && 'description' in payload
         ? normalizeStatusText((payload as { description?: unknown }).description)
-        : "Telegram API returned ok=false";
+        : 'Telegram API returned ok=false';
 
-    throw new BugReportDeliveryError("Telegram API returned ok=false", {
-      reason: "telegram_api_error",
+    throw new BugReportDeliveryError('Telegram API returned ok=false', {
+      reason: 'telegram_api_error',
       telegramStatusText,
     });
   }

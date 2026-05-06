@@ -1,7 +1,7 @@
-import type { Request, Response } from "express";
-import { prisma } from "../lib/prisma.js";
-import { requireUserId } from "../lib/requestContext.js";
-import { DEFAULT_SETTINGS, type UpdateSettingsBody } from "../lib/validation.js";
+import type { Request, Response } from 'express';
+import { prisma } from '../lib/prisma.js';
+import { requireUserId } from '../lib/requestContext.js';
+import { DEFAULT_SETTINGS, type UpdateSettingsBody } from '../lib/validation.js';
 
 export async function getMySettings(req: Request, res: Response) {
   const userId = requireUserId(req);

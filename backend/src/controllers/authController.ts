@@ -1,20 +1,11 @@
-import type { Request, Response } from "express";
-import bcrypt from "bcrypt";
-import { BCRYPT_SALT_ROUNDS } from "../config.js";
-import {
-  clearAuthCookie,
-  createAuthResponse,
-  setAuthCookie,
-  signAuthToken,
-} from "../lib/auth.js";
-import { AppError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
-import { requireUserId } from "../lib/requestContext.js";
-import type {
-  LoginBody,
-  RegisterBody,
-  UpdateProfileBody,
-} from "../lib/validation.js";
+import type { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
+import { BCRYPT_SALT_ROUNDS } from '../config.js';
+import { clearAuthCookie, createAuthResponse, setAuthCookie, signAuthToken } from '../lib/auth.js';
+import { AppError } from '../lib/errors.js';
+import { prisma } from '../lib/prisma.js';
+import { requireUserId } from '../lib/requestContext.js';
+import type { LoginBody, RegisterBody, UpdateProfileBody } from '../lib/validation.js';
 
 function toPublicUser(user: { id: string; username: string; email: string }) {
   return {
@@ -29,10 +20,7 @@ export async function register(req: Request, res: Response) {
 
   const existingUsers = await prisma.user.findMany({
     where: {
-      OR: [
-        { username: { equals: username, mode: "insensitive" } },
-        { email },
-      ],
+      OR: [{ username: { equals: username, mode: 'insensitive' } }, { email }],
     },
     select: {
       username: true,
@@ -41,11 +29,11 @@ export async function register(req: Request, res: Response) {
   });
 
   if (existingUsers.some((user) => user.username.toLowerCase() === username.toLowerCase())) {
-    throw new AppError("Имя уже занято", 409);
+    throw new AppError('Имя уже занято', 409);
   }
 
   if (existingUsers.some((user) => user.email === email)) {
-    throw new AppError("Email уже зарегистрирован", 409);
+    throw new AppError('Email уже зарегистрирован', 409);
   }
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
@@ -77,10 +65,7 @@ export async function login(req: Request, res: Response) {
 
   const user = await prisma.user.findFirst({
     where: {
-      OR: [
-        { email: login },
-        { username: { equals: login, mode: "insensitive" } },
-      ],
+      OR: [{ email: login }, { username: { equals: login, mode: 'insensitive' } }],
     },
     select: {
       id: true,
@@ -91,13 +76,13 @@ export async function login(req: Request, res: Response) {
   });
 
   if (!user) {
-    throw new AppError("Неверный логин или пароль", 401);
+    throw new AppError('Неверный логин или пароль', 401);
   }
 
   const passwordMatches = await bcrypt.compare(password, user.passwordHash);
 
   if (!passwordMatches) {
-    throw new AppError("Неверный логин или пароль", 401);
+    throw new AppError('Неверный логин или пароль', 401);
   }
 
   const token = signAuthToken(user.id);
@@ -110,8 +95,8 @@ export async function login(req: Request, res: Response) {
         username: user.username,
         email: user.email,
       },
-      token,
-    ),
+      token
+    )
   );
 }
 
@@ -128,7 +113,7 @@ export async function me(req: Request, res: Response) {
   });
 
   if (!user) {
-    throw new AppError("Пользователь не найден", 404);
+    throw new AppError('Пользователь не найден', 404);
   }
 
   res.json({ user });
@@ -140,7 +125,7 @@ export async function updateProfile(req: Request, res: Response) {
 
   const existingUser = await prisma.user.findFirst({
     where: {
-      username: { equals: username, mode: "insensitive" },
+      username: { equals: username, mode: 'insensitive' },
       NOT: { id: userId },
     },
     select: {
@@ -149,7 +134,7 @@ export async function updateProfile(req: Request, res: Response) {
   });
 
   if (existingUser) {
-    throw new AppError("Имя уже занято", 409);
+    throw new AppError('Имя уже занято', 409);
   }
 
   const user = await prisma.user.update({

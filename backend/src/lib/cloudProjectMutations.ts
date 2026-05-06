@@ -1,17 +1,13 @@
-import { AppError } from "./errors.js";
+import { AppError } from './errors.js';
 import {
   assertFolderInProject,
   getProjectFileForAccess,
   getProjectFolderForAccess,
   requireProjectWriteAccess,
-} from "./projectAccess.js";
-import { prisma } from "./prisma.js";
+} from './projectAccess.js';
+import { prisma } from './prisma.js';
 
-export async function findSiblingFolder(
-  projectId: string,
-  parentId: string | null,
-  name: string,
-) {
+export async function findSiblingFolder(projectId: string, parentId: string | null, name: string) {
   return prisma.folder.findFirst({
     where: {
       projectId,
@@ -24,11 +20,7 @@ export async function findSiblingFolder(
   });
 }
 
-export async function findSiblingFile(
-  projectId: string,
-  folderId: string | null,
-  name: string,
-) {
+export async function findSiblingFile(projectId: string, folderId: string | null, name: string) {
   return prisma.file.findFirst({
     where: {
       projectId,
@@ -101,21 +93,21 @@ export async function moveProjectFileForAccess(
   sourceProjectId: string,
   fileId: string,
   targetProjectId: string,
-  targetFolderId: string | null,
+  targetFolderId: string | null
 ) {
-  const file = await getProjectFileForAccess(userId, sourceProjectId, fileId, "write");
+  const file = await getProjectFileForAccess(userId, sourceProjectId, fileId, 'write');
 
   await requireProjectWriteAccess(userId, targetProjectId);
-  await assertFolderInProject(userId, targetProjectId, targetFolderId, "write");
+  await assertFolderInProject(userId, targetProjectId, targetFolderId, 'write');
 
   if (file.projectId === targetProjectId && (file.folderId ?? null) === targetFolderId) {
-    throw new AppError("Файл уже находится в выбранной папке", 409);
+    throw new AppError('Файл уже находится в выбранной папке', 409);
   }
 
   const duplicate = await findSiblingFile(targetProjectId, targetFolderId, file.name);
 
   if (duplicate && duplicate.id !== file.id) {
-    throw new AppError("Файл с таким именем уже существует в выбранной папке", 409);
+    throw new AppError('Файл с таким именем уже существует в выбранной папке', 409);
   }
 
   const updatedFile = await prisma.file.update({
@@ -138,27 +130,27 @@ export async function moveProjectFolderForAccess(
   sourceProjectId: string,
   folderId: string,
   targetProjectId: string,
-  targetParentId: string | null,
+  targetParentId: string | null
 ) {
-  const folder = await getProjectFolderForAccess(userId, sourceProjectId, folderId, "write");
+  const folder = await getProjectFolderForAccess(userId, sourceProjectId, folderId, 'write');
 
   await requireProjectWriteAccess(userId, targetProjectId);
-  await assertFolderInProject(userId, targetProjectId, targetParentId, "write");
+  await assertFolderInProject(userId, targetProjectId, targetParentId, 'write');
 
   if (folder.projectId === targetProjectId && (folder.parentId ?? null) === targetParentId) {
-    throw new AppError("Папка уже находится в выбранном месте", 409);
+    throw new AppError('Папка уже находится в выбранном месте', 409);
   }
 
   const descendantIds = await collectFolderDescendants(folder.projectId, folder.id);
 
   if (targetParentId && descendantIds.includes(targetParentId)) {
-    throw new AppError("Нельзя переместить папку внутрь самой себя или её дочерней папки", 409);
+    throw new AppError('Нельзя переместить папку внутрь самой себя или её дочерней папки', 409);
   }
 
   const duplicate = await findSiblingFolder(targetProjectId, targetParentId, folder.name);
 
   if (duplicate && duplicate.id !== folder.id) {
-    throw new AppError("Папка с таким именем уже существует в выбранном месте", 409);
+    throw new AppError('Папка с таким именем уже существует в выбранном месте', 409);
   }
 
   const nestedFolderIds = descendantIds.filter((id) => id !== folder.id);

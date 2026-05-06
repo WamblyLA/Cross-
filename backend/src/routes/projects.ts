@@ -1,4 +1,4 @@
-import express from "express";
+import express from 'express';
 import {
   createProject,
   deleteProject,
@@ -8,41 +8,41 @@ import {
   getProjects,
   getProjectTree,
   updateProject,
-} from "../controllers/projectsController.js";
+} from '../controllers/projectsController.js';
 import {
   createProjectBodySchema,
   projectParamsSchema,
   updateProjectBodySchema,
-} from "../lib/validation.js";
-import { requireAuth } from "../middleware/auth.js";
-import { validateRequest } from "../middleware/validate.js";
+} from '../lib/validation.js';
+import { requireAuth } from '../middleware/auth.js';
+import { validateRequest } from '../middleware/validate.js';
 
 const router = express.Router();
 
 router.use(requireAuth);
 
-router.get("/", getProjects);
-router.post("/", validateRequest({ body: createProjectBodySchema }), createProject);
-router.get("/:id", validateRequest({ params: projectParamsSchema }), getProject);
-router.get("/:id/tree", validateRequest({ params: projectParamsSchema }), getProjectTree);
+router.get('/', getProjects);
+router.post('/', validateRequest({ body: createProjectBodySchema }), createProject);
+router.get('/:id', validateRequest({ params: projectParamsSchema }), getProject);
+router.get('/:id/tree', validateRequest({ params: projectParamsSchema }), getProjectTree);
 router.get(
-  "/:id/sync-manifest",
+  '/:id/sync-manifest',
   validateRequest({ params: projectParamsSchema }),
-  getProjectSyncManifest,
+  getProjectSyncManifest
 );
 router.get(
-  "/:id/run-snapshot",
+  '/:id/run-snapshot',
   validateRequest({ params: projectParamsSchema }),
-  getProjectRunSnapshot,
+  getProjectRunSnapshot
 );
 router.put(
-  "/:id",
+  '/:id',
   validateRequest({
     params: projectParamsSchema,
     body: updateProjectBodySchema,
   }),
-  updateProject,
+  updateProject
 );
-router.delete("/:id", validateRequest({ params: projectParamsSchema }), deleteProject);
+router.delete('/:id', validateRequest({ params: projectParamsSchema }), deleteProject);
 
 export default router;

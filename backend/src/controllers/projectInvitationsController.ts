@@ -1,20 +1,20 @@
-import type { Request, Response } from "express";
+import type { Request, Response } from 'express';
 import {
   acceptProjectInvitation,
   createProjectInvitation,
   declineProjectInvitation,
   revokeProjectInvitation,
-} from "../lib/projectInvitations.js";
-import { requireUserId } from "../lib/requestContext.js";
+} from '../lib/projectInvitations.js';
+import { requireUserId } from '../lib/requestContext.js';
 import type {
   CreateProjectInvitationBody,
   InvitationActionParams,
   ProjectFilesParams,
   ProjectInvitationParams,
-} from "../lib/validation.js";
+} from '../lib/validation.js';
 
 export async function createProjectInvitationHandler(req: Request, res: Response) {
-  const userId = requireUserId(req, "UNAUTHORIZED");
+  const userId = requireUserId(req, 'UNAUTHORIZED');
   const { projectId } = req.params as ProjectFilesParams;
   const body = req.body as CreateProjectInvitationBody;
   const invitation = await createProjectInvitation({
@@ -28,7 +28,7 @@ export async function createProjectInvitationHandler(req: Request, res: Response
 }
 
 export async function revokeProjectInvitationHandler(req: Request, res: Response) {
-  const userId = requireUserId(req, "UNAUTHORIZED");
+  const userId = requireUserId(req, 'UNAUTHORIZED');
   const { projectId, id } = req.params as ProjectInvitationParams;
 
   await revokeProjectInvitation({
@@ -41,7 +41,7 @@ export async function revokeProjectInvitationHandler(req: Request, res: Response
 }
 
 export async function acceptProjectInvitationHandler(req: Request, res: Response) {
-  const userId = requireUserId(req, "UNAUTHORIZED");
+  const userId = requireUserId(req, 'UNAUTHORIZED');
   const { id } = req.params as InvitationActionParams;
   const result = await acceptProjectInvitation(userId, id);
 
@@ -49,7 +49,7 @@ export async function acceptProjectInvitationHandler(req: Request, res: Response
 }
 
 export async function declineProjectInvitationHandler(req: Request, res: Response) {
-  const userId = requireUserId(req, "UNAUTHORIZED");
+  const userId = requireUserId(req, 'UNAUTHORIZED');
   const { id } = req.params as InvitationActionParams;
   const result = await declineProjectInvitation(userId, id);
 

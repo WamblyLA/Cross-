@@ -1,10 +1,10 @@
-import { ZodError } from "zod";
-import type WebSocket from "ws";
-import { isRealtimeSupportedCloudFileName } from "../lib/cloudFileSupport.js";
-import { AppError } from "../lib/errors.js";
-import { prisma } from "../lib/prisma.js";
-import { getProjectAccess } from "../lib/projectAccess.js";
-import { FileRoomRegistry, type AuthenticatedWebSocket } from "./fileRoomRegistry.js";
+import { ZodError } from 'zod';
+import type WebSocket from 'ws';
+import { isRealtimeSupportedCloudFileName } from '../lib/cloudFileSupport.js';
+import { AppError } from '../lib/errors.js';
+import { prisma } from '../lib/prisma.js';
+import { getProjectAccess } from '../lib/projectAccess.js';
+import { FileRoomRegistry, type AuthenticatedWebSocket } from './fileRoomRegistry.js';
 import {
   parseClientEnvelope,
   serverEventTypes,
@@ -12,14 +12,14 @@ import {
   type JoinFilePayload,
   type LeaveFilePayload,
   type ServerEnvelope,
-} from "./protocol.js";
+} from './protocol.js';
 
 type RealtimeFile = {
   id: string;
   projectId: string;
   name: string;
   version: number;
-  accessRole: "owner" | "editor" | "viewer";
+  accessRole: 'owner' | 'editor' | 'viewer';
 };
 
 function serialize(message: ServerEnvelope) {
@@ -48,35 +48,35 @@ function toWsError(error: unknown) {
       code:
         error.code ??
         (error.statusCode === 401
-          ? "UNAUTHORIZED"
+          ? 'UNAUTHORIZED'
           : error.statusCode === 403
-            ? "FORBIDDEN"
+            ? 'FORBIDDEN'
             : error.statusCode === 404
-              ? "NOT_FOUND"
+              ? 'NOT_FOUND'
               : error.statusCode === 409
-                ? "CONFLICT"
-                : "BAD_REQUEST"),
+                ? 'CONFLICT'
+                : 'BAD_REQUEST'),
       message: error.message,
     };
   }
 
   if (error instanceof ZodError) {
     return {
-      code: "BAD_PAYLOAD",
-      message: error.issues[0]?.message ?? "Некорректный формат websocket-сообщения",
+      code: 'BAD_PAYLOAD',
+      message: error.issues[0]?.message ?? 'Некорректный формат websocket-сообщения',
     };
   }
 
   if (error instanceof SyntaxError) {
     return {
-      code: "BAD_PAYLOAD",
-      message: "Не удалось разобрать websocket-сообщение",
+      code: 'BAD_PAYLOAD',
+      message: 'Не удалось разобрать websocket-сообщение',
     };
   }
 
   return {
-    code: "INTERNAL_ERROR",
-    message: "Внутренняя ошибка websocket-сервера",
+    code: 'INTERNAL_ERROR',
+    message: 'Внутренняя ошибка websocket-сервера',
   };
 }
 
@@ -94,13 +94,13 @@ async function getRealtimeFileOrThrow(userId: string, fileId: string): Promise<R
   });
 
   if (!file) {
-    throw new AppError("Файл не найден", 404, undefined, "FILE_NOT_FOUND");
+    throw new AppError('Файл не найден', 404, undefined, 'FILE_NOT_FOUND');
   }
 
   const access = await getProjectAccess(userId, file.projectId);
 
   if (!access) {
-    throw new AppError("Файл не найден", 404, undefined, "FILE_NOT_FOUND");
+    throw new AppError('Файл не найден', 404, undefined, 'FILE_NOT_FOUND');
   }
 
   return {
@@ -111,7 +111,7 @@ async function getRealtimeFileOrThrow(userId: string, fileId: string): Promise<R
 
 function assertRealtimeSupported(fileName: string) {
   if (!isRealtimeSupportedCloudFileName(fileName)) {
-    throw new AppError("Этот тип облачного файла не поддерживает realtime-синхронизацию", 400);
+    throw new AppError('Этот тип облачного файла не поддерживает realtime-синхронизацию', 400);
   }
 }
 
@@ -137,29 +137,29 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
 
   async function handleContentUpdate(
     socket: AuthenticatedWebSocket,
-    payload: ContentUpdatePayload,
+    payload: ContentUpdatePayload
   ) {
     const activeFileId = registry.getActiveFileId(socket);
 
     if (activeFileId !== payload.fileId) {
-      throw new AppError("Сначала подключитесь к файлу", 409, undefined, "CONFLICT");
+      throw new AppError('Сначала подключитесь к файлу', 409, undefined, 'CONFLICT');
     }
 
     const file = await getRealtimeFileOrThrow(socket.userId, payload.fileId);
     assertRealtimeSupported(file.name);
 
-    if (file.accessRole === "viewer") {
-      throw new AppError("У вас только доступ для чтения этого файла", 403, undefined, "FORBIDDEN");
+    if (file.accessRole === 'viewer') {
+      throw new AppError('У вас только доступ для чтения этого файла', 403, undefined, 'FORBIDDEN');
     }
 
     const expectedVersion = payload.baseVersion ?? file.version;
 
     if (payload.baseVersion !== undefined && payload.baseVersion !== file.version) {
       throw new AppError(
-        "Версия облачного файла устарела. Обновите файл и повторите попытку.",
+        'Версия облачного файла устарела. Обновите файл и повторите попытку.',
         409,
         undefined,
-        "CONFLICT",
+        'CONFLICT'
       );
     }
 
@@ -177,14 +177,14 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
         },
       });
 
-        if (updateResult.count !== 1) {
-          throw new AppError(
-            "Версия облачного файла устарела. Обновите файл и повторите попытку.",
-            409,
-            undefined,
-            "CONFLICT",
-          );
-        }
+      if (updateResult.count !== 1) {
+        throw new AppError(
+          'Версия облачного файла устарела. Обновите файл и повторите попытку.',
+          409,
+          undefined,
+          'CONFLICT'
+        );
+      }
 
       return tx.file.findUniqueOrThrow({
         where: {
@@ -223,7 +223,7 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
       }),
       {
         excludeSocket: socket,
-      },
+      }
     );
   }
 
@@ -231,13 +231,13 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
     const envelope = parseClientEnvelope(rawMessage.toString());
 
     switch (envelope.type) {
-      case "join_file":
+      case 'join_file':
         await handleJoinFile(socket, envelope.payload);
         return;
-      case "leave_file":
+      case 'leave_file':
         handleLeaveFile(socket, envelope.payload);
         return;
-      case "content_update":
+      case 'content_update':
         await handleContentUpdate(socket, envelope.payload);
         return;
     }
@@ -245,19 +245,19 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
 
   return {
     attach(socket: AuthenticatedWebSocket) {
-      socket.on("message", (rawMessage) => {
+      socket.on('message', (rawMessage) => {
         void handleMessage(socket, rawMessage).catch((error) => {
           const wsError = toWsError(error);
 
-          if (wsError.code === "INTERNAL_ERROR") {
-            console.error("Необработанная ошибка:", error);
+          if (wsError.code === 'INTERNAL_ERROR') {
+            console.error('Необработанная ошибка:', error);
           }
 
           sendWsError(socket, wsError.code, wsError.message);
         });
       });
 
-      socket.on("close", () => {
+      socket.on('close', () => {
         registry.disconnect(socket);
       });
     },
