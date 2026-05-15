@@ -53,6 +53,7 @@ describe('notifications.lib', () => {
         data: expect.objectContaining({
           userId: 'owner-1',
           type: 'PROJECT_OWNER_ACTIVITY',
+          readAt: null,
         }),
       })
     );

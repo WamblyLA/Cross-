@@ -106,6 +106,9 @@ model Folder {
   children  Folder[]  @relation("FolderChildren")
   files     File[]
 
+  // PostgreSQL allows multiple NULL values in unique constraints, so
+  // application-level duplicate checks still protect root-level folders.
+  @@unique([projectId, parentId, name])
   @@index([projectId])
   @@index([parentId])
 }
@@ -122,6 +125,9 @@ model File {
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   folder    Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
+  // PostgreSQL allows multiple NULL values in unique constraints, so
+  // application-level duplicate checks still protect root-level files.
+  @@unique([projectId, folderId, name])
   @@index([projectId])
   @@index([folderId])
 }

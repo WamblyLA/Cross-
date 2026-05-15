@@ -212,13 +212,11 @@ export async function notifyProjectOwnerAboutActivity(
     }),
   };
 
-  const now = new Date();
-
   await transaction.notification.create({
     data: {
       userId: project.ownerId,
       type: 'PROJECT_OWNER_ACTIVITY',
-      readAt: now,
+      readAt: null,
       payload,
     },
   });
