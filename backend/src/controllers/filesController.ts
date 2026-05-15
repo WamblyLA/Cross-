@@ -98,7 +98,7 @@ export async function updateProjectFile(req: Request, res: Response) {
 
   if (expectedVersion !== undefined && expectedVersion !== file.version) {
     throw new AppError(
-      'Версия облачного файла устарела. Пересчитайте изменения и повторите попытку.',
+      'Версия облачного файла устарела. Пересчитайте изменения и повторите попытку',
       409,
       undefined,
       'CONFLICT'
@@ -130,7 +130,7 @@ export async function updateProjectFile(req: Request, res: Response) {
 
           if (updateResult.count !== 1) {
             throw new AppError(
-              'Версия облачного файла устарела. Пересчитайте изменения и повторите попытку.',
+              'Версия облачного файла устарела. Пересчитайте изменения и повторите попытку',
               409,
               undefined,
               'CONFLICT'

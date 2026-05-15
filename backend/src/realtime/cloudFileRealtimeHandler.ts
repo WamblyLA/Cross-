@@ -63,20 +63,20 @@ function toWsError(error: unknown) {
   if (error instanceof ZodError) {
     return {
       code: 'BAD_PAYLOAD',
-      message: error.issues[0]?.message ?? 'Некорректный формат websocket-сообщения',
+      message: error.issues[0]?.message ?? 'Некорректный формат ws-сообщения',
     };
   }
 
   if (error instanceof SyntaxError) {
     return {
       code: 'BAD_PAYLOAD',
-      message: 'Не удалось разобрать websocket-сообщение',
+      message: 'Не удалось разобрать ws-сообщение',
     };
   }
 
   return {
     code: 'INTERNAL_ERROR',
-    message: 'Внутренняя ошибка websocket-сервера',
+    message: 'Внутренняя ошибка ws-сервера',
   };
 }
 
@@ -156,7 +156,7 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
 
     if (payload.baseVersion !== undefined && payload.baseVersion !== file.version) {
       throw new AppError(
-        'Версия облачного файла устарела. Обновите файл и повторите попытку.',
+        'Версия облачного файла устарела. Обновите файл и повторите попытку',
         409,
         undefined,
         'CONFLICT'
@@ -179,7 +179,7 @@ export function createCloudFileRealtimeHandler(registry: FileRoomRegistry) {
 
       if (updateResult.count !== 1) {
         throw new AppError(
-          'Версия облачного файла устарела. Обновите файл и повторите попытку.',
+          'Версия облачного файла устарела. Обновите файл и повторите попытку',
           409,
           undefined,
           'CONFLICT'

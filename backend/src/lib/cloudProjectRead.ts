@@ -273,7 +273,7 @@ export async function getProjectRunSnapshotForAccess(
 
   const resolveFolderPath = createFolderPathResolver(
     folders,
-    'Папка проекта не найдена при подготовке snapshot'
+    'Папка проекта не найдена при подготовке'
   );
 
   return {
@@ -331,7 +331,7 @@ export async function getProjectSyncManifestForAccess(
 
   const resolveFolderPath = createFolderPathResolver(
     folders,
-    'Папка проекта не найдена при подготовке manifest.'
+    'Папка проекта не найдена при подготовке'
   );
 
   const manifestFolders = folders
