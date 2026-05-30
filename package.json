@@ -3,8 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "workspaces": [
-    "backend",
-    "frontend"
+    "backend"
   ],
   "scripts": {
     "start": "concurrently -k -n backend,renderer,electron \"npm run dev:backend\" \"npm run dev:renderer\" \"npm run dev:electron\"",
