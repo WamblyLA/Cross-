@@ -1,6 +1,3 @@
-emaksimov_application.md
-emaksimov_userscripts.md
-
 node_modules/
 backend/node_modules/
 frontend/node_modules/
@@ -36,10 +33,4 @@ mobile/.env.*
 *.sln
 *.sw?
 __pycache__
-docs
-!backend/docs/
-!backend/docs/**
-!frontend/docs/
-!frontend/docs/**
 summary.csv
-README.md

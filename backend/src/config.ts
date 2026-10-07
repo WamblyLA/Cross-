@@ -19,7 +19,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   HOST: z.string().trim().min(1).default(DEFAULT_HOST),
   PORT: z.coerce.number().int().min(1).max(65535).default(DEFAULT_PORT),
-  CORS_ORIGIN: z.string().default(DEFAULT_CORS_ORIGINS.join(",")),
+  CORS_ORIGIN: z.string().optional(),
   DATABASE_URL: z.string().min(1, "DATABASE_URL обязателен"),
   JWT_SECRET: z.string().min(1, "JWT_SECRET обязателен"),
   JWT_EXPIRES_IN: z.string().default("7d"),
@@ -54,8 +54,15 @@ export const DATABASE_URL = env.DATABASE_URL;
 export const JWT_SECRET = env.JWT_SECRET;
 export const JWT_EXPIRES_IN = env.JWT_EXPIRES_IN;
 export const JSON_BODY_LIMIT = env.JSON_BODY_LIMIT;
+const configuredCorsOrigins = env.CORS_ORIGIN ? parseOrigins(env.CORS_ORIGIN) : [];
 export const CORS_ORIGINS = Array.from(
-  new Set([...DEFAULT_CORS_ORIGINS, ...parseOrigins(env.CORS_ORIGIN)]),
+  new Set(
+    configuredCorsOrigins.length > 0
+      ? configuredCorsOrigins
+      : IS_PROD
+        ? []
+        : DEFAULT_CORS_ORIGINS,
+  ),
 );
 export const COOKIE_SAME_SITE = env.COOKIE_SAME_SITE ?? (IS_PROD ? "none" : "lax");
 export const COOKIE_SECURE = env.COOKIE_SECURE ? env.COOKIE_SECURE === "true" : IS_PROD;

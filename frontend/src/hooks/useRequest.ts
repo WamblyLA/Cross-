@@ -1,12 +1,12 @@
-import { useState, useCallback, useEffect } from "react";
 import axios, { type AxiosRequestConfig } from "axios";
+import { useCallback, useEffect, useState, type DependencyList } from "react";
 
-const cacheMapa = new Map<string, any>();
+const cacheMapa = new Map<string, unknown>();
 
-interface useRequestParams<T> {
+interface UseRequestParams<T, TBody = unknown> {
   url: string;
   method?: "GET" | "POST" | "PUT" | "DELETE";
-  body?: any;
+  body?: TBody;
   params?: Record<string, string | number>;
   headers?: Record<string, string>;
   cache?: boolean;
@@ -15,12 +15,12 @@ interface useRequestParams<T> {
   retryInterval?: number;
   auto?: boolean;
   onSuccess?: (data: T) => void;
-  onError?: (err: any) => void;
+  onError?: (error: unknown) => void;
   signal?: AbortSignal;
-  dependencies?: any[];
+  dependencies?: DependencyList;
 }
 
-export function useRequest<T>(pars: useRequestParams<T>) {
+export function useRequest<T, TBody = unknown>(pars: UseRequestParams<T, TBody>) {
   const {
     url,
     method = "GET",
@@ -40,11 +40,11 @@ export function useRequest<T>(pars: useRequestParams<T>) {
 
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(auto);
-  const [error, setError] = useState<any>(null);
+  const [error, setError] = useState<unknown>(null);
 
   const fetchData = useCallback(
-    async (override?: Partial<useRequestParams<T>>) => {
-      const conf: AxiosRequestConfig = {
+    async (override?: Partial<UseRequestParams<T, TBody>>) => {
+      const conf: AxiosRequestConfig<TBody> = {
         url: override?.url ?? url,
         method: override?.method ?? method,
         params: { ...params, ...override?.params },
@@ -59,7 +59,7 @@ export function useRequest<T>(pars: useRequestParams<T>) {
         `${conf.method}:${conf.url}:${JSON.stringify(conf.params)}:${JSON.stringify(conf.data)}`;
 
       if (cache && cacheMapa.has(key)) {
-        const cached = cacheMapa.get(key);
+        const cached = cacheMapa.get(key) as T;
         setData(cached);
         setIsLoading(false);
         return cached;
@@ -69,11 +69,11 @@ export function useRequest<T>(pars: useRequestParams<T>) {
       setError(null);
 
       let trys = 0;
-      let lastError: any = null;
+      let lastError: unknown = null;
 
       while (trys <= retry) {
         try {
-          const res = await axios(conf);
+          const res = await axios<T>(conf);
           setData(res.data);
 
           if (cache) {
@@ -83,19 +83,19 @@ export function useRequest<T>(pars: useRequestParams<T>) {
           onSuccess?.(res.data);
           setIsLoading(false);
           return res.data;
-        } catch (err) {
-          lastError = err;
+        } catch (requestError) {
+          lastError = requestError;
           trys++;
 
           if (trys > retry) {
-            setError(err);
-            onError?.(err);
+            setError(requestError);
+            onError?.(requestError);
             setIsLoading(false);
-            throw err;
+            throw requestError;
           }
 
-          await new Promise((r) => {
-            setTimeout(r, retryInterval);
+          await new Promise((resolve) => {
+            setTimeout(resolve, retryInterval);
           });
         }
       }

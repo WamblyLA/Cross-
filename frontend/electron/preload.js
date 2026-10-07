@@ -1,4 +1,13 @@
 const { contextBridge, ipcRenderer } = require("electron");
+const path = require("path");
+const { pathToFileURL } = require("url");
+const { isTrustedRendererUrl } = require("./security/trustedRenderer.cjs");
+
+function resolveTrustedRendererUrl() {
+  const rendererUrl = process.env.ELECTRON_RENDERER_URL ?? process.env.VITE_DEV_SERVER_URL;
+
+  return rendererUrl || pathToFileURL(path.join(__dirname, "../dist/index.html")).href;
+}
 
 function getAppConfig() {
   const apiBaseUrl = typeof process.env.CROSSPP_API_BASE_URL === "string"
@@ -10,7 +19,7 @@ function getAppConfig() {
   };
 }
 
-contextBridge.exposeInMainWorld("electronAPI", {
+const electronApi = {
   getAppConfig,
   minimizeWindow: () => ipcRenderer.invoke("window:minimize"),
   toggleMaximizeWindow: () => ipcRenderer.invoke("window:toggle-maximize"),
@@ -117,4 +126,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("notebook:kernel-event", listener);
     return () => ipcRenderer.removeListener("notebook:kernel-event", listener);
   },
-});
+};
+
+if (isTrustedRendererUrl(window.location.href, resolveTrustedRendererUrl())) {
+  contextBridge.exposeInMainWorld("electronAPI", electronApi);
+}
