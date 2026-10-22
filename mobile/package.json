@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
     "@react-navigation/bottom-tabs": "^7.15.9",
     "@react-navigation/native": "^7.2.2",
     "@react-navigation/native-stack": "^7.14.10",
@@ -24,7 +25,6 @@
     "markdown-it": "^14.1.1",
     "markdown-it-texmath": "^1.0.0",
     "nativewind": "^5.0.0-preview.3",
-    "plotly.js-dist-min": "^3.5.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-css": "^3.0.7",
@@ -37,7 +37,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
-    "@types/ms": "^2.1.0",
     "@types/react": "~19.1.0",
     "babel-preset-expo": "~54.0.10",
     "postcss": "^8.5.9",

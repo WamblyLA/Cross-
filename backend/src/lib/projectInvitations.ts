@@ -82,6 +82,44 @@ async function archiveInvitationNotification(
   });
 }
 
+async function requirePendingInvitation(
+  transaction: Prisma.TransactionClient,
+  where: Prisma.ProjectInvitationWhereInput,
+) {
+  const invitation = await transaction.projectInvitation.findFirst({
+    where,
+    select: {
+      id: true,
+      projectId: true,
+      status: true,
+    },
+  });
+
+  if (!invitation) {
+    throw createInvitationNotFoundError();
+  }
+
+  if (invitation.status !== "PENDING") {
+    throw createInvitationNotPendingError();
+  }
+
+  return invitation;
+}
+
+async function resolvePendingInvitation(
+  transaction: Prisma.TransactionClient,
+  invitationId: string,
+  status: "DECLINED" | "REVOKED",
+) {
+  const now = new Date();
+
+  await transaction.projectInvitation.update({
+    where: { id: invitationId },
+    data: { status, respondedAt: now },
+  });
+  await archiveInvitationNotification(transaction, invitationId, now);
+}
+
 export async function listPendingProjectInvitationsForOwnerView(
   userId: string,
   projectId: string,
@@ -239,36 +277,11 @@ export async function revokeProjectInvitation(input: {
   await requireProjectOwnerAccess(input.userId, input.projectId);
 
   await prisma.$transaction(async (tx) => {
-    const invitation = await tx.projectInvitation.findFirst({
-      where: {
+    const invitation = await requirePendingInvitation(tx, {
         id: input.invitationId,
         projectId: input.projectId,
-      },
-      select: {
-        id: true,
-        status: true,
-      },
     });
-
-    if (!invitation) {
-      throw createInvitationNotFoundError();
-    }
-
-    if (invitation.status !== "PENDING") {
-      throw createInvitationNotPendingError();
-    }
-
-    const now = new Date();
-
-    await tx.projectInvitation.update({
-      where: { id: invitation.id },
-      data: {
-        status: "REVOKED",
-        respondedAt: now,
-      },
-    });
-
-    await archiveInvitationNotification(tx, invitation.id, now);
+    await resolvePendingInvitation(tx, invitation.id, "REVOKED");
   });
 }
 
@@ -340,37 +353,11 @@ export async function acceptProjectInvitation(userId: string, invitationId: stri
 
 export async function declineProjectInvitation(userId: string, invitationId: string) {
   return prisma.$transaction(async (tx) => {
-    const invitation = await tx.projectInvitation.findFirst({
-      where: {
+    const invitation = await requirePendingInvitation(tx, {
         id: invitationId,
         inviteeUserId: userId,
-      },
-      select: {
-        id: true,
-        projectId: true,
-        status: true,
-      },
     });
-
-    if (!invitation) {
-      throw createInvitationNotFoundError();
-    }
-
-    if (invitation.status !== "PENDING") {
-      throw createInvitationNotPendingError();
-    }
-
-    const now = new Date();
-
-    await tx.projectInvitation.update({
-      where: { id: invitation.id },
-      data: {
-        status: "DECLINED",
-        respondedAt: now,
-      },
-    });
-
-    await archiveInvitationNotification(tx, invitation.id, now);
+    await resolvePendingInvitation(tx, invitation.id, "DECLINED");
 
     return {
       invitationId: invitation.id,

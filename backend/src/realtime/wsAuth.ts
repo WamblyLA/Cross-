@@ -1,6 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import { COOKIE_NAME } from "../config.js";
-import { extractBearerToken, verifyAuthToken } from "../lib/auth.js";
+import { resolveAuthToken, verifyAuthToken } from "../lib/auth.js";
 
 function parseCookies(headerValue: string | undefined) {
   const cookies = new Map<string, string>();
@@ -23,7 +23,10 @@ function parseCookies(headerValue: string | undefined) {
 }
 export function authenticateWebSocketRequest(request: IncomingMessage) {
   const cookies = parseCookies(request.headers.cookie);
-  const token = cookies.get(COOKIE_NAME) ?? extractBearerToken(request.headers.authorization);
+  const token = resolveAuthToken(
+    cookies.get(COOKIE_NAME),
+    request.headers.authorization,
+  );
 
   if (!token) {
     throw new Error("Требуется авторизация");

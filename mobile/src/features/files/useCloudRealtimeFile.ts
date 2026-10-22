@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { cloudRealtimeClient } from "./cloudRealtimeClient";
-import { isRealtimeSupportedCloudFileName } from "./cloudRealtimeSupport";
+import { isRealtimeSupportedCloudFileName } from "../../lib/utils/file";
 import type {
   CloudFileSyncStatus,
   CloudRealtimeAckPayload,

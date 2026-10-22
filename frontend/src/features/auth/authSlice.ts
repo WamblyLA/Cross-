@@ -24,6 +24,39 @@ function resolveError(error: ApiError | undefined, fallbackMessage: string): Api
   return error ?? createApiError(fallbackMessage);
 }
 
+function beginAuthentication(state: AuthState) {
+  state.authPending = true;
+  state.settingsPending = true;
+  state.actionError = null;
+  state.sessionError = null;
+}
+
+function applyAuthenticatedSession(
+  state: AuthState,
+  session: {
+    user: NonNullable<AuthState["user"]>;
+    settings: NonNullable<AuthState["settings"]>;
+  },
+) {
+  state.sessionStatus = "authenticated";
+  state.user = session.user;
+  state.settings = session.settings;
+  state.authPending = false;
+  state.settingsPending = false;
+  state.sessionError = null;
+  state.actionError = null;
+}
+
+function applyAnonymousSession(state: AuthState) {
+  state.sessionStatus = "anonymous";
+  state.user = null;
+  state.settings = null;
+  state.authPending = false;
+  state.settingsPending = false;
+  state.sessionError = null;
+  state.actionError = null;
+}
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -44,69 +77,32 @@ const authSlice = createSlice({
         state.actionError = null;
       })
       .addCase(restoreSession.fulfilled, (state, action) => {
-        state.sessionStatus = "authenticated";
-        state.user = action.payload.user;
-        state.settings = action.payload.settings;
-        state.authPending = false;
-        state.settingsPending = false;
-        state.sessionError = null;
-        state.actionError = null;
+        applyAuthenticatedSession(state, action.payload);
       })
       .addCase(restoreSession.rejected, (state, action) => {
         const error = resolveError(action.payload, "Не удалось восстановить сессию.");
 
-        state.sessionStatus = "anonymous";
-        state.user = null;
-        state.settings = null;
-        state.authPending = false;
-        state.settingsPending = false;
-        state.actionError = null;
+        applyAnonymousSession(state);
         state.sessionError = error.status === 401 ? null : error;
       })
       .addCase(login.pending, (state) => {
-        state.authPending = true;
-        state.settingsPending = true;
-        state.actionError = null;
-        state.sessionError = null;
+        beginAuthentication(state);
       })
       .addCase(login.fulfilled, (state, action) => {
-        state.sessionStatus = "authenticated";
-        state.user = action.payload.user;
-        state.settings = action.payload.settings;
-        state.authPending = false;
-        state.settingsPending = false;
-        state.actionError = null;
-        state.sessionError = null;
+        applyAuthenticatedSession(state, action.payload);
       })
       .addCase(login.rejected, (state, action) => {
-        state.sessionStatus = "anonymous";
-        state.user = null;
-        state.settings = null;
-        state.authPending = false;
-        state.settingsPending = false;
+        applyAnonymousSession(state);
         state.actionError = resolveError(action.payload, "Не удалось выполнить вход.");
       })
       .addCase(register.pending, (state) => {
-        state.authPending = true;
-        state.settingsPending = true;
-        state.actionError = null;
-        state.sessionError = null;
+        beginAuthentication(state);
       })
       .addCase(register.fulfilled, (state, action) => {
-        state.sessionStatus = "authenticated";
-        state.user = action.payload.user;
-        state.settings = action.payload.settings;
-        state.authPending = false;
-        state.settingsPending = false;
-        state.actionError = null;
-        state.sessionError = null;
+        applyAuthenticatedSession(state, action.payload);
       })
       .addCase(register.rejected, (state, action) => {
-        state.sessionStatus = "anonymous";
-        state.user = null;
-        state.settings = null;
-        state.authPending = false;
-        state.settingsPending = false;
+        applyAnonymousSession(state);
         state.actionError = resolveError(action.payload, "Не удалось создать аккаунт.");
       })
       .addCase(logout.pending, (state) => {
@@ -114,13 +110,7 @@ const authSlice = createSlice({
         state.actionError = null;
       })
       .addCase(logout.fulfilled, (state) => {
-        state.sessionStatus = "anonymous";
-        state.user = null;
-        state.settings = null;
-        state.authPending = false;
-        state.settingsPending = false;
-        state.sessionError = null;
-        state.actionError = null;
+        applyAnonymousSession(state);
       })
       .addCase(logout.rejected, (state, action) => {
         state.authPending = false;

@@ -21,17 +21,20 @@ type AuthenticatedSession = {
   settings: AuthSettings;
 };
 
+async function loadAuthenticatedSession(
+  loadUser: () => Promise<{ user: AuthUser }>,
+): Promise<AuthenticatedSession> {
+  const { user } = await loadUser();
+  const { settings } = await authApi.fetchSettings();
+
+  return { user, settings };
+}
+
 export const restoreSession = createAsyncThunk<AuthenticatedSession, void, AuthThunkConfig>(
   "auth/restoreSession",
   async (_, { rejectWithValue }) => {
     try {
-      const { user } = await authApi.fetchMe();
-      const { settings } = await authApi.fetchSettings();
-
-      return {
-        user,
-        settings,
-      };
+      return await loadAuthenticatedSession(authApi.fetchMe);
     } catch (error) {
       return rejectWithValue(normalizeApiError(error));
     }
@@ -45,13 +48,7 @@ export const login = createAsyncThunk<AuthenticatedSession, LoginPayload, AuthTh
   "auth/login",
   async (payload, { rejectWithValue }) => {
     try {
-      const { user } = await authApi.login(payload);
-      const { settings } = await authApi.fetchSettings();
-
-      return {
-        user,
-        settings,
-      };
+      return await loadAuthenticatedSession(() => authApi.login(payload));
     } catch (error) {
       return rejectWithValue(normalizeApiError(error));
     }
@@ -62,13 +59,7 @@ export const register = createAsyncThunk<AuthenticatedSession, RegisterPayload, 
   "auth/register",
   async (payload, { rejectWithValue }) => {
     try {
-      const { user } = await authApi.register(payload);
-      const { settings } = await authApi.fetchSettings();
-
-      return {
-        user,
-        settings,
-      };
+      return await loadAuthenticatedSession(() => authApi.register(payload));
     } catch (error) {
       return rejectWithValue(normalizeApiError(error));
     }

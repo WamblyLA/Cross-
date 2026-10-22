@@ -3,7 +3,7 @@ import type { CloudProject } from "../../../features/cloud/cloudTypes";
 import CloudFileRow from "./CloudFileRow";
 import CloudFolderNode from "./CloudFolderNode";
 import CloudInlineInput from "./CloudInlineInput";
-import type { useCloudExplorerController } from "./useCloudExplorerController";
+import type { useCloudExplorerController } from "./hooks/useCloudExplorerController";
 import { getCloudDropTargetKey } from "./cloudExplorerUtils";
 
 type CloudExplorerController = ReturnType<typeof useCloudExplorerController>;

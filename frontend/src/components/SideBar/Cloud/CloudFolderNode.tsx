@@ -4,7 +4,7 @@ import type { CloudFolderTreeNode } from "../../../features/cloud/cloudTypes";
 import { hasPrimaryModifier } from "./cloudExplorerSelection";
 import CloudFileRow from "./CloudFileRow";
 import CloudInlineInput from "./CloudInlineInput";
-import type { useCloudExplorerController } from "./useCloudExplorerController";
+import type { useCloudExplorerController } from "./hooks/useCloudExplorerController";
 import { getCloudDropTargetKey } from "./cloudExplorerUtils";
 
 type CloudExplorerController = ReturnType<typeof useCloudExplorerController>;

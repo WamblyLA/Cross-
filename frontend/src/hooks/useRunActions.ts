@@ -1,14 +1,5 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useRef } from "react";
 import * as cloudApi from "../features/cloud/cloudApi";
-import { selectCloudActiveProject } from "../features/cloud/cloudSelectors";
-import {
-  flushActiveCloudRealtimeUpdate,
-  isCloudRealtimeHandlingFile,
-} from "../features/cloud/realtime/cloudRealtimeClient";
-import { saveCloudProjectFile } from "../features/cloud/cloudThunks";
-import { applyCloudFileSavedSnapshot, markFileSaved } from "../features/files/filesSlice";
-import { selectActiveFile, selectOpenedFiles } from "../features/files/filesSelectors";
-import type { OpenedFile } from "../features/files/fileTypes";
 import { activateBottomPanelTab, showBottomPanel } from "../features/panel/panelSlice";
 import {
   runConfigurationDialogClosed,
@@ -30,8 +21,6 @@ import {
 } from "../features/run/runSelectors";
 import {
   buildRunLaunchActiveFile,
-  buildRunWorkspaceCacheKey,
-  buildRunWorkspaceDescriptor,
   getRunConfigurationAvailability,
 } from "../features/run/runUtils";
 import type {
@@ -42,142 +31,39 @@ import type {
 import { normalizeApiError } from "../lib/api/errorNormalization";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { isSameOrChildPath } from "../utils/path";
+import { useOpenedFilePersistence } from "./useOpenedFilePersistence";
+import { useRunWorkspaceContext } from "./run/useRunWorkspaceContext";
 
 function toRunErrorMessage(error: unknown, fallbackMessage: string) {
   const normalizedError = normalizeApiError(error);
   return normalizedError.message || fallbackMessage;
 }
 
-function resolveWorkspaceStateKey(
-  workspaceDescriptor: ReturnType<typeof buildRunWorkspaceDescriptor>,
-) {
-  if (!workspaceDescriptor) {
-    return null;
-  }
-
-  return workspaceDescriptor.scope === "local"
-    ? `local:${workspaceDescriptor.rootPath}`
-    : `cloud:${workspaceDescriptor.projectId}`;
-}
-
 export function useRunActions() {
   const dispatch = useAppDispatch();
-  const source = useAppSelector((state) => state.workspace.source);
-  const rootPath = useAppSelector((state) => state.workspace.rootPath);
-  const activeFile = useAppSelector(selectActiveFile);
-  const openedFiles = useAppSelector(selectOpenedFiles);
-  const activeCloudProject = useAppSelector(selectCloudActiveProject);
+  const {
+    activeCloudProject,
+    activeFile,
+    openedFiles,
+    rootPath,
+    source,
+    workspaceCacheKey,
+    workspaceDescriptor,
+    workspaceStateKey,
+  } = useRunWorkspaceContext();
   const selectedConfiguration = useAppSelector(selectSelectedRunConfiguration);
   const selectedConfigurationId = useAppSelector(selectRunSelectedConfigurationId);
   const loadedWorkspaceKey = useAppSelector(selectRunWorkspaceKey);
   const loadedConfigurations = useAppSelector(selectRunConfigurations);
+  const persistFile = useOpenedFilePersistence();
   const lastToolsKeyRef = useRef<string | null>(null);
-  const activeFileKind = activeFile?.kind ?? null;
-  const activeFilePath = activeFile?.kind === "local" ? activeFile.path : null;
-  const activeFileProjectId = activeFile?.kind === "cloud" ? activeFile.projectId : null;
-  const activeFileId = activeFile?.kind === "cloud" ? activeFile.fileId : null;
-  const activeFileExtension = activeFile?.extension ?? null;
-  const activeCloudProjectId = activeCloudProject?.id ?? null;
-  const activeCloudProjectName = activeCloudProject?.name ?? null;
-  const runActiveFile = useMemo(
-    () => {
-      if (!activeFileKind) {
-        return null;
-      }
-
-      if (activeFileKind === "local" && activeFilePath) {
-        return {
-          kind: "local" as const,
-          path: activeFilePath,
-          extension: activeFileExtension,
-        };
-      }
-
-      if (activeFileKind === "cloud" && activeFileProjectId && activeFileId) {
-        return {
-          kind: "cloud" as const,
-          projectId: activeFileProjectId,
-          fileId: activeFileId,
-          extension: activeFileExtension,
-        };
-      }
-
-      return null;
-    },
-    [
-      activeFileExtension,
-      activeFileId,
-      activeFileKind,
-      activeFilePath,
-      activeFileProjectId,
-    ],
-  );
-  const runActiveCloudProject = useMemo(
-    () =>
-      activeCloudProjectId && activeCloudProjectName
-        ? {
-            id: activeCloudProjectId,
-            name: activeCloudProjectName,
-          }
-        : null,
-    [activeCloudProjectId, activeCloudProjectName],
-  );
-
-  const workspaceDescriptor = useMemo(
-    () =>
-      buildRunWorkspaceDescriptor({
-        source,
-        rootPath,
-        activeFile: runActiveFile,
-        activeCloudProject: runActiveCloudProject,
-      }),
-    [source, rootPath, runActiveCloudProject, runActiveFile],
-  );
-
-  const workspaceCacheKey = useMemo(
-    () => buildRunWorkspaceCacheKey(workspaceDescriptor),
-    [workspaceDescriptor],
-  );
-  const workspaceStateKey = useMemo(
-    () => resolveWorkspaceStateKey(workspaceDescriptor),
-    [workspaceDescriptor],
-  );
-
   const saveOpenedFile = useCallback(
-    async (file: OpenedFile) => {
-      if (!file.isDirty) {
-        return;
-      }
-
-      if (file.kind === "local") {
-        await window.electronAPI.writeFile(file.path, file.content);
-        dispatch(markFileSaved(file.tabId));
-      } else {
-        const savedViaRealtime = isCloudRealtimeHandlingFile(file.fileId)
-          ? await flushActiveCloudRealtimeUpdate(file.fileId)
-          : false;
-
-        if (!savedViaRealtime) {
-          const response = await dispatch(
-            saveCloudProjectFile({
-              projectId: file.projectId,
-              fileId: file.fileId,
-              content: file.content,
-            }),
-          ).unwrap();
-
-          dispatch(
-            applyCloudFileSavedSnapshot({
-              fileId: response.file.id,
-              content: response.file.content,
-              version: response.file.version,
-              updatedAt: response.file.updatedAt,
-            }),
-          );
-        }
+    async (file: (typeof openedFiles)[number]) => {
+      if (file.isDirty) {
+        await persistFile(file);
       }
     },
-    [dispatch],
+    [persistFile],
   );
 
   const saveRelevantFilesForRun = useCallback(

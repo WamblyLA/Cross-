@@ -1,11 +1,25 @@
 import type { PropsWithChildren } from "react";
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import * as authApi from "../auth/authApi";
 import { setApiAuthToken, setUnauthorizedHandler } from "../../lib/api/apiClient";
 import { normalizeApiError } from "../../lib/errors/apiError";
 import type { ApiError } from "../../types/api";
-import type { AuthUser, LoginPayload, RegisterPayload, SessionStatus } from "../../types/auth";
+import type {
+  AuthResponse,
+  AuthUser,
+  LoginPayload,
+  RegisterPayload,
+  SessionStatus,
+} from "../../types/auth";
 import { clearSessionToken, readSessionToken, writeSessionToken } from "./sessionStorage";
 
 type SessionContextValue = {
@@ -29,7 +43,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const tokenRef = useRef<string | null>(null);
 
-  const applyAnonymousState = async (notice?: string) => {
+  const applyAnonymousState = useCallback(async (notice?: string) => {
     tokenRef.current = null;
     setApiAuthToken(null);
     setUser(null);
@@ -40,7 +54,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     if (notice) {
       setSessionNotice(notice);
     }
-  };
+  }, [queryClient]);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -54,7 +68,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return () => {
       setUnauthorizedHandler(null);
     };
-  }, [queryClient, user]);
+  }, [applyAnonymousState, user]);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,48 +109,48 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyAnonymousState]);
 
-  const authenticate = async (token: string, nextUser: AuthUser) => {
-    tokenRef.current = token;
-    setApiAuthToken(token);
-    await writeSessionToken(token);
-    setUser(nextUser);
-    setSessionNotice(null);
-    setSessionStatus("authenticated");
-  };
+  const applyAuthenticatedState = useCallback(
+    async ({ token, user: nextUser }: AuthResponse) => {
+      tokenRef.current = token;
+      setApiAuthToken(token);
+      await writeSessionToken(token);
+      setUser(nextUser);
+      setSessionNotice(null);
+      setSessionStatus("authenticated");
+    },
+    [],
+  );
 
-  const login = async (payload: LoginPayload) => {
-    setAuthPending(true);
-    setSessionNotice(null);
+  const authenticate = useCallback(
+    async (request: () => Promise<AuthResponse>) => {
+      setAuthPending(true);
+      setSessionNotice(null);
 
-    try {
-      const response = await authApi.login(payload);
-      await authenticate(response.token, response.user);
-      return null;
-    } catch (error) {
-      return normalizeApiError(error);
-    } finally {
-      setAuthPending(false);
-    }
-  };
+      try {
+        await applyAuthenticatedState(await request());
+        return null;
+      } catch (error) {
+        return normalizeApiError(error);
+      } finally {
+        setAuthPending(false);
+      }
+    },
+    [applyAuthenticatedState],
+  );
 
-  const register = async (payload: RegisterPayload) => {
-    setAuthPending(true);
-    setSessionNotice(null);
+  const login = useCallback(
+    (payload: LoginPayload) => authenticate(() => authApi.login(payload)),
+    [authenticate],
+  );
 
-    try {
-      const response = await authApi.register(payload);
-      await authenticate(response.token, response.user);
-      return null;
-    } catch (error) {
-      return normalizeApiError(error);
-    } finally {
-      setAuthPending(false);
-    }
-  };
+  const register = useCallback(
+    (payload: RegisterPayload) => authenticate(() => authApi.register(payload)),
+    [authenticate],
+  );
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     setAuthPending(true);
 
     try {
@@ -147,7 +161,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
       await applyAnonymousState();
       setAuthPending(false);
     }
-  };
+  }, [applyAnonymousState]);
+
+  const clearSessionNotice = useCallback(() => setSessionNotice(null), []);
 
   const value = useMemo<SessionContextValue>(
     () => ({
@@ -155,12 +171,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
       user,
       authPending,
       sessionNotice,
-      clearSessionNotice: () => setSessionNotice(null),
+      clearSessionNotice,
       login,
       register,
       logout,
     }),
-    [authPending, sessionNotice, sessionStatus, user],
+    [authPending, clearSessionNotice, login, logout, register, sessionNotice, sessionStatus, user],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

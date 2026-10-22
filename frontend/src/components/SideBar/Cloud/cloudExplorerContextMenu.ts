@@ -1,7 +1,7 @@
 import type { MenuSection } from "../../../ui/FloatingMenu";
 import { createCloudSelectionEntry } from "../../../features/cloud/cloudSelection";
-import type { useCloudExplorerCreateRename } from "./useCloudExplorerCreateRename";
-import type { useCloudExplorerState } from "./useCloudExplorerState";
+import type { useCloudExplorerCreateRename } from "./hooks/useCloudExplorerCreateRename";
+import type { useCloudExplorerState } from "./hooks/useCloudExplorerState";
 import { pruneNestedCloudSelection } from "./cloudExplorerSelection";
 
 type CloudExplorerState = ReturnType<typeof useCloudExplorerState>;

@@ -1,25 +1,12 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useMemo } from "react";
-import { useTheme } from "../hooks/useTheme";
 import type { AuthenticatedStackParamList } from "./navigationTypes";
 import { AppTabsNavigator } from "./AppTabsNavigator";
+import { useThemedStackScreenOptions } from "./useThemedStackScreenOptions";
 
 const Stack = createNativeStackNavigator<AuthenticatedStackParamList>();
 
 export function AuthenticatedNavigator() {
-  const { themeTokens } = useTheme();
-  const background = themeTokens["--bg-app"];
-  const text = themeTokens["--text-primary"];
-  const screenOptions = useMemo(
-    () => ({
-      headerShadowVisible: false,
-      contentStyle: { backgroundColor: background },
-      headerStyle: { backgroundColor: background },
-      headerTintColor: text,
-      headerTitleStyle: { color: text },
-    }),
-    [background, text],
-  );
+  const screenOptions = useThemedStackScreenOptions();
 
   return (
     <Stack.Navigator screenOptions={screenOptions}>

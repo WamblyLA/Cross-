@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import Plotly from "plotly.js-dist-min";
 
 type PlotlyMimeRendererProps = {
   value: unknown;
@@ -34,6 +33,8 @@ export default function PlotlyMimeRenderer({ value }: PlotlyMimeRendererProps) {
     }
 
     let cancelled = false;
+    let plotly: typeof import("plotly.js-dist-min")["default"] | null = null;
+    let resizeObserver: ResizeObserver | null = null;
     const figureRecord = figure as Record<string, unknown>;
     const data = Array.isArray(figureRecord.data) ? figureRecord.data : [];
     const layout: Record<string, unknown> =
@@ -48,6 +49,13 @@ export default function PlotlyMimeRenderer({ value }: PlotlyMimeRendererProps) {
 
     const renderFigure = async () => {
       try {
+        const { default: Plotly } = await import("plotly.js-dist-min");
+
+        if (cancelled) {
+          return;
+        }
+
+        plotly = Plotly;
         await Plotly.react(container, data, layout, {
           ...config,
           responsive: true,
@@ -62,6 +70,14 @@ export default function PlotlyMimeRenderer({ value }: PlotlyMimeRendererProps) {
           await Plotly.addFrames(container, frames);
         }
 
+        resizeObserver =
+          typeof ResizeObserver !== "undefined"
+            ? new ResizeObserver(() => {
+                void Plotly.Plots.resize(container);
+              })
+            : null;
+        resizeObserver?.observe(container);
+
         setError(null);
       } catch (nextError) {
         setError(nextError instanceof Error ? nextError.message : "Не удалось отрисовать Plotly-output.");
@@ -70,18 +86,10 @@ export default function PlotlyMimeRenderer({ value }: PlotlyMimeRendererProps) {
 
     void renderFigure();
 
-    const resizeObserver =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => {
-            void Plotly.Plots.resize(container);
-          })
-        : null;
-    resizeObserver?.observe(container);
-
     return () => {
       cancelled = true;
       resizeObserver?.disconnect();
-      Plotly.purge(container);
+      plotly?.purge(container);
     };
   }, [figure]);
 

@@ -59,6 +59,10 @@ export function isEditorOpenSupported(fileName: string) {
   return !UNSUPPORTED_BINARY_EXTENSIONS.has(extension);
 }
 
+export function isRealtimeSupportedCloudFileName(fileName: string) {
+  return getFileExtension(fileName) !== "ipynb" && isEditorOpenSupported(fileName);
+}
+
 export function getFileKind(fileName: string): FileKind {
   const extension = getFileExtension(fileName);
 

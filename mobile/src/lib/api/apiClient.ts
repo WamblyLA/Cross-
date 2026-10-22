@@ -50,10 +50,13 @@ apiClient.interceptors.response.use(
   },
 );
 
-export async function request<TResponse, TBody = unknown>(config: PublicApiRequestConfig & { body?: TBody }) {
+export async function request<TResponse, TBody = unknown>({
+  body,
+  ...config
+}: PublicApiRequestConfig & { body?: TBody }) {
   const response = await apiClient.request<TResponse>({
     ...config,
-    data: config.body,
+    data: body,
   });
 
   return response.data;

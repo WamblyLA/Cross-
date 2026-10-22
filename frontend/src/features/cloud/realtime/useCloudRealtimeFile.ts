@@ -12,7 +12,7 @@ import {
   cloudRealtimeClient,
   registerActiveCloudRealtimeBridge,
 } from "./cloudRealtimeClient";
-import { isRealtimeSupportedCloudFileName } from "./cloudRealtimeSupport";
+import { isRealtimeSupportedCloudFileName } from "../../files/fileOpenSupport";
 import type { CloudFileSyncStatus } from "./cloudRealtimeTypes";
 import { addCollaborationActivityNotification } from "../../notifications/notificationsSlice";
 

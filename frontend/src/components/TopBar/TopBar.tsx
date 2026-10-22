@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiUsers } from "react-icons/fi";
 import { IoIosSquareOutline } from "react-icons/io";
@@ -21,26 +21,28 @@ import { useDesktopActions } from "../../hooks/useDesktopActions";
 import { useRunActions } from "../../hooks/useRunActions";
 import { useWorkspaceActions } from "../../hooks/useWorkspaceActions";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import TopBarAccountControls from "./TopBarAccountControls";
-import TopBarIcon from "./TopBarIcon";
-import TopBarMenuBar from "./TopBarMenuBar";
-import { TopBarMenuPanel, TopBarOverflowPanel } from "./TopBarMenuPanels";
-import TopBarNotificationsInbox from "./TopBarNotificationsInbox";
-import TopBarRunButton from "./TopBarRunButton";
-import TopBarSearchOverlay from "./TopBarSearchOverlay";
+import TopBarAccountControls from "./controls/TopBarAccountControls";
+import TopBarIcon from "./controls/TopBarIcon";
+import TopBarMenuBar from "./menu/TopBarMenuBar";
+import { TopBarMenuPanel, TopBarOverflowPanel } from "./menu/TopBarMenuPanels";
+import TopBarNotificationsInbox from "./overlays/TopBarNotificationsInbox";
+import TopBarRunButton from "./controls/TopBarRunButton";
+import TopBarSearchOverlay from "./overlays/TopBarSearchOverlay";
 import {
   estimatePanelHeight,
   getAnchoredPanelStyle,
   MENU_PANEL_WIDTH,
   OVERFLOW_PANEL_WIDTH,
-} from "./topBarPanelPosition";
-import { TOP_BAR_STRINGS } from "./topBarStrings";
+} from "./menu/topBarPanelPosition";
+import { TOP_BAR_STRINGS } from "./menu/topBarStrings";
 import type {
   OverflowSubmenuState,
   TopBarMenuConfig,
   TopBarMenuItem,
-} from "./topBarMenuTypes";
-import { useTopBarMenus } from "./useTopBarMenus";
+} from "./menu/topBarMenuTypes";
+import { useTopBarMenus } from "./menu/useTopBarMenus";
+import { useResponsiveTopBarMenus } from "./menu/useResponsiveTopBarMenus";
+import { useTopBarDismissalEffects } from "./menu/useTopBarDismissalEffects";
 
 type TopBarProps = {
   onOpenBugReport: () => void;
@@ -57,23 +59,12 @@ export default function TopBar({
   const navigate = useNavigate();
   const menuRootRef = useRef<HTMLDivElement | null>(null);
   const overlayRootRef = useRef<HTMLDivElement | null>(null);
-  const menuViewportRef = useRef<HTMLDivElement | null>(null);
-  const measureRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const overflowMeasureRef = useRef<HTMLButtonElement | null>(null);
   const overflowTriggerRef = useRef<HTMLButtonElement | null>(null);
   const searchOverlayRef = useRef<HTMLDivElement | null>(null);
   const searchTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [visibleMenuIds, setVisibleMenuIds] = useState<string[]>([
-    "file",
-    "edit",
-    "view",
-    "terminal",
-    "run",
-    "help",
-  ]);
   const [overflowSubmenu, setOverflowSubmenu] =
     useState<OverflowSubmenuState | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -264,162 +255,27 @@ export default function TopBar({
     [onOpenBugReport, primaryMenus],
   );
 
-  const visibleMenus = useMemo(
-    () => primaryMenusWithHelp.filter((menu) => visibleMenuIds.includes(menu.id)),
-    [primaryMenusWithHelp, visibleMenuIds],
-  );
+  const {
+    hiddenMenus,
+    measureRefs,
+    menuViewportRef,
+    overflowMeasureRef,
+    visibleMenuIds,
+    visibleMenus,
+  } = useResponsiveTopBarMenus(primaryMenusWithHelp);
 
-  const hiddenMenus = useMemo(
-    () => primaryMenusWithHelp.filter((menu) => !visibleMenuIds.includes(menu.id)),
-    [primaryMenusWithHelp, visibleMenuIds],
-  );
-
-  useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-
-      if (
-        menuRootRef.current?.contains(target) ||
-        overlayRootRef.current?.contains(target)
-      ) {
-        return;
-      }
-
-      closeMenus();
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-    };
-  }, [closeMenus]);
-
-  useEffect(() => {
-    if (!isSearchOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-
-      if (searchOverlayRef.current?.contains(target)) {
-        return;
-      }
-
-      closeSearch();
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closeSearch();
-      }
-    };
-
-    window.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleEscape);
-
-    return () => {
-      window.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [closeSearch, isSearchOpen]);
-
-  useEffect(() => {
-    if (openMenuId === "overflow" && hiddenMenus.length === 0) {
-      closeMenus();
-      return;
-    }
-
-    if (!openMenuId || openMenuId === "overflow") {
-      return;
-    }
-
-    if (!visibleMenuIds.includes(openMenuId)) {
-      closeMenus();
-    }
-  }, [closeMenus, hiddenMenus.length, openMenuId, visibleMenuIds]);
-
-  useEffect(() => {
-    if (openMenuId !== "overflow") {
-      setOverflowSubmenu(null);
-    }
-  }, [openMenuId]);
-
-  useLayoutEffect(() => {
-    const viewport = menuViewportRef.current;
-
-    if (!viewport) {
-      return;
-    }
-
-    const recalculateMenus = () => {
-      const availableWidth = viewport.clientWidth;
-      const totalMenuWidth = primaryMenusWithHelp.reduce(
-        (sum, menu) => sum + (measureRefs.current[menu.id]?.offsetWidth ?? 68),
-        0,
-      );
-
-      if (totalMenuWidth <= availableWidth) {
-        setVisibleMenuIds((currentIds) => {
-          const nextIds = primaryMenusWithHelp.map((menu) => menu.id);
-
-          if (
-            currentIds.length === nextIds.length &&
-            currentIds.every((menuId, index) => menuId === nextIds[index])
-          ) {
-            return currentIds;
-          }
-
-          return nextIds;
-        });
-        return;
-      }
-
-      const overflowWidth = overflowMeasureRef.current?.offsetWidth ?? 42;
-      const visibleLimit = Math.max(0, availableWidth - overflowWidth);
-      let usedWidth = 0;
-      const nextVisibleIds: string[] = [];
-
-      for (const menu of primaryMenusWithHelp) {
-        const itemWidth = measureRefs.current[menu.id]?.offsetWidth ?? 68;
-
-        if (usedWidth + itemWidth <= visibleLimit) {
-          nextVisibleIds.push(menu.id);
-          usedWidth += itemWidth;
-          continue;
-        }
-
-        break;
-      }
-
-      if (nextVisibleIds.length === 0 && primaryMenusWithHelp.length > 0) {
-        nextVisibleIds.push(primaryMenusWithHelp[0].id);
-      }
-
-      setVisibleMenuIds((currentIds) => {
-        if (
-          currentIds.length === nextVisibleIds.length &&
-          currentIds.every((menuId, index) => menuId === nextVisibleIds[index])
-        ) {
-          return currentIds;
-        }
-
-        return nextVisibleIds;
-      });
-    };
-
-    const observer = new ResizeObserver(() => {
-      recalculateMenus();
-    });
-
-    observer.observe(viewport);
-    window.requestAnimationFrame(recalculateMenus);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [primaryMenusWithHelp]);
+  useTopBarDismissalEffects({
+    closeMenus,
+    closeSearch,
+    hiddenMenuCount: hiddenMenus.length,
+    isSearchOpen,
+    menuRootRef,
+    openMenuId,
+    overlayRootRef,
+    searchOverlayRef,
+    setOverflowSubmenu,
+    visibleMenuIds,
+  });
 
   const handleMenuAction = useCallback(
     async (item: TopBarMenuItem) => {

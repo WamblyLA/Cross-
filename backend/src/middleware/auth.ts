@@ -1,13 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { COOKIE_NAME } from "../config.js";
-import { extractBearerToken, verifyAuthToken } from "../lib/auth.js";
+import { resolveAuthToken, verifyAuthToken } from "../lib/auth.js";
 import { AppError } from "../lib/errors.js";
-
-function resolveAuthToken(req: Request) {
-  const token = req.cookies?.[COOKIE_NAME] ?? extractBearerToken(req.headers.authorization);
-
-  return token || null;
-}
 
 function assignUserIdIfTokenIsValid(req: Request, token: string) {
   const payload = verifyAuthToken(token);
@@ -15,7 +9,7 @@ function assignUserIdIfTokenIsValid(req: Request, token: string) {
 }
 
 export function requireAuth(req: Request, _: Response, next: NextFunction) {
-  const token = resolveAuthToken(req);
+  const token = resolveAuthToken(req.cookies?.[COOKIE_NAME], req.headers.authorization);
 
   if (!token) {
     next(new AppError("Требуется авторизация", 401, undefined, "UNAUTHORIZED"));
@@ -31,7 +25,7 @@ export function requireAuth(req: Request, _: Response, next: NextFunction) {
 }
 
 export function optionalAuth(req: Request, _: Response, next: NextFunction) {
-  const token = resolveAuthToken(req);
+  const token = resolveAuthToken(req.cookies?.[COOKIE_NAME], req.headers.authorization);
 
   if (!token) {
     next();

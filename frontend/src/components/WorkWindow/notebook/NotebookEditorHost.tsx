@@ -1,5 +1,5 @@
 ﻿import type * as Monaco from "monaco-editor";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { VscAdd } from "react-icons/vsc";
 import { type ThemeName } from "../../../styles/tokens";
 import {
@@ -11,11 +11,12 @@ import {
   updateNotebookCellSource,
 } from "./notebookDocument";
 import { useNotebookExecution } from "./execution/useNotebookExecution";
+import type { NotebookRuntimeContext } from "./execution/types";
 import { resolveNotebookCodeCellLanguage } from "./notebookLanguage";
-import { parseNotebookContent, serializeNotebookDocument } from "./notebookPersistence";
+import { useNotebookDocumentState } from "./useNotebookDocumentState";
 import CellList from "./CellList";
 import NotebookToolbar from "./NotebookToolbar";
-import type { EditableNotebookCellType, NotebookDocumentModel } from "./types";
+import type { EditableNotebookCellType } from "./types";
 
 type NotebookEditorHostProps = {
   filePath: string;
@@ -26,39 +27,11 @@ type NotebookEditorHostProps = {
   fontSize: number;
   tabSize: number;
   beforeMount: (monaco: typeof Monaco) => void;
-  runtimeContext:
-    | {
-        kind: "local";
-        runtimeId: string;
-        notebookPath: string;
-        workspaceRootPath?: string | null;
-      }
-    | {
-        kind: "cloud";
-        runtimeId: string;
-        editorPath: string;
-        projectId: string;
-        fileId: string;
-        name: string;
-      };
+  runtimeContext: NotebookRuntimeContext;
   onCommitContent: (nextContent: string) => void;
   onMarkDirty: () => void;
   onSaveContent: (nextContent: string) => Promise<void>;
 };
-
-type CommitOptions = {
-  markDirty?: boolean;
-};
-
-type ApplyDocumentOptions = {
-  markDirty?: boolean;
-  syncToStore?: boolean;
-  parseError?: string | null;
-};
-
-function getInitialSelection(document: NotebookDocumentModel) {
-  return document.cells[0]?.localId ?? null;
-}
 
 export default function NotebookEditorHost({
   filePath,
@@ -74,179 +47,31 @@ export default function NotebookEditorHost({
   onMarkDirty,
   onSaveContent,
 }: NotebookEditorHostProps) {
-  const initialParsedRef = useRef<ReturnType<typeof parseNotebookContent> | null>(null);
-
-  if (initialParsedRef.current === null) {
-    initialParsedRef.current = parseNotebookContent(content);
-  }
-
-  const [document, setDocument] = useState<NotebookDocumentModel>(
-    () => initialParsedRef.current?.document ?? createNotebookDocumentWithStarterCell("code"),
-  );
-  const [parseError, setParseError] = useState<string | null>(
-    () => initialParsedRef.current?.parseError ?? null,
-  );
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [selectedCellId, setSelectedCellId] = useState<string | null>(
-    () =>
-      getInitialSelection(
-        initialParsedRef.current?.document ?? createNotebookDocumentWithStarterCell("code"),
-      ),
-  );
-  const [focusTargetCellId, setFocusTargetCellId] = useState<string | null>(null);
-  const [focusSequence, setFocusSequence] = useState(0);
-
-  const documentRef = useRef(document);
-  const lastFilePathRef = useRef(filePath);
-  const lastCommittedContentRef = useRef(content);
-  const dirtyNotifiedRef = useRef(isDirty);
-
-  useEffect(() => {
-    documentRef.current = document;
-  }, [document]);
-
-  useEffect(() => {
-    dirtyNotifiedRef.current = isDirty;
-  }, [isDirty]);
-
-  const focusCell = useCallback((cellId: string | null) => {
-    setSelectedCellId(cellId);
-
-    if (!cellId) {
-      setFocusTargetCellId(null);
-      return;
-    }
-
-    setFocusTargetCellId(cellId);
-    setFocusSequence((current) => current + 1);
-  }, []);
-
-  const selectCell = useCallback((cellId: string) => {
-    setSelectedCellId(cellId);
-  }, []);
-
-  const applyParsedNotebook = useCallback((nextContent: string, dirtyState: boolean) => {
-    const parsed = parseNotebookContent(nextContent);
-
-    lastCommittedContentRef.current = nextContent;
-    documentRef.current = parsed.document;
-    dirtyNotifiedRef.current = dirtyState;
-
-    setDocument(parsed.document);
-    setParseError(parsed.parseError);
-    setStatusMessage(parsed.parseError ? "В ноутбуке некорректный JSON." : null);
-    setSelectedCellId(getInitialSelection(parsed.document));
-    setFocusTargetCellId(null);
-  }, []);
-
-  useEffect(() => {
-    if (filePath !== lastFilePathRef.current) {
-      lastFilePathRef.current = filePath;
-      applyParsedNotebook(content, isDirty);
-      return;
-    }
-
-    if (!dirtyNotifiedRef.current && content !== lastCommittedContentRef.current) {
-      applyParsedNotebook(content, isDirty);
-    }
-  }, [applyParsedNotebook, content, filePath, isDirty]);
-
-  useEffect(() => {
-    return () => {
-      const serialized = serializeNotebookDocument(documentRef.current);
-
-      if (serialized === lastCommittedContentRef.current) {
-        return;
-      }
-
-      lastCommittedContentRef.current = serialized;
-      onCommitContent(serialized);
-    };
-  }, [onCommitContent]);
-
-  useEffect(() => {
-    setSelectedCellId((current) => {
-      if (current && document.cells.some((cell) => cell.localId === current)) {
-        return current;
-      }
-
-      return getInitialSelection(document);
-    });
-  }, [document]);
-
-  const syncDocumentToStore = useCallback(
-    (nextDocument: NotebookDocumentModel) => {
-      const serialized = serializeNotebookDocument(nextDocument);
-
-      if (serialized !== lastCommittedContentRef.current) {
-        lastCommittedContentRef.current = serialized;
-        onCommitContent(serialized);
-      }
-
-      return serialized;
-    },
-    [onCommitContent],
-  );
-
-  const applyDocumentState = useCallback(
-    (nextDocument: NotebookDocumentModel, options: ApplyDocumentOptions = {}) => {
-      const {
-        markDirty = false,
-        syncToStore = false,
-        parseError: nextParseError = null,
-      } = options;
-
-      documentRef.current = nextDocument;
-      setDocument(nextDocument);
-      setParseError(nextParseError);
-
-      if (syncToStore) {
-        syncDocumentToStore(nextDocument);
-      }
-
-      if (markDirty && !dirtyNotifiedRef.current) {
-        dirtyNotifiedRef.current = true;
-        onMarkDirty();
-      }
-    },
-    [onMarkDirty, syncDocumentToStore],
-  );
-
-  const commitDocumentUpdate = useCallback(
-    (
-      updater: (currentDocument: NotebookDocumentModel) => NotebookDocumentModel,
-      options: CommitOptions = {},
-    ) => {
-      const nextDocument = updater(documentRef.current);
-      applyDocumentState(nextDocument, {
-        markDirty: options.markDirty ?? true,
-        syncToStore: true,
-        parseError: null,
-      });
-      return nextDocument;
-    },
-    [applyDocumentState],
-  );
-
-  const applyLocalDocumentUpdate = useCallback(
-    (
-      updater: (currentDocument: NotebookDocumentModel) => NotebookDocumentModel,
-      options: CommitOptions = {},
-    ) => {
-      const nextDocument = updater(documentRef.current);
-      applyDocumentState(nextDocument, {
-        markDirty: options.markDirty ?? true,
-        syncToStore: false,
-        parseError: null,
-      });
-      return nextDocument;
-    },
-    [applyDocumentState],
-  );
-
-  const commitCurrentDocument = useCallback(() => {
-    return syncDocumentToStore(documentRef.current);
-  }, [syncDocumentToStore]);
+  const {
+    applyDocumentState,
+    applyLocalDocumentUpdate,
+    commitCurrentDocument,
+    commitDocumentUpdate,
+    document,
+    documentRef,
+    focusCell,
+    focusSequence,
+    focusTargetCellId,
+    markDocumentClean,
+    parseError,
+    selectCell,
+    selectedCellId,
+    setFocusTargetCellId,
+    setSelectedCellId,
+    setStatusMessage,
+    statusMessage,
+  } = useNotebookDocumentState({
+    content,
+    filePath,
+    isDirty,
+    onCommitContent,
+    onMarkDirty,
+  });
 
   const execution = useNotebookExecution({
     runtimeContext,
@@ -256,7 +81,7 @@ export default function NotebookEditorHost({
 
   const getCellIndex = useCallback((cellId: string) => {
     return documentRef.current.cells.findIndex((cell) => cell.localId === cellId);
-  }, []);
+  }, [documentRef]);
 
   const handleSaveNotebook = useCallback(async () => {
     if (readOnly) {
@@ -273,9 +98,16 @@ export default function NotebookEditorHost({
 
     const serialized = commitCurrentDocument();
     await onSaveContent(serialized);
-    dirtyNotifiedRef.current = false;
+    markDocumentClean();
     setStatusMessage("Ноутбук сохранён.");
-  }, [commitCurrentDocument, onSaveContent, parseError, readOnly]);
+  }, [
+    commitCurrentDocument,
+    markDocumentClean,
+    onSaveContent,
+    parseError,
+    readOnly,
+    setStatusMessage,
+  ]);
 
   const handleAddCell = useCallback(
     (cellType: EditableNotebookCellType, afterIndex?: number) => {
@@ -320,7 +152,7 @@ export default function NotebookEditorHost({
 
       return nextCell?.localId ?? null;
     },
-    [commitDocumentUpdate, focusCell, parseError, readOnly, selectedCellId],
+    [commitDocumentUpdate, documentRef, focusCell, parseError, readOnly, selectedCellId, setStatusMessage],
   );
 
   const focusNextCell = useCallback(
@@ -343,7 +175,7 @@ export default function NotebookEditorHost({
         focusCell(createdCellId);
       }
     },
-    [focusCell, getCellIndex, handleAddCell],
+    [documentRef, focusCell, getCellIndex, handleAddCell],
   );
 
   const handleDeleteCell = useCallback(
@@ -365,7 +197,15 @@ export default function NotebookEditorHost({
       setSelectedCellId(fallbackSelection);
       setFocusTargetCellId(null);
     },
-    [commitDocumentUpdate, getCellIndex, readOnly],
+    [
+      commitDocumentUpdate,
+      documentRef,
+      getCellIndex,
+      readOnly,
+      setFocusTargetCellId,
+      setSelectedCellId,
+      setStatusMessage,
+    ],
   );
 
   const handleMoveCell = useCallback(
@@ -383,7 +223,7 @@ export default function NotebookEditorHost({
           : "Ячейка перемещена вниз.",
       );
     },
-    [commitDocumentUpdate, readOnly],
+    [commitDocumentUpdate, readOnly, setSelectedCellId, setStatusMessage],
   );
 
   const handleCellSourceChange = useCallback(
@@ -409,7 +249,7 @@ export default function NotebookEditorHost({
         { markDirty: true },
       );
     },
-    [commitDocumentUpdate, readOnly],
+    [commitDocumentUpdate, readOnly, setSelectedCellId],
   );
 
   const handleResetNotebook = useCallback(() => {
@@ -426,14 +266,14 @@ export default function NotebookEditorHost({
     });
     setStatusMessage("Создан новый ноутбук из пустого шаблона.");
     focusCell(nextDocument.cells[0]?.localId ?? null);
-  }, [applyDocumentState, focusCell, readOnly]);
+  }, [applyDocumentState, focusCell, readOnly, setStatusMessage]);
 
   const handleRunCodeCell = useCallback(
     (localId: string) => {
       setSelectedCellId(localId);
       void execution.runCell(localId);
     },
-    [execution],
+    [execution, setSelectedCellId],
   );
 
   const handleRunCodeCellAndAdvance = useCallback(
@@ -442,7 +282,7 @@ export default function NotebookEditorHost({
       void execution.runCell(localId);
       focusNextCell(localId);
     },
-    [execution, focusNextCell],
+    [execution, focusNextCell, setSelectedCellId],
   );
 
   const handlePreviewMarkdownCell = useCallback(
@@ -451,7 +291,7 @@ export default function NotebookEditorHost({
       commitDocumentUpdate((current) => setNotebookCellMode(current, localId, "preview"));
       focusCell(localId);
     },
-    [commitDocumentUpdate, focusCell],
+    [commitDocumentUpdate, focusCell, setSelectedCellId],
   );
 
   const handlePreviewMarkdownCellAndAdvance = useCallback(
@@ -460,7 +300,7 @@ export default function NotebookEditorHost({
       commitDocumentUpdate((current) => setNotebookCellMode(current, localId, "preview"));
       focusNextCell(localId);
     },
-    [commitDocumentUpdate, focusNextCell],
+    [commitDocumentUpdate, focusNextCell, setSelectedCellId],
   );
 
   const editorLanguage = useMemo(() => resolveNotebookCodeCellLanguage(document), [document]);

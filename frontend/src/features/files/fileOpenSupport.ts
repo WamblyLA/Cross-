@@ -53,6 +53,12 @@ export function isEditorOpenSupported(fileName: string) {
   return !UNSUPPORTED_BINARY_EXTENSIONS.has(extension);
 }
 
+export function isRealtimeSupportedCloudFileName(fileName: string) {
+  const extension = getExtension(fileName)?.toLowerCase() ?? "";
+
+  return extension !== "ipynb" && isEditorOpenSupported(fileName);
+}
+
 export function getUnsupportedFileOpenMessage(fileName: string) {
   return `Файл "${fileName}" нельзя открыть в текстовом редакторе: тип файла не поддерживается`;
 }

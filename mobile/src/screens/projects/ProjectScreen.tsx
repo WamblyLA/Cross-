@@ -1,20 +1,9 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, RefreshControl, ScrollView, View } from "react-native";
-import { Badge } from "../../components/common/Badge";
-import { AppButton } from "../../components/common/AppButton";
-import { EmptyState } from "../../components/common/EmptyState";
+import { Alert } from "react-native";
 import { ErrorState } from "../../components/common/ErrorState";
-import { InlineNotice } from "../../components/common/InlineNotice";
 import { LoadingState } from "../../components/common/LoadingState";
 import { ScreenContainer } from "../../components/common/ScreenContainer";
-import { SectionTitle } from "../../components/common/SectionTitle";
-import { ProjectActionMenuDialog } from "../../components/projects/ProjectActionMenuDialog";
-import { ProjectItemNameDialog } from "../../components/projects/ProjectItemNameDialog";
-import { ProjectMembersCard } from "../../components/projects/ProjectMembersCard";
-import { ProjectMoveDialog } from "../../components/projects/ProjectMoveDialog";
-import { ProjectTreeList } from "../../components/projects/ProjectTreeList";
-import { createEmptyNotebookDocument, serializeNotebookDocument } from "../../features/files/notebookParser";
 import {
   useCreateProjectFileMutation,
   useDeleteProjectFileMutation,
@@ -42,119 +31,18 @@ import {
   getMembersErrorMessage,
   getProjectErrorMessage,
 } from "../../lib/errors/projectMessages";
-import { formatDateTime } from "../../lib/utils/date";
-import { formatRoleLabel } from "../../lib/utils/file";
 import type { ProjectsStackParamList } from "../../navigation/navigationTypes";
-import type { CloudFileSummary, CloudFolderSummary, CloudFolderTreeNode, CloudProjectTree } from "../../types/projects";
+import { ProjectScreenView } from "./ProjectScreenView";
+import {
+  collectTreeLookups,
+  getInitialFileContent,
+  type ActionMenuState,
+  type MoveDialogState,
+  type NameDialogState,
+  type NoticeState,
+} from "./projectScreenModel";
 
 type ProjectScreenProps = NativeStackScreenProps<ProjectsStackParamList, "Project">;
-
-type NoticeState =
-  | {
-      tone: "success" | "error" | "info" | "warning";
-      text: string;
-    }
-  | null;
-
-type NameDialogState =
-  | null
-  | {
-      kind: "create-file";
-      folderId: string | null;
-      title: string;
-      description: string;
-      confirmLabel: string;
-      initialValue?: string;
-    }
-  | {
-      kind: "rename-file";
-      fileId: string;
-      title: string;
-      description: string;
-      confirmLabel: string;
-      initialValue: string;
-    }
-  | {
-      kind: "create-folder";
-      parentId: string | null;
-      title: string;
-      description: string;
-      confirmLabel: string;
-      initialValue?: string;
-    }
-  | {
-      kind: "rename-folder";
-      folderId: string;
-      title: string;
-      description: string;
-      confirmLabel: string;
-      initialValue: string;
-    };
-
-type MoveDialogState =
-  | null
-  | {
-      kind: "move-file";
-      fileId: string;
-      initialProjectId: string;
-      initialFolderId: string | null;
-      title: string;
-      description: string;
-      confirmLabel: string;
-    }
-  | {
-      kind: "move-folder";
-      folderId: string;
-      initialProjectId: string;
-      initialFolderId: string | null;
-      title: string;
-      description: string;
-      confirmLabel: string;
-    };
-
-type ActionMenuState =
-  | null
-  | {
-      title: string;
-      items: Array<{
-        key: string;
-        label: string;
-        tone?: "default" | "danger";
-        onPress: () => void;
-      }>;
-    };
-
-function collectTreeLookups(tree: CloudProjectTree | undefined) {
-  const filesById = new Map<string, CloudFileSummary>();
-  const foldersById = new Map<string, CloudFolderSummary>();
-
-  if (!tree) {
-    return {
-      filesById,
-      foldersById,
-    };
-  }
-
-  const visitFolder = (folder: CloudFolderTreeNode) => {
-    foldersById.set(folder.id, folder);
-    folder.files.forEach((file) => filesById.set(file.id, file));
-    folder.folders.forEach(visitFolder);
-  };
-
-  tree.files.forEach((file) => filesById.set(file.id, file));
-  tree.folders.forEach(visitFolder);
-
-  return {
-    filesById,
-    foldersById,
-  };
-}
-
-function getInitialFileContent(fileName: string) {
-  return fileName.trim().toLowerCase().endsWith(".ipynb")
-    ? serializeNotebookDocument(createEmptyNotebookDocument())
-    : "";
-}
 
 export function ProjectScreen({ navigation, route }: ProjectScreenProps) {
   const { projectId } = route.params;
@@ -560,124 +448,51 @@ export function ProjectScreen({ navigation, route }: ProjectScreenProps) {
   const isMoveDialogLoading = moveFileMutation.isPending || moveFolderMutation.isPending;
 
   return (
-    <ScreenContainer>
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ gap: 20, paddingBottom: 32 }}
-        refreshControl={(
-          <RefreshControl
-            colors={[accent]}
-            onRefresh={() => void handleRefresh()}
-            refreshing={isRefreshing}
-            tintColor={accent}
-          />
-        )}
-        showsVerticalScrollIndicator={false}
-      >
-        {project ? (
-          <View className="gap-3">
-            <SectionTitle
-              subtitle={`Обновлён ${formatDateTime(project.updatedAt)}`}
-              title={project.name}
-            />
-            <View className="flex-row flex-wrap gap-2">
-              <Badge text={formatRoleLabel(project.accessRole)} tone="primary" />
-              {!project.isOwner ? <Badge text="Общий" /> : null}
-            </View>
-          </View>
-        ) : null}
-
-        {notice ? <InlineNotice text={notice.text} tone={notice.tone} /> : null}
-
-        {membersQuery.isError ? (
-          <InlineNotice text={getMembersErrorMessage(membersQuery.error)} tone="warning" />
-        ) : null}
-
-        {membersQuery.data && membersQuery.data.length > 0 ? (
-          <ProjectMembersCard members={membersQuery.data} />
-        ) : null}
-
-        {canManage ? (
-          <View className="gap-3">
-            <AppButton
-              onPress={() =>
-                setNameDialog({
-                  kind: "create-file",
-                  folderId: null,
-                  title: "Создать файл",
-                  description: "Файл будет создан в корне проекта.",
-                  confirmLabel: "Создать",
-                })
-              }
-              title="Создать файл"
-            />
-            <AppButton
-              onPress={() =>
-                setNameDialog({
-                  kind: "create-folder",
-                  parentId: null,
-                  title: "Создать папку",
-                  description: "Папка будет создана в корне проекта.",
-                  confirmLabel: "Создать",
-                })
-              }
-              title="Создать папку"
-              variant="secondary"
-            />
-          </View>
-        ) : null}
-
-        {treeQuery.data && treeItems.length > 0 ? (
-          <ProjectTreeList
-            canManage={Boolean(canManage)}
-            items={treeItems}
-            onOpenFile={openFile}
-            onOpenFileMenu={openFileMenu}
-            onOpenFolderMenu={openFolderMenu}
-            onToggleFolder={toggleFolder}
-          />
-        ) : treeQuery.data ? (
-          <EmptyState
-            description="В этом проекте пока нет файлов или папок."
-            title="Проект пуст"
-          />
-        ) : null}
-      </ScrollView>
-
-      <ProjectItemNameDialog
-        confirmLabel={nameDialog?.confirmLabel ?? "Сохранить"}
-        description={nameDialog?.description}
-        initialValue={nameDialog?.initialValue ?? ""}
-        loading={isNameDialogLoading}
-        onClose={() => setNameDialog(null)}
-        onSubmit={(name) => {
-          void handleSubmitNameDialog(name);
-        }}
-        title={nameDialog?.title ?? "Изменить имя"}
-        visible={Boolean(nameDialog)}
-      />
-
-      <ProjectMoveDialog
-        confirmLabel={moveDialog?.confirmLabel ?? "Переместить"}
-        description={moveDialog?.description}
-        initialFolderId={moveDialog?.initialFolderId ?? null}
-        initialProjectId={moveDialog?.initialProjectId ?? projectId}
-        loading={isMoveDialogLoading}
-        onClose={() => setMoveDialog(null)}
-        onSubmit={(payload) => {
-          void handleSubmitMoveDialog(payload);
-        }}
-        projects={writableProjects}
-        title={moveDialog?.title ?? "Переместить"}
-        visible={Boolean(moveDialog)}
-      />
-
-      <ProjectActionMenuDialog
-        items={actionMenu?.items ?? []}
-        onClose={() => setActionMenu(null)}
-        title={actionMenu?.title ?? "Действия"}
-        visible={Boolean(actionMenu)}
-      />
-    </ScreenContainer>
+    <ProjectScreenView
+      accent={accent}
+      actionMenu={actionMenu}
+      canManage={Boolean(canManage)}
+      isMoveDialogLoading={isMoveDialogLoading}
+      isNameDialogLoading={isNameDialogLoading}
+      isRefreshing={isRefreshing}
+      members={membersQuery.data}
+      membersErrorMessage={membersQuery.isError ? getMembersErrorMessage(membersQuery.error) : null}
+      moveDialog={moveDialog}
+      nameDialog={nameDialog}
+      notice={notice}
+      project={project}
+      projectId={projectId}
+      treeItems={treeItems}
+      treeLoaded={Boolean(treeQuery.data)}
+      writableProjects={writableProjects}
+      onCloseActionMenu={() => setActionMenu(null)}
+      onCloseMoveDialog={() => setMoveDialog(null)}
+      onCloseNameDialog={() => setNameDialog(null)}
+      onCreateFile={() =>
+        setNameDialog({
+          kind: "create-file",
+          folderId: null,
+          title: "Создать файл",
+          description: "Файл будет создан в корне проекта.",
+          confirmLabel: "Создать",
+        })
+      }
+      onCreateFolder={() =>
+        setNameDialog({
+          kind: "create-folder",
+          parentId: null,
+          title: "Создать папку",
+          description: "Папка будет создана в корне проекта.",
+          confirmLabel: "Создать",
+        })
+      }
+      onOpenFile={openFile}
+      onOpenFileMenu={openFileMenu}
+      onOpenFolderMenu={openFolderMenu}
+      onRefresh={() => void handleRefresh()}
+      onSubmitMoveDialog={(payload) => void handleSubmitMoveDialog(payload)}
+      onSubmitNameDialog={(name) => void handleSubmitNameDialog(name)}
+      onToggleFolder={toggleFolder}
+    />
   );
 }

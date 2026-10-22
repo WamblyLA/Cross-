@@ -1,27 +1,14 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useMemo } from "react";
-import { useTheme } from "../hooks/useTheme";
 import { FileScreen } from "../screens/file/FileScreen";
 import { ProjectScreen } from "../screens/projects/ProjectScreen";
 import { ProjectsScreen } from "../screens/projects/ProjectsScreen";
 import type { ProjectsStackParamList } from "./navigationTypes";
+import { useThemedStackScreenOptions } from "./useThemedStackScreenOptions";
 
 const Stack = createNativeStackNavigator<ProjectsStackParamList>();
 
 export function ProjectsStackNavigator() {
-  const { themeTokens } = useTheme();
-  const background = themeTokens["--bg-app"];
-  const text = themeTokens["--text-primary"];
-  const screenOptions = useMemo(
-    () => ({
-      headerShadowVisible: false,
-      contentStyle: { backgroundColor: background },
-      headerStyle: { backgroundColor: background },
-      headerTintColor: text,
-      headerTitleStyle: { color: text },
-    }),
-    [background, text],
-  );
+  const screenOptions = useThemedStackScreenOptions();
 
   return (
     <Stack.Navigator screenOptions={screenOptions}>

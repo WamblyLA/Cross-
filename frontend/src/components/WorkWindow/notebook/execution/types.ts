@@ -16,3 +16,19 @@ export type NotebookExecutionViewState = {
   isRunningAnyCell: boolean;
   cellStates: Record<string, NotebookCellExecutionState>;
 };
+
+export type NotebookRuntimeContext =
+  | {
+      kind: "local";
+      runtimeId: string;
+      notebookPath: string;
+      workspaceRootPath?: string | null;
+    }
+  | {
+      kind: "cloud";
+      runtimeId: string;
+      editorPath: string;
+      projectId: string;
+      fileId: string;
+      name: string;
+    };

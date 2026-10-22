@@ -22,6 +22,15 @@ export function extractBearerToken(headerValue: string | undefined) {
   return token || null;
 }
 
+export function resolveAuthToken(
+  cookieToken: string | undefined,
+  authorizationHeader: string | undefined,
+) {
+  const token = cookieToken ?? extractBearerToken(authorizationHeader);
+
+  return token || null;
+}
+
 function parseExpiresInToMs(value: string) {
   const match = value.trim().match(/^(\d+)([smhd])$/i);
 

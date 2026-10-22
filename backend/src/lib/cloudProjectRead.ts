@@ -66,6 +66,54 @@ export type CloudProjectSyncManifest = {
 
 type FolderPathRecord = Pick<Folder, "id" | "parentId" | "name">;
 
+const folderSummarySelect = {
+  id: true,
+  projectId: true,
+  parentId: true,
+  name: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const fileSummarySelect = {
+  id: true,
+  projectId: true,
+  folderId: true,
+  name: true,
+  version: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const contentFileSelect = {
+  ...fileSummarySelect,
+  content: true,
+} as const;
+
+function findProjectFolders(projectId: string) {
+  return prisma.folder.findMany({
+    where: { projectId },
+    select: folderSummarySelect,
+    orderBy: [{ name: "asc" as const }],
+  });
+}
+
+function findProjectFiles(projectId: string) {
+  return prisma.file.findMany({
+    where: { projectId },
+    select: fileSummarySelect,
+    orderBy: [{ name: "asc" as const }],
+  });
+}
+
+function findProjectContentFiles(projectId: string) {
+  return prisma.file.findMany({
+    where: { projectId },
+    select: contentFileSelect,
+    orderBy: [{ name: "asc" as const }],
+  });
+}
+
 function sortByName<T extends { name: string }>(items: T[]) {
   return [...items].sort((left, right) => left.name.localeCompare(right.name, "ru"));
 }
@@ -208,31 +256,8 @@ export async function getProjectTreeForAccess(
   await requireProjectReadAccess(userId, projectId);
 
   const [folders, files] = await Promise.all([
-    prisma.folder.findMany({
-      where: { projectId },
-      select: {
-        id: true,
-        projectId: true,
-        parentId: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: [{ name: "asc" }],
-    }),
-    prisma.file.findMany({
-      where: { projectId },
-      select: {
-        id: true,
-        projectId: true,
-        folderId: true,
-        name: true,
-        version: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: [{ name: "asc" }],
-    }),
+    findProjectFolders(projectId),
+    findProjectFiles(projectId),
   ]);
 
   return buildProjectTree(projectId, folders, files);
@@ -246,32 +271,8 @@ export async function getProjectRunSnapshotForAccess(
   const project = access.project;
 
   const [folders, files] = await Promise.all([
-    prisma.folder.findMany({
-      where: { projectId },
-      select: {
-        id: true,
-        projectId: true,
-        parentId: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: [{ name: "asc" }],
-    }),
-    prisma.file.findMany({
-      where: { projectId },
-      select: {
-        id: true,
-        projectId: true,
-        folderId: true,
-        name: true,
-        content: true,
-        version: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: [{ name: "asc" }],
-    }),
+    findProjectFolders(projectId),
+    findProjectContentFiles(projectId),
   ]);
 
   const resolveFolderPath = createFolderPathResolver(
@@ -305,31 +306,8 @@ export async function getProjectSyncManifestForAccess(
   const project = access.project;
 
   const [folders, files] = await Promise.all([
-    prisma.folder.findMany({
-      where: { projectId },
-      select: {
-        id: true,
-        projectId: true,
-        parentId: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy: [{ name: "asc" }],
-    }),
-    prisma.file.findMany({
-      where: { projectId },
-      select: {
-        id: true,
-        projectId: true,
-        folderId: true,
-        name: true,
-        content: true,
-        version: true,
-        updatedAt: true,
-      },
-      orderBy: [{ name: "asc" }],
-    }),
+    findProjectFolders(projectId),
+    findProjectContentFiles(projectId),
   ]);
 
   const resolveFolderPath = createFolderPathResolver(

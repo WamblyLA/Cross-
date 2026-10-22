@@ -5,7 +5,7 @@ import CloudAuthPrompt from "./CloudAuthPrompt";
 import CloudExplorerDeleteBar from "./CloudExplorerDeleteBar";
 import CloudInlineInput from "./CloudInlineInput";
 import CloudProjectSection from "./CloudProjectSection";
-import { useCloudExplorerController } from "./useCloudExplorerController";
+import { useCloudExplorerController } from "./hooks/useCloudExplorerController";
 
 export default function CloudExplorer() {
   const navigate = useNavigate();

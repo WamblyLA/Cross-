@@ -3,7 +3,7 @@ import { createCloudSelectionEntry } from "../../../features/cloud/cloudSelectio
 import type { CloudFileSummary } from "../../../features/cloud/cloudTypes";
 import { hasPrimaryModifier } from "./cloudExplorerSelection";
 import CloudInlineInput from "./CloudInlineInput";
-import type { useCloudExplorerController } from "./useCloudExplorerController";
+import type { useCloudExplorerController } from "./hooks/useCloudExplorerController";
 
 type CloudExplorerController = ReturnType<typeof useCloudExplorerController>;
 

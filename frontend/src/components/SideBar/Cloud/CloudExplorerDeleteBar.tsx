@@ -1,4 +1,4 @@
-import type { useCloudExplorerController } from "./useCloudExplorerController";
+import type { useCloudExplorerController } from "./hooks/useCloudExplorerController";
 
 type CloudExplorerController = ReturnType<typeof useCloudExplorerController>;
 

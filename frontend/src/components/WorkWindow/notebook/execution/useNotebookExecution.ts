@@ -1,109 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import * as cloudApi from "../../../../features/cloud/cloudApi";
-import { selectOpenedFiles } from "../../../../features/files/filesSelectors";
-import { useAppSelector } from "../../../../store/hooks";
-import {
-  appendNotebookCellOutput,
-  clearNotebookCellExecution,
-  patchNotebookCellOutput,
-  replaceNotebookCellOutputs,
-  setNotebookMetadataKernelspec,
-} from "../notebookDocument";
+import { setNotebookMetadataKernelspec } from "../notebookDocument";
 import type { NotebookDocumentModel } from "../types";
-import type { NotebookExecutionViewState } from "./types";
+import {
+  buildRunningMap,
+  getPreferredKernelId,
+  INITIAL_NOTEBOOK_EXECUTION_STATE,
+} from "./notebookExecutionState";
+import type { NotebookExecutionViewState, NotebookRuntimeContext } from "./types";
+import { useNotebookExecutionContext } from "./useNotebookExecutionContext";
+import { useNotebookKernelEvents } from "./useNotebookKernelEvents";
 
 type UseNotebookExecutionOptions = {
-  runtimeContext:
-    | {
-        kind: "local";
-        runtimeId: string;
-        notebookPath: string;
-        workspaceRootPath?: string | null;
-      }
-    | {
-        kind: "cloud";
-        runtimeId: string;
-        editorPath: string;
-        projectId: string;
-        fileId: string;
-        name: string;
-      };
+  runtimeContext: NotebookRuntimeContext;
   document: NotebookDocumentModel;
   onApplyDocumentUpdate: (
     updater: (document: NotebookDocumentModel) => NotebookDocumentModel,
   ) => void;
 };
 
-const INITIAL_STATE: NotebookExecutionViewState = {
-  kernels: [],
-  kernelsLoading: false,
-  kernelsError: null,
-  selectedKernelId: null,
-  sessionStatus: "unbound",
-  sessionDetail: null,
-  executionMessage: null,
-  isRunningAnyCell: false,
-  cellStates: {},
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function getPreferredKernelId(document: NotebookDocumentModel) {
-  const metadata = isRecord(document.raw.metadata) ? document.raw.metadata : null;
-  const kernelspec = metadata && isRecord(metadata.kernelspec) ? metadata.kernelspec : null;
-
-  if (!kernelspec) {
-    return null;
-  }
-
-  const name = kernelspec.name;
-  return typeof name === "string" && name.trim() ? name.trim() : null;
-}
-
-function buildRunningMap(
-  cellStates: NotebookExecutionViewState["cellStates"],
-  targetCellId: string,
-  nextState: NotebookExecutionViewState["cellStates"][string],
-) {
-  return {
-    ...cellStates,
-    [targetCellId]: nextState,
-  };
-}
-
-function completeRunningCellStates(
-  cellStates: NotebookExecutionViewState["cellStates"],
-  lastStatus: NotebookExecutionStatus,
-  finishedAtMs: number,
-): NotebookExecutionViewState["cellStates"] {
-  return Object.fromEntries(
-    Object.entries(cellStates).map(([cellId, cellState]) => [
-      cellId,
-      cellState.isRunning
-        ? {
-            isRunning: false,
-            lastStatus,
-            startedAtMs: null,
-            lastDurationMs:
-              cellState.startedAtMs != null
-                ? Math.max(0, finishedAtMs - cellState.startedAtMs)
-                : cellState.lastDurationMs,
-          }
-        : cellState,
-    ]),
-  );
-}
-
 export function useNotebookExecution({
   runtimeContext,
   document,
   onApplyDocumentUpdate,
 }: UseNotebookExecutionOptions) {
-  const openedFiles = useAppSelector(selectOpenedFiles);
   const [state, setState] = useState<NotebookExecutionViewState>(() => ({
-    ...INITIAL_STATE,
+    ...INITIAL_NOTEBOOK_EXECUTION_STATE,
     selectedKernelId: getPreferredKernelId(document),
   }));
   const mountedRef = useRef(true);
@@ -136,7 +57,7 @@ export function useNotebookExecution({
     const preferredKernelId = getPreferredKernelId(documentRef.current);
     autoStartedKeyRef.current = null;
     setState({
-      ...INITIAL_STATE,
+      ...INITIAL_NOTEBOOK_EXECUTION_STATE,
       selectedKernelId: preferredKernelId,
     });
   }, [runtimeContext.runtimeId]);
@@ -147,61 +68,12 @@ export function useNotebookExecution({
     },
     [onApplyDocumentUpdate],
   );
-
-  const buildCloudSnapshot = useCallback(async () => {
-    if (runtimeContext.kind !== "cloud") {
-      throw new Error("Cloud snapshot requested for local notebook runtime.");
-    }
-
-    const response = await cloudApi.getProjectRunSnapshot(runtimeContext.projectId);
-    const dirtyCloudFiles = new Map(
-      openedFiles
-        .filter(
-          (
-            file,
-          ): file is Extract<
-            (typeof openedFiles)[number],
-            {
-              kind: "cloud";
-            }
-          > => file.kind === "cloud" && file.projectId === runtimeContext.projectId,
-        )
-        .map((file) => [file.fileId, file.content]),
-    );
-
-    return {
-      ...response.snapshot,
-      files: response.snapshot.files.map((file) =>
-        dirtyCloudFiles.has(file.id)
-          ? {
-              ...file,
-              content: dirtyCloudFiles.get(file.id) ?? file.content,
-            }
-          : file,
-      ),
-    };
-  }, [openedFiles, runtimeContext]);
-
-  const buildExecutionContext = useCallback(async (): Promise<NotebookExecutionContext> => {
-    if (runtimeContext.kind === "local") {
-      return {
-        kind: "local",
-        runtimeId: runtimeContext.runtimeId,
-        notebookPath: runtimeContext.notebookPath,
-        workspaceRootPath: runtimeContext.workspaceRootPath ?? null,
-      };
-    }
-
-    return {
-      kind: "cloud",
-      runtimeId: runtimeContext.runtimeId,
-      editorPath: runtimeContext.editorPath,
-      projectId: runtimeContext.projectId,
-      fileId: runtimeContext.fileId,
-      name: runtimeContext.name,
-      cloudSnapshot: await buildCloudSnapshot(),
-    };
-  }, [buildCloudSnapshot, runtimeContext]);
+  const buildExecutionContext = useNotebookExecutionContext(runtimeContext);
+  useNotebookKernelEvents({
+    applyDocumentUpdate,
+    runtimeId: runtimeContext.runtimeId,
+    setState,
+  });
 
   const refreshKernels = useCallback(
     async (forceRefresh = false) => {
@@ -389,123 +261,6 @@ export function useNotebookExecution({
     state.kernelsLoading,
     state.selectedKernelId,
   ]);
-
-  useEffect(() => {
-    const unsubscribe = window.electronAPI.onNotebookKernelEvent((event) => {
-      if (event.runtimeId !== runtimeContext.runtimeId) {
-        return;
-      }
-
-      if (event.type === "session-status") {
-        setState((current) => ({
-          ...current,
-          sessionStatus: event.status,
-          sessionDetail: event.detail ?? current.sessionDetail,
-          isRunningAnyCell:
-            event.status === "busy"
-              ? true
-              : event.status === "idle"
-                ? Object.values(current.cellStates).some((cell) => cell.isRunning)
-                : current.isRunningAnyCell,
-        }));
-        return;
-      }
-
-      if (event.type === "session-error") {
-        const finishedAtMs = Date.now();
-        setState((current) => ({
-          ...current,
-          executionMessage: event.message,
-          sessionStatus: "failed",
-          sessionDetail: event.message,
-          isRunningAnyCell: false,
-          cellStates: completeRunningCellStates(current.cellStates, "error", finishedAtMs),
-        }));
-        return;
-      }
-
-      if (event.type === "execution-started") {
-        const startedAtMs = Date.now();
-        applyDocumentUpdate((currentDocument) =>
-          clearNotebookCellExecution(currentDocument, event.cellId),
-        );
-        setState((current) => ({
-          ...current,
-          isRunningAnyCell: true,
-          cellStates: buildRunningMap(current.cellStates, event.cellId, {
-            isRunning: true,
-            lastStatus: null,
-            startedAtMs,
-            lastDurationMs: null,
-          }),
-        }));
-        return;
-      }
-
-      if (event.type === "output") {
-        applyDocumentUpdate((currentDocument) =>
-          appendNotebookCellOutput(currentDocument, event.cellId, event.output),
-        );
-        return;
-      }
-
-      if (event.type === "display-update") {
-        applyDocumentUpdate((currentDocument) => {
-          let nextDocument = currentDocument;
-
-          for (const target of event.targets) {
-            nextDocument = patchNotebookCellOutput(
-              nextDocument,
-              target.cellId,
-              target.outputIndex,
-              event.output,
-            );
-          }
-
-          return nextDocument;
-        });
-        return;
-      }
-
-      if (event.type === "execution-finished") {
-        const finishedAtMs = Date.now();
-        applyDocumentUpdate((currentDocument) =>
-          replaceNotebookCellOutputs(
-            currentDocument,
-            event.cellId,
-            event.outputs,
-            event.executionCount,
-          ),
-        );
-        setState((current) => {
-          const previousState = current.cellStates[event.cellId];
-          const nextCellStates = buildRunningMap(current.cellStates, event.cellId, {
-            isRunning: false,
-            lastStatus: event.status,
-            startedAtMs: null,
-            lastDurationMs:
-              previousState?.startedAtMs != null
-                ? Math.max(0, finishedAtMs - previousState.startedAtMs)
-                : previousState?.lastDurationMs ?? null,
-          });
-
-          return {
-            ...current,
-            isRunningAnyCell: Object.values(nextCellStates).some((cell) => cell.isRunning),
-            cellStates: nextCellStates,
-            executionMessage:
-              event.status === "ok"
-                ? current.executionMessage
-                : event.status === "interrupted"
-                  ? "Выполнение прервано."
-                  : current.executionMessage,
-          };
-        });
-      }
-    });
-
-    return unsubscribe;
-  }, [applyDocumentUpdate, runtimeContext.runtimeId]);
 
   const ensureSessionReady = useCallback(async () => {
     const kernelId = selectedKernelIdRef.current;

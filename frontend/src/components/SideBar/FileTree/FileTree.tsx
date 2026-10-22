@@ -4,7 +4,7 @@ import FloatingMenu from "../../../ui/FloatingMenu";
 import FileTreeInlineInput from "./FileTreeInlineInput";
 import FileTreeList from "./FileTreeList";
 import { getDraftPlaceholder } from "./fileTreeUtils";
-import { useFileTreeController } from "./useFileTreeController";
+import { useFileTreeController } from "./hooks/useFileTreeController";
 
 export default function FileTree() {
   const controller = useFileTreeController();

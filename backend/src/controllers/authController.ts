@@ -16,12 +16,28 @@ import type {
   UpdateProfileBody,
 } from "../lib/validation.js";
 
+const publicUserSelect = {
+  id: true,
+  username: true,
+  email: true,
+} as const;
+
 function toPublicUser(user: { id: string; username: string; email: string }) {
   return {
     id: user.id,
     username: user.username,
     email: user.email,
   };
+}
+
+function sendAuthenticatedUser(
+  res: Response,
+  user: { id: string; username: string; email: string },
+  statusCode = 200,
+) {
+  const token = signAuthToken(user.id);
+  setAuthCookie(res, token);
+  res.status(statusCode).json(createAuthResponse(toPublicUser(user), token));
 }
 
 export async function register(req: Request, res: Response) {
@@ -59,17 +75,10 @@ export async function register(req: Request, res: Response) {
         create: {},
       },
     },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-    },
+    select: publicUserSelect,
   });
 
-  const token = signAuthToken(user.id);
-  setAuthCookie(res, token);
-
-  res.status(201).json(createAuthResponse(toPublicUser(user), token));
+  sendAuthenticatedUser(res, user, 201);
 }
 
 export async function login(req: Request, res: Response) {
@@ -83,9 +92,7 @@ export async function login(req: Request, res: Response) {
       ],
     },
     select: {
-      id: true,
-      username: true,
-      email: true,
+      ...publicUserSelect,
       passwordHash: true,
     },
   });
@@ -100,19 +107,7 @@ export async function login(req: Request, res: Response) {
     throw new AppError("Неверный логин или пароль", 401);
   }
 
-  const token = signAuthToken(user.id);
-  setAuthCookie(res, token);
-
-  res.json(
-    createAuthResponse(
-      {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-      },
-      token,
-    ),
-  );
+  sendAuthenticatedUser(res, user);
 }
 
 export async function me(req: Request, res: Response) {
@@ -120,11 +115,7 @@ export async function me(req: Request, res: Response) {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-    },
+    select: publicUserSelect,
   });
 
   if (!user) {
@@ -155,11 +146,7 @@ export async function updateProfile(req: Request, res: Response) {
   const user = await prisma.user.update({
     where: { id: userId },
     data: { username },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-    },
+    select: publicUserSelect,
   });
 
   res.json({ user: toPublicUser(user) });
